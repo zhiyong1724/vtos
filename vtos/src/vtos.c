@@ -2,6 +2,7 @@
 #include "mem/os_mem.h"
 #include "sched/os_sched.h"
 #include "sched/os_timer.h"
+#include "lib/os_string.h"
 const char *VERSION = "0.0.1";
 
 const char *os_version(void)
@@ -28,23 +29,21 @@ void os_sys_start(void)
 	os_task_start();
 }
 
+#ifdef __WINDOWS__
 void task(void *p_arg)
 {
 	for (;;)
 	{
-		
+
 	}
 }
 
-#ifdef __WINDOWS__
 int main()
 {
 	if (0 == os_sys_init())
 	{
 		os_kthread_create(task, NULL, "task_a");
 		os_sys_start();
-		os_sys_tick();
-		os_sleep(20);
 		while(1)
 		{
 			os_sys_tick();
