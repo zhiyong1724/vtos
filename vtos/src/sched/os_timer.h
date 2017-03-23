@@ -2,15 +2,7 @@
 #define _OS_TIMER_H
 #include "os_cpu.h"
 #include "base/os_tree.h"
-typedef void (*timer_call_back)(void *p_arg);
-typedef struct timer_info_t
-{
-	tree_node_type_def tree_node_structrue;
-	uint64 tick;
-	timer_call_back call_back_func;
-	void *args;
-} timer_info_t;
-
+#include "sched/os_timer_def.h"
 struct timer_controler_t
 {
 	tree_node_type_def *timer_tree;

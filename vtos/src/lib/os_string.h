@@ -33,7 +33,7 @@ os_size_t os_str_len(const char *str);
  * 匹配字符串
  * str：源字符串
  * pattern：模式字符串
- * return：匹配到的字符串位置
+ * return：-1：匹配失败；other：匹配到的字符串位置
  *********************************************************************************************************************/
 os_size_t os_str_find(const char *str, const char *pattern);
 #endif

@@ -1,6 +1,6 @@
 #include "sched/os_sem.h"
 #include "vtos.h"
-#include "sched/os_timer.h"
+#include "sched/os_sched.h"
 os_sem_t *os_sem_create(os_sem_t *p_sem, uint32 cnt)
 {
 	os_cpu_sr cpu_sr = os_cpu_sr_save();
