@@ -16,6 +16,7 @@ BASE_PATH := vtos/src/base/
 LIB_PATH := vtos/src/lib/
 MEM_PATH := vtos/src/mem/
 SCHED_PATH := vtos/src/sched/
+SYSCALL_PATH := vtos/src/syscall/
 SRCS_S := start_s.S \
           os_cpu_s.S 
 OBJS_S := $(patsubst %.S, $(OBJS_PATH)%.o, $(SRCS_S))
@@ -36,7 +37,8 @@ SRCS_C := start_c.c \
           os_sched.c \
           os_timer.c \
           os_tree.c \
-          os_string.c 
+          os_string.c \
+          os_sys_table.c
 OBJS_C := $(patsubst %.c, $(OBJS_PATH)%.o, $(SRCS_C))
 all : $(OBJS_PATH) $(OBJS_PATH)$(ELF)
 	@echo "CP $(TARGET)"
@@ -72,6 +74,9 @@ $(OBJS_PATH)%.o : $(SCHED_PATH)%.c
 	@echo "CC $<"
 	@$(CC) $(CFLAGS) $< -o $@ $(INCLUDE_PATH)
 $(OBJS_PATH)%.o : $(ARM_LIB_PATH)%.c
+	@echo "CC $<"
+	@$(CC) $(CFLAGS) $< -o $@ $(INCLUDE_PATH)
+$(OBJS_PATH)%.o : $(SYSCALL_PATH)%.c
 	@echo "CC $<"
 	@$(CC) $(CFLAGS) $< -o $@ $(INCLUDE_PATH)
 $(OBJS_PATH)%.o : $(ARM_LIB_PATH)%.S

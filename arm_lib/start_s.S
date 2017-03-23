@@ -190,17 +190,17 @@ raise:
 	mov pc, lr
 
 mem_data:
-	.long 0x22000000 
-	.long 0x00000700
-	.long 0x00000700
-	.long 0x00000700
-	.long 0x00000700
-	.long 0x00000700
-	.long 0x00000700
-	.long 0x00018001
-	.long 0x00018001
-	.long 0x008c04f5
-	.long 0x000000b1
-	.long 0x00000030
-	.long 0x00000030
+	.word 0x22000000
+	.word 0x00000700
+	.word 0x00000700
+	.word 0x00000700
+	.word 0x00000700
+	.word 0x00000700
+	.word 0x00000700
+	.word 0x00018001
+	.word 0x00018001
+	.word 0x008c04f5
+	.word 0x000000b1
+	.word 0x00000030
+	.word 0x00000030
 

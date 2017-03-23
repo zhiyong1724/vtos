@@ -63,4 +63,18 @@ os_task_start:
 loop:
 	b loop
 
+sys_call:
+	push {r1}
+	ldr r1, =_sys_table
+	add r0, r0, r1
+	ldr r0, [r0]
+	ldr r1, =_call_addr
+	str r0, [r1]
+	pop {r1}
+	pop {r0}
+	ldr pc, _call_addr
+
+_call_addr:
+	.word 0x00000000
+
 
