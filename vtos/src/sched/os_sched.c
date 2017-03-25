@@ -117,7 +117,7 @@ static void init_scheduler_structure(void)
 
 static void idle_task(void *p_arg)
 {
-	os_set_prio(19);
+	os_set_prio(-20);
 	_running = 1;
 	for (;;)
 	{
