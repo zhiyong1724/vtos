@@ -3,7 +3,7 @@
 #include "sched/os_sched.h"
 #include "sched/os_timer.h"
 #include "lib/os_string.h"
-const char *VERSION = "0.0.1";
+const char *VERSION = "0.0.2";
 
 const char *os_version(void)
 {
