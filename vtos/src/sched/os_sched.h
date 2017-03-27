@@ -15,6 +15,7 @@ typedef struct task_info_t
 	uint64 vruntime;
 	uint32 task_status;
 	os_stk *stack_head;
+	os_stk *stack_end;
 	uint32 pid;
 	char name[TASK_NAME_SIZE];
 	int32 event_status;
@@ -29,6 +30,7 @@ struct scheduler_info
 	uint32 activity_task_count;
 	uint64 min_vruntime;
 	task_info_t *task_info_index[MAX_PID_COUNT];
+	uint32 running;
 };
 
 extern task_info_t *_runnin_task;
