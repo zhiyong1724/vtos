@@ -34,6 +34,7 @@ void os_task_create_hook(void);
 void os_task_del_hook(void);
 void os_task_idle_hook(void);
 void os_task_return_hook(void);
+void os_stack_overflow_hook(os_stk pid);
 os_stk *os_task_stk_init(void (*task)(void *p_arg), void *p_arg, os_stk *ptos);
 #if (OS_TASK_SW_HOOK_EN > 0)
 void os_task_sw_hook(void);

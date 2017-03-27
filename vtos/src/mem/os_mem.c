@@ -2,9 +2,6 @@
 #include "lib/os_string.h"
 void *_start_addr = NULL;
 void *_end_addr = NULL;
-os_size_t _used_mem = 0;
-os_size_t _total_mem = 0;
-static os_size_t _max_group = 0;
 static struct mem_controler _mem_controler;
 static const os_size_t _pow2x[GROUP_COUNT] = { 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024 };
 
@@ -35,9 +32,9 @@ static os_size_t format_mem(uint8 *start_addr, os_size_t group, os_size_t addr_s
 			insert_mem_block(group, (struct block_node *)start_addr);
 			start_addr += block_size;
 			addr_space -= block_size;
-			_total_mem += block_size;
+			_mem_controler.total_mem += block_size;
 		}
-		if (group < _max_group && count % 2 != 0)
+		if (group < _mem_controler.max_group && count % 2 != 0)
 		{
 			os_size_t offset = 0;
 			os_size_t x = 0;
@@ -62,6 +59,8 @@ static os_size_t format_mem(uint8 *start_addr, os_size_t group, os_size_t addr_s
 static void mem_controler_init(uint8 *index, os_size_t page_count)
 {
 	os_size_t size = page_count;
+	_mem_controler.total_mem = 0;
+	_mem_controler.used_mem = 0;
 	_mem_controler.block_group = index;
 	os_mem_set(_mem_controler.block_group, GROUP_COUNT, size);  //初始化block_group
 	index += size;
@@ -71,7 +70,7 @@ static void mem_controler_init(uint8 *index, os_size_t page_count)
 		for (i = 0; i < GROUP_COUNT - 1; i++)
 		{
 			//初始化block_bitmap
-			if (i < _max_group)
+			if (i < _mem_controler.max_group)
 			{
 				_mem_controler.block_bitmap_array[i] = index;
 				os_mem_set(_mem_controler.block_bitmap_array[i], 0, size);
@@ -118,7 +117,7 @@ static os_size_t create_mem_controler(os_size_t group)
 		if(addr_space > block_size + mem_controler_size)
 		{
 			//到这里表示地址空间够用，可以初始化这一组
-			_max_group = group;
+			_mem_controler.max_group = group;
 			addr_space -= mem_controler_size;
 			mem_controler_init(end_addr - mem_controler_size, page_count);
 			format_mem(start_addr, group, addr_space);
@@ -172,13 +171,13 @@ static void delete_mem_block(os_size_t group, struct block_node *block)
 static void *get_block(os_size_t group)
 {
 	void *ret = NULL;
-	if (group <= _max_group)
+	if (group <= _mem_controler.max_group)
 	{
 		if (_mem_controler.index_array[group] != NULL)
 		{
 			ret = _mem_controler.index_array[group];
 			delete_mem_block(group, _mem_controler.index_array[group]);
-			if (group < _max_group)
+			if (group < _mem_controler.max_group)
 			{
 				os_size_t offset = 0;
 				os_size_t i = 0;
@@ -199,7 +198,7 @@ static void *get_block(os_size_t group)
 			{
 				void *next_addr = (uint8 *)ret + _mem_controler.size_array[group];
 				insert_mem_block(group, (struct block_node *) next_addr);
-				if (group < _max_group)
+				if (group < _mem_controler.max_group)
 				{
 					os_size_t offset = 0;
 					os_size_t i = 0;
@@ -220,7 +219,7 @@ static void *get_block(os_size_t group)
 
 static void free_block(os_size_t group, void *addr)
 {
-	if (group < _max_group)
+	if (group < _mem_controler.max_group)
 	{
 		//不是最后一组
 		os_size_t offset = ((uint8 *)addr - (uint8 *)_start_addr)
@@ -279,7 +278,7 @@ void *os_kmalloc(os_size_t size)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 0;
-			_used_mem += _mem_controler.size_array[0];
+			_mem_controler.used_mem += _mem_controler.size_array[0];
 		}
 	}
 	else if (size <= _mem_controler.size_array[1])
@@ -289,7 +288,7 @@ void *os_kmalloc(os_size_t size)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 1;
-			_used_mem += _mem_controler.size_array[1];
+			_mem_controler.used_mem += _mem_controler.size_array[1];
 		}
 	}
 	else if (size <= _mem_controler.size_array[2])
@@ -299,7 +298,7 @@ void *os_kmalloc(os_size_t size)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 2;
-			_used_mem += _mem_controler.size_array[2];
+			_mem_controler.used_mem += _mem_controler.size_array[2];
 		}
 	}
 	else if (size <= _mem_controler.size_array[3])
@@ -309,7 +308,7 @@ void *os_kmalloc(os_size_t size)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 3;
-			_used_mem += _mem_controler.size_array[3];
+			_mem_controler.used_mem += _mem_controler.size_array[3];
 		}
 	}
 	else if (size <= _mem_controler.size_array[4])
@@ -319,7 +318,7 @@ void *os_kmalloc(os_size_t size)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 4;
-			_used_mem += _mem_controler.size_array[4];
+			_mem_controler.used_mem += _mem_controler.size_array[4];
 		}
 	}
 	else if (size <= _mem_controler.size_array[5])
@@ -329,7 +328,7 @@ void *os_kmalloc(os_size_t size)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 5;
-			_used_mem += _mem_controler.size_array[5];
+			_mem_controler.used_mem += _mem_controler.size_array[5];
 		}
 	}
 	else if (size <= _mem_controler.size_array[6])
@@ -339,7 +338,7 @@ void *os_kmalloc(os_size_t size)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 6;
-			_used_mem += _mem_controler.size_array[6];
+			_mem_controler.used_mem += _mem_controler.size_array[6];
 		}
 	}
 	else if (size <= _mem_controler.size_array[7])
@@ -349,7 +348,7 @@ void *os_kmalloc(os_size_t size)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 7;
-			_used_mem += _mem_controler.size_array[7];
+			_mem_controler.used_mem += _mem_controler.size_array[7];
 		}
 	}
 	else if (size <= _mem_controler.size_array[8])
@@ -359,7 +358,7 @@ void *os_kmalloc(os_size_t size)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 8;
-			_used_mem += _mem_controler.size_array[8];
+			_mem_controler.used_mem += _mem_controler.size_array[8];
 		}
 	}
 	else if (size <= _mem_controler.size_array[9])
@@ -369,7 +368,7 @@ void *os_kmalloc(os_size_t size)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 9;
-			_used_mem += _mem_controler.size_array[9];
+			_mem_controler.used_mem += _mem_controler.size_array[9];
 		}
 	}
 	else if (size <= _mem_controler.size_array[10])
@@ -379,7 +378,7 @@ void *os_kmalloc(os_size_t size)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 10;
-			_used_mem += _mem_controler.size_array[10];
+			_mem_controler.used_mem += _mem_controler.size_array[10];
 		}
 	}
 	os_cpu_sr_restore(cpu_sr);
@@ -397,7 +396,7 @@ void os_kfree(void *addr)
 			//有效的地址
 			os_size_t i = addr_offset / _mem_controler.size_array[0];
 			free_block(_mem_controler.block_group[i], addr);
-			_used_mem -= _mem_controler.size_array[_mem_controler.block_group[i]];
+			_mem_controler.used_mem -= _mem_controler.size_array[_mem_controler.block_group[i]];
 			_mem_controler.block_group[i] = GROUP_COUNT;
 		}
 	}
@@ -406,10 +405,10 @@ void os_kfree(void *addr)
 
 os_size_t os_total_mem_size(void)
 {
-	return _total_mem;
+	return _mem_controler.total_mem;
 }
 
 os_size_t os_used_mem_size(void)
 {
-	return _used_mem;
+	return _mem_controler.used_mem;
 }

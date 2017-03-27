@@ -13,28 +13,20 @@ os_cpu_sr_restore:         //恢复cpsr
 
 .global os_ctx_sw
 os_ctx_sw:                //任务级切换，触发软中断即可
-	push {r0, lr}
-	mov r0, #0
+	push {lr}
 	swi
 	pop {lr}
 	mov pc, lr
 
 .global os_int_ctx_sw
 os_int_ctx_sw:           //中断级切换，跟任务级切换一样
-	push {r0, lr}
-	mov r0, #0
+	push {lr}
 	swi
 	pop {lr}
 	mov pc, lr
 
 .global swi_handler
 swi_handler:
-	cmp r0, #0
-	beq sys_handler
-	b sys_call
-
-sys_handler:
-	pop {r0}
 	push {r0-r12, lr}
 	ldr r0, =_runnin_task          //获得_runnin_task指针地址
 	ldr r1, =_next_task            //获得_next_task指针地址
@@ -63,18 +55,5 @@ os_task_start:
 loop:
 	b loop
 
-sys_call:
-	push {r1}
-	ldr r1, =_sys_table
-	add r0, r0, r1
-	ldr r0, [r0]
-	ldr r1, =_call_addr
-	str r0, [r1]
-	pop {r1}
-	pop {r0}
-	ldr pc, _call_addr
-
-_call_addr:
-	.word 0x00000000
 
 
