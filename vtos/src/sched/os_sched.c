@@ -230,7 +230,7 @@ void os_sys_tick(void)
 {
 	os_cpu_sr cpu_sr = os_cpu_sr_save();
 #ifdef __WINDOWS__
-	if (0 == _running)
+	if (0 == _scheduler.running)
 	{
 #else
 	if (1 == _scheduler.running)
