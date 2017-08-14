@@ -9,7 +9,7 @@
 
 const os_size_t TREE_NODE_ADDR_OFFSET = (os_size_t)sizeof(os_stk *);     //task_info_t对象中tree_node_structrue地址减去该对象地址
 const os_size_t LIST_NODE_ADDR_OFFSET = (os_size_t)sizeof(os_stk *) + (os_size_t)sizeof(tree_node_type_def);  //task_info_t对象中list_node_structrue地址减去该对象地址
-task_info_t *_runnin_task;
+task_info_t *_running_task;
 task_info_t *_next_task;
 static os_sem_t _thread_release_sem;
 struct scheduler_info _scheduler;
@@ -129,9 +129,9 @@ static void idle_task(void *p_arg)
 	{
 		os_cpu_sr cpu_sr = os_cpu_sr_save();
 		os_task_idle_hook();
-		_runnin_task->vruntime += _runnin_task->unit_vruntime;
-		os_remove_from_run_task_tree(&_scheduler.run_task_tree, _runnin_task);
-		os_insert_to_run_task_tree(&_scheduler.run_task_tree, _runnin_task);
+		_running_task->vruntime += _running_task->unit_vruntime;
+		os_remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
+		os_insert_to_run_task_tree(&_scheduler.run_task_tree, _running_task);
 		_next_task = (task_info_t *) ((uint8 *) os_get_leftmost_node(
 				&_scheduler.run_task_tree) - TREE_NODE_ADDR_OFFSET);
 		_scheduler.min_vruntime = _next_task->vruntime;
@@ -204,7 +204,7 @@ static os_size_t create_thread_release_task(void)
 os_size_t os_init_scheduler(void)
 {
 	os_size_t ret = 1;
-	_runnin_task = NULL;
+	_running_task = NULL;
 	_next_task = NULL;
 	init_pid();
 	init_scheduler_structure();
@@ -216,8 +216,8 @@ os_size_t os_init_scheduler(void)
 static void do_exit(void)
 {
 	os_cpu_sr cpu_sr = os_cpu_sr_save();
-	os_remove_from_run_task_tree(&_scheduler.run_task_tree, _runnin_task);
-	os_insert_to_front(&_scheduler.end_task_list, &_runnin_task->list_node_structrue);
+	os_remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
+	os_insert_to_front(&_scheduler.end_task_list, &_running_task->list_node_structrue);
 	_next_task = (task_info_t *)((uint8 *)os_get_leftmost_node(&_scheduler.run_task_tree)
 		- TREE_NODE_ADDR_OFFSET);
 
@@ -239,15 +239,15 @@ void os_sys_tick(void)
 #if (OS_TIME_TICK_HOOK_EN > 0)
 	os_time_tick_hook ();
 #endif
-		_runnin_task->vruntime += _runnin_task->unit_vruntime;
-		if(0x55 == _runnin_task->stack_end[0] && 0xaa == _runnin_task->stack_end[1])
+		_running_task->vruntime += _running_task->unit_vruntime;
+		if(0x55 == _running_task->stack_end[0] && 0xaa == _running_task->stack_end[1])
 		{
-			os_remove_from_run_task_tree(&_scheduler.run_task_tree, _runnin_task);
-			os_insert_to_run_task_tree(&_scheduler.run_task_tree, _runnin_task);
+			os_remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
+			os_insert_to_run_task_tree(&_scheduler.run_task_tree, _running_task);
 		}
 		else
 		{
-			os_stack_overflow_hook(_runnin_task->pid);
+			os_stack_overflow_hook(_running_task->pid);
 			do_exit();
 		}
 		_next_task = (task_info_t *)((uint8 *)os_get_leftmost_node(&_scheduler.run_task_tree)
@@ -336,8 +336,8 @@ void os_set_prio(int32 prio)
 	if (prio >= -20 && prio < 20)
 	{
 		os_cpu_sr cpu_sr = os_cpu_sr_save();
-		_runnin_task->prio = prio;
-		_runnin_task->unit_vruntime = prio_to_weight[_runnin_task->prio + 20];
+		_running_task->prio = prio;
+		_running_task->unit_vruntime = prio_to_weight[_running_task->prio + 20];
 		os_cpu_sr_restore(cpu_sr);
 	}
 }
@@ -355,10 +355,10 @@ os_size_t os_activity_thread_count(void)
 void os_task_sleep()
 {
 	os_cpu_sr cpu_sr = os_cpu_sr_save();
-	_runnin_task->task_status = TASK_SLEEP;
+	_running_task->task_status = TASK_SLEEP;
 	//由于无法知道该任务到底运行了多久，综合考虑，就当做运行了半个节拍的虚拟运行时间
-	_runnin_task->vruntime += (_runnin_task->unit_vruntime >> 1);
-	os_remove_from_run_task_tree(&_scheduler.run_task_tree, _runnin_task);
+	_running_task->vruntime += (_running_task->unit_vruntime >> 1);
+	os_remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
 	_next_task = (task_info_t *) ((uint8 *) os_get_leftmost_node(
 			&_scheduler.run_task_tree) - TREE_NODE_ADDR_OFFSET);
 	_next_task->vruntime -= (_next_task->unit_vruntime >> 1);

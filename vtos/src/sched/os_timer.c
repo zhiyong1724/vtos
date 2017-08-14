@@ -58,7 +58,7 @@ static void task_wakeup(void *args)
 void os_sleep(uint64 t)
 {
 	os_cpu_sr cpu_sr = os_cpu_sr_save();
-	os_set_timer(&_runnin_task->timer, t, task_wakeup, &(_runnin_task->pid));
+	os_set_timer(&_running_task->timer, t, task_wakeup, &(_running_task->pid));
 	os_cpu_sr_restore(cpu_sr);
 	os_task_sleep();
 }

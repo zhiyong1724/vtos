@@ -28,12 +28,12 @@ os_int_ctx_sw:           //中断级切换，跟任务级切换一样
 .global swi_handler
 swi_handler:
 	push {r0-r12, lr}
-	ldr r0, =_runnin_task          //获得_runnin_task指针地址
+	ldr r0, =_running_task          //获得_running_task指针地址
 	ldr r1, =_next_task            //获得_next_task指针地址
-	ldr r2, [r0]                   //获得_runnin_task地址
+	ldr r2, [r0]                   //获得_running_task地址
 	str sp, [r2]                   //保存sp
 	ldr r2, [r1]                   //获得_next_task地址
-	str r2, [r0]                   //_runnin_task = _next_task
+	str r2, [r0]                   //_running_task = _next_task
 	ldr sp, [r2]                   //sp等于_next_task地址中的值
 	mrs r0, cpsr
 	bic r0, r0, #0x80
@@ -46,11 +46,11 @@ os_task_start:
 	bic r0, r0, #0x80
 	msr cpsr, r0
 
-	ldr r0, =_runnin_task          //获得_runnin_task指针地址
+	ldr r0, =_running_task          //获得_running_task指针地址
 	ldr r1, =_next_task            //获得_next_task指针地址
 	ldr r2, [r1]                   //获得_next_task地址
-	str r2, [r0]                   //_runnin_task = _next_task
-	ldr sp, [r2]                   //sp = _runnin_task->stack
+	str r2, [r0]                   //_running_task = _next_task
+	ldr sp, [r2]                   //sp = _running_task->stack
 	pop {r0-r12, lr, pc}           //开启第一个任务,这个任务是系统空闲任务
 loop:
 	b loop

@@ -31,13 +31,13 @@ void os_sem_pend(os_sem_t *p_sem, uint64 timeout, uint32 *p_status)
 	else
 	{
 		os_set_timer(&p_sem->timer, timeout, task_wakeup, p_sem);
-		os_insert_to_front(&(p_sem->wait_task_list), &_runnin_task->list_node_structrue);
+		os_insert_to_front(&(p_sem->wait_task_list), &_running_task->list_node_structrue);
 		os_cpu_sr_restore(cpu_sr);
 		os_task_sleep();
 		cpu_sr = os_cpu_sr_save();
 		os_close_timer(&p_sem->timer);
-		*p_status = _runnin_task->event_status;
-		_runnin_task->event_status = EVENT_NONE;
+		*p_status = _running_task->event_status;
+		_running_task->event_status = EVENT_NONE;
 		os_cpu_sr_restore(cpu_sr);
 	}
 }

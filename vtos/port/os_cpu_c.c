@@ -113,15 +113,15 @@ void os_cpu_sr_restore(os_cpu_sr cpu_sr)     //回复状态寄存器函数
 }
 void os_ctx_sw(void)                         //任务切换函数
 {
-	_runnin_task = _next_task;
+	_running_task = _next_task;
 }
 void os_int_ctx_sw(void)                     //中断级任务切换函数
 {
-	_runnin_task = _next_task;
+	_running_task = _next_task;
 }
 void os_task_start(void)                     //任务开始前准备
 {
-	_runnin_task = _next_task;
+	_running_task = _next_task;
 }
 void os_cpu_pend_sv_handler(void)            //软中断入口
 {

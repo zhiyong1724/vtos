@@ -33,7 +33,7 @@ struct scheduler_info
 	uint32 running;
 };
 
-extern task_info_t *_runnin_task;
+extern task_info_t *_running_task;
 #ifdef __WINDOWS__
 extern task_info_t *_next_task;
 extern struct scheduler_info _scheduler;
