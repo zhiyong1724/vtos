@@ -1,5 +1,5 @@
-#ifndef _OS_TIMER_H
-#define _OS_TIMER_H
+#ifndef __OS_TIMER_H__
+#define __OS_TIMER_H__
 #include "os_cpu.h"
 #include "base/os_tree.h"
 #include "sched/os_timer_def.h"

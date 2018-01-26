@@ -1,5 +1,5 @@
-#ifndef _OS_MEM_H
-#define _OS_MEM_H
+#ifndef __OS_MEM_H__
+#define __OS_MEM_H__
 #include "os_cpu.h"
 #define GROUP_COUNT           11
 struct block_node

@@ -1,5 +1,5 @@
-#ifndef _OS_TREE_DEF_H
-#define _OS_TREE_DEF_H
+#ifndef __OS_TREE_DEF_H__
+#define __OS_TREE_DEF_H__
 #include "os_cpu.h"
 typedef struct tree_node_type_def
 {

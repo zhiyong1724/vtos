@@ -57,9 +57,10 @@ void os_task_return_hook(void)
 {
 }
 
-//当栈溢出的时候调用
-void os_stack_overflow_hook(os_stk pid)
+//出现错误的时候调用
+void os_error_msg(char *msg, os_size_t arg)
 {
+
 }
 
 os_stk *os_task_stk_init(void (*task)(void *p_arg), void *p_arg, os_stk *ptos)

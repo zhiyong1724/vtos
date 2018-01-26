@@ -1,5 +1,5 @@
-#ifndef _OS_Q_DEF_H
-#define  _OS_Q_DEF_H
+#ifndef __OS_Q_DEF_H__
+#define __OS_Q_DEF_H__
 #include "sched/os_sem_def.h"
 typedef struct os_q_t
 {

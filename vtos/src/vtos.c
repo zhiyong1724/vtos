@@ -3,11 +3,35 @@
 #include "sched/os_sched.h"
 #include "sched/os_timer.h"
 #include "lib/os_string.h"
+#include "fs/os_fs.h"
 const char *VERSION = "0.0.2";
 
 const char *os_version(void)
 {
 	return VERSION;
+}
+
+uint32 is_little_endian()
+{
+	static uint32 endian = 2;
+	if (2 == endian)
+	{
+		union temp
+		{
+			uint32 i;
+			uint8 c;
+		} t;
+		t.i = 1;
+		if (1 == t.c)
+		{
+			endian = 1;
+		}
+		else
+		{
+			endian = 0;
+		}
+	}
+	return endian;
 }
 
 os_size_t os_sys_init(void)
@@ -42,13 +66,14 @@ int main()
 {
 	if (0 == os_sys_init())
 	{
-		os_kthread_create(task, NULL, "task_a");
+		test();
+		/*os_kthread_create(task, NULL, "task_a");
 		os_sys_start();
 		while(1)
 		{
 			os_sys_tick();
-		}
-		
+		}*/
+
 	}
 	return 0;
 }

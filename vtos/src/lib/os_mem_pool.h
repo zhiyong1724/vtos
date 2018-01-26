@@ -1,5 +1,5 @@
-#ifndef _OS_MEM_POOL_H
-#define _OS_MEM_POOL_H
+#ifndef __OS_MEM_POOL_H__
+#define __OS_MEM_POOL_H__
 #include "os_cpu.h"
 struct mem_pool_def
 {

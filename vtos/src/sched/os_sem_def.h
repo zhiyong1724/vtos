@@ -1,5 +1,5 @@
-#ifndef _OS_SEM_DEF_H
-#define _OS_SEM_DEF_H
+#ifndef __OS_SEM_DEF_H__
+#define __OS_SEM_DEF_H__
 #include "sched/os_timer_def.h"
 #include "base/os_list_def.h"
 typedef struct os_sem_t

@@ -1,5 +1,5 @@
-#ifndef _OS_SCHED_DEF_H
-#define _OS_SCHED_DEF_H
+#ifndef __OS_SCHED_DEF_H__
+#define __OS_SCHED_DEF_H__
 enum task_status_def
 {
 	TASK_RUNNING,

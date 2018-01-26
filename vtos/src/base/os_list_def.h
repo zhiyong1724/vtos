@@ -1,5 +1,5 @@
-#ifndef _OS_LIST_DEF_H
-#define _OS_LIST_DEF_H
+#ifndef __OS_LIST_DEF_H__
+#define __OS_LIST_DEF_H__
 #include "os_cpu.h"
 typedef struct list_node_type_def
 {

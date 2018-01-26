@@ -1,5 +1,5 @@
-#ifndef _OS_LIST_H
-#define _OS_LIST_H
+#ifndef __OS_LIST_H__
+#define __OS_LIST_H__
 #include "os_list_def.h"
 
 void os_insert_to_front(list_node_type_def **handle, list_node_type_def *node);

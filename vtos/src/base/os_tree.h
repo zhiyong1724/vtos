@@ -1,5 +1,5 @@
-#ifndef _OS_TREE_H
-#define _OS_TREE_H
+#ifndef __OS_TREE_H__
+#define __OS_TREE_H__
 #include "os_tree_def.h"
 #ifndef BLACK
 #define BLACK 0

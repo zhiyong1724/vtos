@@ -25,47 +25,45 @@ static const uint32 prio_to_weight[40] =
 		};
 static void os_insert_to_run_task_tree(tree_node_type_def **handle, task_info_t *task_structrue)
 {
+	tree_node_type_def *cur_node = *handle;
+	task_info_t *cur_task_structrue = NULL;
+	os_init_node(&(task_structrue->tree_node_structrue));
+	if (NULL == *handle)
 	{
-		tree_node_type_def *cur_node = *handle;
-		task_info_t *cur_task_structrue = NULL;
-		os_init_node(&(task_structrue->tree_node_structrue));
-		if (NULL == *handle)
+		task_structrue->tree_node_structrue.color = BLACK;
+		*handle = &(task_structrue->tree_node_structrue);
+	}
+	else
+	{
+		for (;;)
 		{
-			task_structrue->tree_node_structrue.color = BLACK;
-			*handle = &(task_structrue->tree_node_structrue);
-		}
-		else
-		{
-			for(;;)
-			{
-				cur_task_structrue = (task_info_t *) ((uint8 *) cur_node
-					- TREE_NODE_ADDR_OFFSET);
-				if (task_structrue->vruntime - _scheduler.min_vruntime <= cur_task_structrue->vruntime - _scheduler.min_vruntime)
-				{
-					if (cur_node->left_tree == &_leaf_node)
-					{
-						break;
-					}
-					cur_node = cur_node->left_tree;
-				}
-				else
-				{
-					if (cur_node->right_tree == &_leaf_node)
-					{
-						break;
-					}
-					cur_node = cur_node->right_tree;
-				}
-			}
-			task_structrue->tree_node_structrue.parent = cur_node;
-			cur_task_structrue = (task_info_t *) ((uint8 *) cur_node
+			cur_task_structrue = (task_info_t *)((uint8 *)cur_node
 				- TREE_NODE_ADDR_OFFSET);
 			if (task_structrue->vruntime - _scheduler.min_vruntime <= cur_task_structrue->vruntime - _scheduler.min_vruntime)
-				cur_node->left_tree = &(task_structrue->tree_node_structrue);
+			{
+				if (cur_node->left_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur_node = cur_node->left_tree;
+			}
 			else
-				cur_node->right_tree = &(task_structrue->tree_node_structrue);
-			os_insert_case(handle, &(task_structrue->tree_node_structrue));
+			{
+				if (cur_node->right_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur_node = cur_node->right_tree;
+			}
 		}
+		task_structrue->tree_node_structrue.parent = cur_node;
+		cur_task_structrue = (task_info_t *)((uint8 *)cur_node
+			- TREE_NODE_ADDR_OFFSET);
+		if (task_structrue->vruntime - _scheduler.min_vruntime <= cur_task_structrue->vruntime - _scheduler.min_vruntime)
+			cur_node->left_tree = &(task_structrue->tree_node_structrue);
+		else
+			cur_node->right_tree = &(task_structrue->tree_node_structrue);
+		os_insert_case(handle, &(task_structrue->tree_node_structrue));
 	}
 	_scheduler.activity_task_count++;
 }
@@ -247,7 +245,7 @@ void os_sys_tick(void)
 		}
 		else
 		{
-			os_stack_overflow_hook(_running_task->pid);
+			os_error_msg("stack overflow", _running_task->pid);
 			do_exit();
 		}
 		_next_task = (task_info_t *)((uint8 *)os_get_leftmost_node(&_scheduler.run_task_tree)

@@ -1,5 +1,8 @@
-#ifndef _OS_CPU_DEF_H
-#define _OS_CPU_DEF_H
+#ifndef __OS_CPU_DEF_H__
+#define __OS_CPU_DEF_H__
+#ifndef NULL
+#define NULL 0
+#endif
 /*与编译器相关的类型定义*/
 typedef unsigned char uint8;
 typedef signed char int8;

@@ -11,6 +11,16 @@ void *os_mem_set(void *s, int8 ch, os_size_t n)
 	return s;
 }
 
+void *os_mem_cpy(void *dest, void *src, os_size_t n)
+{
+	os_size_t i = 0;
+	for (; i < n; i++)
+	{
+		((uint8 *)dest)[i] = ((uint8 *)src)[i];
+	}
+	return dest;
+}
+
 void *os_str_cpy(char *dest, const char *src, os_size_t n)
 {
 	os_size_t i = 0;
@@ -80,16 +90,46 @@ static os_size_t *next_array(const char *pattern, os_size_t *next)
 
 os_size_t os_str_find(const char *str, const char *pattern)
 {
+	os_size_t ret = -1;
 	if (str != NULL && pattern != NULL)
 	{
-		os_size_t *next = os_kmalloc(sizeof(os_size_t) * (os_str_len(pattern) + 1));
-		if (next != NULL)
+		os_size_t len = sizeof(os_size_t) * (os_str_len(pattern) + 1);
+		if (len > 256)
 		{
+			os_size_t *next = os_kmalloc(len);
+			if (next != NULL)
+			{
+				os_size_t i = 0;
+				os_size_t j = 0;
+				next = next_array(pattern, next);
+				for (i = 0; str[i] != '\0'; i++)
+				{
+					while (j > 0 && str[i] != pattern[j])
+					{
+						j = next[j];
+					}
+
+					if (str[i] == pattern[j])
+					{
+						j++;
+					}
+					if ('\0' == pattern[j])
+					{
+						ret = i - j + 1;
+					}
+				}
+				os_kfree(next);
+			}
+		}
+		else
+		{
+			char buff[256];
+			os_size_t *next = (os_size_t *)buff;
 			os_size_t i = 0;
 			os_size_t j = 0;
 			next = next_array(pattern, next);
-			for (i = 0; str[i] != '\0'; i++) 
-			{  
+			for (i = 0; str[i] != '\0'; i++)
+			{
 				while (j > 0 && str[i] != pattern[j])
 				{
 					j = next[j];
@@ -99,13 +139,40 @@ os_size_t os_str_find(const char *str, const char *pattern)
 				{
 					j++;
 				}
-				if ('\0' == pattern[j]) 
-				{  
-					return i - j + 1;
-				}  
-			} 
-			os_kfree(next);
-		} 
+				if ('\0' == pattern[j])
+				{
+					ret = i - j + 1;
+				}
+			}
+		}
+
 	}
-	return -1;
+	return ret;
+}
+
+int32 os_str_cmp(const char *str1, const char *str2)
+{
+	for (; *str1 != '\0' && *str2 != '\0'; str1++, str2++)
+	{
+		if (*str1 > *str2)
+		{
+			return 1;
+		}
+		else if (*str1 < *str2)
+		{
+			return -1;
+		}
+	}
+	if ('\0' == *str1 && '\0' == *str2)
+	{
+		return 0;
+	}
+	else if ('\0' == *str1)
+	{
+		return -1;
+	}
+	else
+	{
+		return 1;
+	}
 }

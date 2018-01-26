@@ -1,10 +1,7 @@
-#ifndef _OS_CPU_H
-#define _OS_CPU_H
+#ifndef __OS_CPU_H__
+#define __OS_CPU_H__
 #include "os_cfg.h"
 #include "os_cpu_def.h"
-#ifndef NULL
-#define NULL 0
-#endif
 
 /*栈增长方向*/
 #define  OS_STK_GROWTH        1       //1.从高地址往低地址生长，0.从低地址往高地址生长
@@ -34,7 +31,7 @@ void os_task_create_hook(void);
 void os_task_del_hook(void);
 void os_task_idle_hook(void);
 void os_task_return_hook(void);
-void os_stack_overflow_hook(os_stk pid);
+void os_error_msg(char *msg, os_size_t arg);
 os_stk *os_task_stk_init(void (*task)(void *p_arg), void *p_arg, os_stk *ptos);
 #if (OS_TASK_SW_HOOK_EN > 0)
 void os_task_sw_hook(void);

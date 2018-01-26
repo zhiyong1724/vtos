@@ -1,5 +1,6 @@
 #include "os_mem.h"
 #include "lib/os_string.h"
+#include "vtos.h"
 void *_start_addr = NULL;
 void *_end_addr = NULL;
 static struct mem_controler _mem_controler;
@@ -170,34 +171,17 @@ static void delete_mem_block(os_size_t group, struct block_node *block)
 
 static void *get_block(os_size_t group)
 {
+	os_cpu_sr cpu_sr;
 	void *ret = NULL;
-	if (group <= _mem_controler.max_group)
+	while (1)
 	{
-		if (_mem_controler.index_array[group] != NULL)
+		cpu_sr = os_cpu_sr_save();
+		if (group <= _mem_controler.max_group)
 		{
-			ret = _mem_controler.index_array[group];
-			delete_mem_block(group, _mem_controler.index_array[group]);
-			if (group < _mem_controler.max_group)
+			if (_mem_controler.index_array[group] != NULL)
 			{
-				os_size_t offset = 0;
-				os_size_t i = 0;
-				os_size_t j = 0;
-				uint8 mark_bit = 0x80;
-				offset = ((uint8 *)ret - (uint8 *)_start_addr)
-					/ _mem_controler.size_array[group + 1];
-				i = offset >> 3;
-				j = offset % 8;
-				mark_bit >>= j;
-				_mem_controler.block_bitmap_array[group][i] ^= mark_bit;
-			}
-		}
-		else
-		{
-			ret = get_block(group + 1);
-			if (ret != NULL)
-			{
-				void *next_addr = (uint8 *)ret + _mem_controler.size_array[group];
-				insert_mem_block(group, (struct block_node *) next_addr);
+				ret = _mem_controler.index_array[group];
+				delete_mem_block(group, _mem_controler.index_array[group]);
 				if (group < _mem_controler.max_group)
 				{
 					os_size_t offset = 0;
@@ -212,8 +196,37 @@ static void *get_block(os_size_t group)
 					_mem_controler.block_bitmap_array[group][i] ^= mark_bit;
 				}
 			}
+			else
+			{
+				ret = get_block(group + 1);
+				if (ret != NULL)
+				{
+					void *next_addr = (uint8 *)ret + _mem_controler.size_array[group];
+					insert_mem_block(group, (struct block_node *) next_addr);
+					if (group < _mem_controler.max_group)
+					{
+						os_size_t offset = 0;
+						os_size_t i = 0;
+						os_size_t j = 0;
+						uint8 mark_bit = 0x80;
+						offset = ((uint8 *)ret - (uint8 *)_start_addr)
+							/ _mem_controler.size_array[group + 1];
+						i = offset >> 3;
+						j = offset % 8;
+						mark_bit >>= j;
+						_mem_controler.block_bitmap_array[group][i] ^= mark_bit;
+					}
+				}
+			}
 		}
+		if (NULL == ret)
+		{
+			os_cpu_sr_restore(cpu_sr);
+			os_sleep(1000);
+		}
+		
 	}
+	os_cpu_sr_restore(cpu_sr);
 	return ret;
 }
 
@@ -269,13 +282,14 @@ static void free_block(os_size_t group, void *addr)
 
 void *os_kmalloc(os_size_t size)
 {
-	os_cpu_sr cpu_sr = os_cpu_sr_save();
+	os_cpu_sr cpu_sr;
 	void *ret = NULL;
 	if (size <= _mem_controler.size_array[0])
 	{
 		ret = get_block(0);
 		if (ret != NULL)
 		{
+			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 0;
 			_mem_controler.used_mem += _mem_controler.size_array[0];
@@ -286,6 +300,7 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(1);
 		if (ret != NULL)
 		{
+			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 1;
 			_mem_controler.used_mem += _mem_controler.size_array[1];
@@ -296,6 +311,7 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(2);
 		if (ret != NULL)
 		{
+			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 2;
 			_mem_controler.used_mem += _mem_controler.size_array[2];
@@ -306,6 +322,7 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(3);
 		if (ret != NULL)
 		{
+			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 3;
 			_mem_controler.used_mem += _mem_controler.size_array[3];
@@ -316,6 +333,7 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(4);
 		if (ret != NULL)
 		{
+			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 4;
 			_mem_controler.used_mem += _mem_controler.size_array[4];
@@ -326,6 +344,7 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(5);
 		if (ret != NULL)
 		{
+			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 5;
 			_mem_controler.used_mem += _mem_controler.size_array[5];
@@ -336,6 +355,7 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(6);
 		if (ret != NULL)
 		{
+			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 6;
 			_mem_controler.used_mem += _mem_controler.size_array[6];
@@ -346,6 +366,7 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(7);
 		if (ret != NULL)
 		{
+			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 7;
 			_mem_controler.used_mem += _mem_controler.size_array[7];
@@ -356,6 +377,7 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(8);
 		if (ret != NULL)
 		{
+			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 8;
 			_mem_controler.used_mem += _mem_controler.size_array[8];
@@ -366,6 +388,7 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(9);
 		if (ret != NULL)
 		{
+			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 9;
 			_mem_controler.used_mem += _mem_controler.size_array[9];
@@ -376,11 +399,13 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(10);
 		if (ret != NULL)
 		{
+			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
 			_mem_controler.block_group[i] = 10;
 			_mem_controler.used_mem += _mem_controler.size_array[10];
 		}
 	}
+	os_error_msg("Memory allocation failure.", 0);
 	os_cpu_sr_restore(cpu_sr);
 	return ret;
 }

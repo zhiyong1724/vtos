@@ -1,5 +1,5 @@
-#ifndef _OS_SCHED_H
-#define _OS_SCHED_H
+#ifndef __OS_SCHED_H__
+#define __OS_SCHED_H__
 #include "base/os_tree.h"
 #include "base/os_list.h"
 #include "os_timer.h"

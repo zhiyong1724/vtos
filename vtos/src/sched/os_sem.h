@@ -1,4 +1,4 @@
-#ifndef _OS_SEM_H
-#define _OS_SEM_H
+#ifndef __OS_SEM_H__
+#define __OS_SEM_H__
 #include "sched/os_sem_def.h"
 #endif
