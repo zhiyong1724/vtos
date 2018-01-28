@@ -1,27 +1,14 @@
 #include "fs/os_dentry.h"
 #include "lib/os_string.h"
+#include "fs/os_cluster.h"
 #include "vtos.h"
 #include <stdlib.h>
-uint32 convert_endian(uint32 src)
+static uint32 flush(fnode *node)
 {
-	uint32 dest;
-	uint8 *pdest;
-	uint8 *psrc;
-	uint32 i = 0;
-	pdest = (uint8 *)(&dest) + sizeof(uint32) - 1;
-	psrc = (uint8 *)(&src);
-	for (; i < sizeof(uint32); i++, pdest--)
-	{
-		*pdest = psrc[i];
-	}
-	return dest;
-}
-
-static void flush(fnode *node)
-{
+	uint32 ret;
 	if (is_little_endian())
 	{
-		os_disk_write(node->head.node_id, node);
+		ret = cluster_write(node->head.node_id, (uint8 *)node);
 	}
 	else
 	{
@@ -35,15 +22,20 @@ static void flush(fnode *node)
 		{
 			temp->head.pointers[i] = convert_endian(node->head.pointers[i]);
 		}
-		os_disk_write(node->head.node_id, temp);
+		ret = cluster_write(node->head.node_id, (uint8 *)temp);
 		free(temp);
 	}
+	return ret;
 }
 
 static fnode *load(uint32 id)
 {
 	fnode *node = (fnode *)malloc(sizeof(fnode));
-	os_disk_read(id, node);
+	if (cluster_read(id, (uint8 *)node) != CLUSTER_NONE)
+	{
+		free(node);
+		return NULL;
+	}
 	if (!is_little_endian())
 	{
 		uint32 i = 0;
@@ -87,13 +79,13 @@ static fnode *init_leaf(fnode *node)
 //创建node
 static fnode *make_node()
 {
+	uint32 cluster_id;
 	fnode *node = (fnode *)malloc(sizeof(fnode));
-	cluster_info cluster;
 	init_node(node);
-	cluster = cluster_alloc(1);
-	if (cluster.num > 0)
+	cluster_id = cluster_alloc();
+	if (cluster_id > 0)
 	{
-		node->head.node_id = cluster.id;
+		node->head.node_id = cluster_id;
 		return node;
 	}
 	else
@@ -107,13 +99,13 @@ static fnode *make_node()
 //创建leaf
 static fnode *make_leaf()
 {
+	uint32 cluster_id;
 	fnode *node = (fnode *)malloc(sizeof(fnode));
-	cluster_info cluster;
 	init_leaf(node);
-	cluster = cluster_alloc(1);
-	if (cluster.num > 0)
+	cluster_id = cluster_alloc(1);
+	if (cluster_id > 0)
 	{
-		node->head.node_id = cluster.id;
+		node->head.node_id = cluster_id;
 		return node;
 	}
 	else

@@ -1,7 +1,6 @@
 #ifndef __OS_FS_DEF_H__
 #define __OS_FS_DEF_H__
 #include "os_cpu_def.h"
-#endif
 #define FS_PAGE_SIZE 4096
 #define FS_TNODE_SIZE 128
 #define FS_MAX_KEY_NUM 16
@@ -30,8 +29,15 @@ typedef struct fnode
 
 } fnode;
 
+typedef struct disk_info
+{
+	uint32 first_page_id;
+	uint32 page_size;
+	uint32 page_count;
+} disk_info;
+
 //下面的函数需要在os_fs_port.c中实现
-void os_disk_status();
-uint32 os_disk_read(uint32 sector_id, void *data);
-uint32 os_disk_write(uint32 sector_id, void *data);
-void os_get_fattime();
+disk_info os_get_disk_info();
+uint32 os_disk_read(uint32 page_id, void *data);
+uint32 os_disk_write(uint32 page_id, void *data);
+#endif

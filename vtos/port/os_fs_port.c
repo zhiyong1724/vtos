@@ -3,43 +3,50 @@
 #include <stdio.h>
 #include <string.h>
 #endif
-void os_disk_status()
-{
 
+disk_info os_get_disk_info()
+{
+#ifdef __WINDOWS__
+	disk_info info;
+	info.first_page_id = 0;
+	info.page_size = FS_PAGE_SIZE;
+	info.page_count = 1024 * 64;
+	return info;
+#else
+#endif // __WINDOWS__
 }
-uint32 os_disk_read(uint32 sector_id, void *data)
+
+uint32 os_disk_read(uint32 page_id, void *data)
 {
 #ifdef __WINDOWS__
 	char name[32];
 	FILE *file;
-	sprintf_s(name, 32, "%d", sector_id);
+	sprintf_s(name, 32, "%d", page_id);
 	if (0 == fopen_s(&file, name, "rb"))
 	{
 		fread(data, FS_PAGE_SIZE, 1, file);
 		fclose(file);
+		return 0;
 	}
-	return 0;
+	return 1;
 #else
 	return 0;
 #endif // __WINDOWS__
 }
-uint32 os_disk_write(uint32 sector_id, void *data)
+uint32 os_disk_write(uint32 page_id, void *data)
 {
 #ifdef __WINDOWS__
 	char name[32];
 	FILE *file;
-	sprintf_s(name, 32, "%d", sector_id);
+	sprintf_s(name, 32, "%d", page_id);
 	if (0 == fopen_s(&file, name, "wb"))
 	{
 		fwrite(data, FS_PAGE_SIZE, 1, file);
 		fclose(file);
+		return 0;
 	}
-	return 0;
+	return 1;
 #else
 	return 0;
 #endif // __WINDOWS__
-}
-void os_get_fattime()
-{
-
 }

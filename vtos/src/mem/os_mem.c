@@ -224,7 +224,7 @@ static void *get_block(os_size_t group)
 			os_cpu_sr_restore(cpu_sr);
 			os_sleep(1000);
 		}
-		
+		break;
 	}
 	os_cpu_sr_restore(cpu_sr);
 	return ret;
@@ -289,8 +289,8 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(0);
 		if (ret != NULL)
 		{
-			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
+			cpu_sr = os_cpu_sr_save();
 			_mem_controler.block_group[i] = 0;
 			_mem_controler.used_mem += _mem_controler.size_array[0];
 		}
@@ -300,8 +300,8 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(1);
 		if (ret != NULL)
 		{
-			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
+			cpu_sr = os_cpu_sr_save();
 			_mem_controler.block_group[i] = 1;
 			_mem_controler.used_mem += _mem_controler.size_array[1];
 		}
@@ -311,8 +311,8 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(2);
 		if (ret != NULL)
 		{
-			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
+			cpu_sr = os_cpu_sr_save();
 			_mem_controler.block_group[i] = 2;
 			_mem_controler.used_mem += _mem_controler.size_array[2];
 		}
@@ -322,8 +322,8 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(3);
 		if (ret != NULL)
 		{
-			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
+			cpu_sr = os_cpu_sr_save();
 			_mem_controler.block_group[i] = 3;
 			_mem_controler.used_mem += _mem_controler.size_array[3];
 		}
@@ -333,8 +333,8 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(4);
 		if (ret != NULL)
 		{
-			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
+			cpu_sr = os_cpu_sr_save();
 			_mem_controler.block_group[i] = 4;
 			_mem_controler.used_mem += _mem_controler.size_array[4];
 		}
@@ -344,8 +344,8 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(5);
 		if (ret != NULL)
 		{
-			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
+			cpu_sr = os_cpu_sr_save();
 			_mem_controler.block_group[i] = 5;
 			_mem_controler.used_mem += _mem_controler.size_array[5];
 		}
@@ -355,8 +355,8 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(6);
 		if (ret != NULL)
 		{
-			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
+			cpu_sr = os_cpu_sr_save();
 			_mem_controler.block_group[i] = 6;
 			_mem_controler.used_mem += _mem_controler.size_array[6];
 		}
@@ -366,8 +366,8 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(7);
 		if (ret != NULL)
 		{
-			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
+			cpu_sr = os_cpu_sr_save();
 			_mem_controler.block_group[i] = 7;
 			_mem_controler.used_mem += _mem_controler.size_array[7];
 		}
@@ -377,8 +377,8 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(8);
 		if (ret != NULL)
 		{
-			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
+			cpu_sr = os_cpu_sr_save();
 			_mem_controler.block_group[i] = 8;
 			_mem_controler.used_mem += _mem_controler.size_array[8];
 		}
@@ -388,8 +388,8 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(9);
 		if (ret != NULL)
 		{
-			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
+			cpu_sr = os_cpu_sr_save();
 			_mem_controler.block_group[i] = 9;
 			_mem_controler.used_mem += _mem_controler.size_array[9];
 		}
@@ -399,8 +399,8 @@ void *os_kmalloc(os_size_t size)
 		ret = get_block(10);
 		if (ret != NULL)
 		{
-			cpu_sr = os_cpu_sr_save();
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
+			cpu_sr = os_cpu_sr_save();
 			_mem_controler.block_group[i] = 10;
 			_mem_controler.used_mem += _mem_controler.size_array[10];
 		}
