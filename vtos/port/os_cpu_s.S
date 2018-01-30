@@ -1,8 +1,16 @@
-.global os_cpu_sr_save
+.global os_cpu_sr_off
 os_cpu_sr_save:            //关中断并保存cpsr
 	mrs r0, cpsr
 	mov r1, r0
 	orr r1, r1, #0x80
+	msr cpsr, r1
+	mov pc, lr
+
+.global os_cpu_sr_on
+os_cpu_sr_save:            //开中断并保存cpsr
+	mrs r0, cpsr
+	mov r1, r0
+	and r1, r1, #0x7f
 	msr cpsr, r1
 	mov pc, lr
 

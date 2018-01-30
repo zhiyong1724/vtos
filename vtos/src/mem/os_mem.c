@@ -175,7 +175,7 @@ static void *get_block(os_size_t group)
 	void *ret = NULL;
 	while (1)
 	{
-		cpu_sr = os_cpu_sr_save();
+		cpu_sr = os_cpu_sr_off();
 		if (group <= _mem_controler.max_group)
 		{
 			if (_mem_controler.index_array[group] != NULL)
@@ -221,7 +221,7 @@ static void *get_block(os_size_t group)
 		}
 		if (NULL == ret)
 		{
-			os_cpu_sr_restore(cpu_sr);
+			os_cpu_sr_on();
 			os_sleep(1000);
 		}
 		break;
@@ -290,7 +290,7 @@ void *os_kmalloc(os_size_t size)
 		if (ret != NULL)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
-			cpu_sr = os_cpu_sr_save();
+			cpu_sr = os_cpu_sr_off();
 			_mem_controler.block_group[i] = 0;
 			_mem_controler.used_mem += _mem_controler.size_array[0];
 		}
@@ -301,7 +301,7 @@ void *os_kmalloc(os_size_t size)
 		if (ret != NULL)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
-			cpu_sr = os_cpu_sr_save();
+			cpu_sr = os_cpu_sr_off();
 			_mem_controler.block_group[i] = 1;
 			_mem_controler.used_mem += _mem_controler.size_array[1];
 		}
@@ -312,7 +312,7 @@ void *os_kmalloc(os_size_t size)
 		if (ret != NULL)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
-			cpu_sr = os_cpu_sr_save();
+			cpu_sr = os_cpu_sr_off();
 			_mem_controler.block_group[i] = 2;
 			_mem_controler.used_mem += _mem_controler.size_array[2];
 		}
@@ -323,7 +323,7 @@ void *os_kmalloc(os_size_t size)
 		if (ret != NULL)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
-			cpu_sr = os_cpu_sr_save();
+			cpu_sr = os_cpu_sr_off();
 			_mem_controler.block_group[i] = 3;
 			_mem_controler.used_mem += _mem_controler.size_array[3];
 		}
@@ -334,7 +334,7 @@ void *os_kmalloc(os_size_t size)
 		if (ret != NULL)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
-			cpu_sr = os_cpu_sr_save();
+			cpu_sr = os_cpu_sr_off();
 			_mem_controler.block_group[i] = 4;
 			_mem_controler.used_mem += _mem_controler.size_array[4];
 		}
@@ -345,7 +345,7 @@ void *os_kmalloc(os_size_t size)
 		if (ret != NULL)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
-			cpu_sr = os_cpu_sr_save();
+			cpu_sr = os_cpu_sr_off();
 			_mem_controler.block_group[i] = 5;
 			_mem_controler.used_mem += _mem_controler.size_array[5];
 		}
@@ -356,7 +356,7 @@ void *os_kmalloc(os_size_t size)
 		if (ret != NULL)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
-			cpu_sr = os_cpu_sr_save();
+			cpu_sr = os_cpu_sr_off();
 			_mem_controler.block_group[i] = 6;
 			_mem_controler.used_mem += _mem_controler.size_array[6];
 		}
@@ -367,7 +367,7 @@ void *os_kmalloc(os_size_t size)
 		if (ret != NULL)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
-			cpu_sr = os_cpu_sr_save();
+			cpu_sr = os_cpu_sr_off();
 			_mem_controler.block_group[i] = 7;
 			_mem_controler.used_mem += _mem_controler.size_array[7];
 		}
@@ -378,7 +378,7 @@ void *os_kmalloc(os_size_t size)
 		if (ret != NULL)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
-			cpu_sr = os_cpu_sr_save();
+			cpu_sr = os_cpu_sr_off();
 			_mem_controler.block_group[i] = 8;
 			_mem_controler.used_mem += _mem_controler.size_array[8];
 		}
@@ -389,7 +389,7 @@ void *os_kmalloc(os_size_t size)
 		if (ret != NULL)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
-			cpu_sr = os_cpu_sr_save();
+			cpu_sr = os_cpu_sr_off();
 			_mem_controler.block_group[i] = 9;
 			_mem_controler.used_mem += _mem_controler.size_array[9];
 		}
@@ -400,7 +400,7 @@ void *os_kmalloc(os_size_t size)
 		if (ret != NULL)
 		{
 			os_size_t i = ((uint8 *)ret - (uint8 *)_start_addr) / _mem_controler.size_array[0];
-			cpu_sr = os_cpu_sr_save();
+			cpu_sr = os_cpu_sr_off();
 			_mem_controler.block_group[i] = 10;
 			_mem_controler.used_mem += _mem_controler.size_array[10];
 		}
@@ -412,7 +412,7 @@ void *os_kmalloc(os_size_t size)
 
 void os_kfree(void *addr)
 {
-	os_cpu_sr cpu_sr = os_cpu_sr_save();
+	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	if (addr >= (void *)_start_addr)
 	{
 		os_size_t addr_offset = (uint8 *)addr - (uint8 *)_start_addr;

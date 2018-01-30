@@ -3,7 +3,7 @@
 #include "sched/os_sched.h"
 os_sem_t *os_sem_create(os_sem_t *p_sem, uint32 cnt)
 {
-	os_cpu_sr cpu_sr = os_cpu_sr_save();
+	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	p_sem->sem = cnt;
 	p_sem->wait_task_list = NULL;
 	os_cpu_sr_restore(cpu_sr);
@@ -21,7 +21,7 @@ static void task_wakeup(void *args)
 
 void os_sem_pend(os_sem_t *p_sem, uint64 timeout, uint32 *p_status)
 {
-	os_cpu_sr cpu_sr = os_cpu_sr_save();
+	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	if (p_sem->sem > 0)
 	{
 		p_sem->sem--;
@@ -34,7 +34,7 @@ void os_sem_pend(os_sem_t *p_sem, uint64 timeout, uint32 *p_status)
 		os_insert_to_front(&(p_sem->wait_task_list), &_running_task->list_node_structrue);
 		os_cpu_sr_restore(cpu_sr);
 		os_task_sleep();
-		cpu_sr = os_cpu_sr_save();
+		cpu_sr = os_cpu_sr_off();
 		os_close_timer(&p_sem->timer);
 		*p_status = _running_task->event_status;
 		_running_task->event_status = EVENT_NONE;
@@ -44,7 +44,7 @@ void os_sem_pend(os_sem_t *p_sem, uint64 timeout, uint32 *p_status)
 
 uint32 os_sem_post(os_sem_t *p_sem)
 {
-	os_cpu_sr cpu_sr = os_cpu_sr_save();
+	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	if (p_sem != NULL)
 	{
 		if (p_sem->wait_task_list != NULL)

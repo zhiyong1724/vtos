@@ -125,7 +125,7 @@ static void idle_task(void *p_arg)
 	_scheduler.running = 1;
 	for (;;)
 	{
-		os_cpu_sr cpu_sr = os_cpu_sr_save();
+		os_cpu_sr cpu_sr = os_cpu_sr_off();
 		os_task_idle_hook();
 		_running_task->vruntime += _running_task->unit_vruntime;
 		os_remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
@@ -176,7 +176,7 @@ static void thread_release_task(void *p_arg)
 	for (;;)
 	{
 		os_sem_pend(&_thread_release_sem, 0, &status);
-		cpu_sr = os_cpu_sr_save();
+		cpu_sr = os_cpu_sr_off();
 		while (_scheduler.end_task_list != NULL )
 		{
 			task_info_t *del_task = (task_info_t *)((uint8 *)_scheduler.end_task_list - LIST_NODE_ADDR_OFFSET);
@@ -213,7 +213,7 @@ os_size_t os_init_scheduler(void)
 
 static void do_exit(void)
 {
-	os_cpu_sr cpu_sr = os_cpu_sr_save();
+	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	os_remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
 	os_insert_to_front(&_scheduler.end_task_list, &_running_task->list_node_structrue);
 	_next_task = (task_info_t *)((uint8 *)os_get_leftmost_node(&_scheduler.run_task_tree)
@@ -226,7 +226,7 @@ static void do_exit(void)
 
 void os_sys_tick(void)
 {
-	os_cpu_sr cpu_sr = os_cpu_sr_save();
+	os_cpu_sr cpu_sr = os_cpu_sr_off();
 #ifdef __WINDOWS__
 	if (0 == _scheduler.running)
 	{
@@ -261,7 +261,7 @@ void os_sys_tick(void)
 os_size_t os_kthread_create(void (*task)(void *p_arg), void *p_arg, const char *name)
 {
 	os_size_t ret = 1;
-	os_cpu_sr cpu_sr = os_cpu_sr_save();
+	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	task_info_t *task_structrue = (task_info_t *) os_kmalloc(
 			sizeof(task_info_t));
 	if (task_structrue != NULL)
@@ -293,7 +293,7 @@ os_size_t os_kthread_create(void (*task)(void *p_arg), void *p_arg, const char *
 os_size_t os_kthread_createEX(void (*task)(void *p_arg), void *p_arg, const char *name, os_size_t stack_size)
 {
 	os_size_t ret = 1;
-	os_cpu_sr cpu_sr = os_cpu_sr_save();
+	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	task_info_t *task_structrue = (task_info_t *) os_kmalloc(
 			sizeof(task_info_t));
 	if (task_structrue != NULL)
@@ -333,7 +333,7 @@ void os_set_prio(int32 prio)
 {
 	if (prio >= -20 && prio < 20)
 	{
-		os_cpu_sr cpu_sr = os_cpu_sr_save();
+		os_cpu_sr cpu_sr = os_cpu_sr_off();
 		_running_task->prio = prio;
 		_running_task->unit_vruntime = prio_to_weight[_running_task->prio + 20];
 		os_cpu_sr_restore(cpu_sr);
@@ -352,7 +352,7 @@ os_size_t os_activity_thread_count(void)
 
 void os_task_sleep()
 {
-	os_cpu_sr cpu_sr = os_cpu_sr_save();
+	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	_running_task->task_status = TASK_SLEEP;
 	//由于无法知道该任务到底运行了多久，综合考虑，就当做运行了半个节拍的虚拟运行时间
 	_running_task->vruntime += (_running_task->unit_vruntime >> 1);

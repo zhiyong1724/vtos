@@ -104,10 +104,16 @@ void os_time_tick_hook (void)
  }*/
 
 #ifdef __WINDOWS__
-os_cpu_sr os_cpu_sr_save(void)               //保存状态寄存器函数
+os_cpu_sr os_cpu_sr_off(void)               //关中断
 {
 	return 0;
 }
+
+os_cpu_sr os_cpu_sr_on(void)               //开中断
+{
+	return 0;
+}
+
 void os_cpu_sr_restore(os_cpu_sr cpu_sr)     //回复状态寄存器函数
 {
 	cpu_sr = 0;

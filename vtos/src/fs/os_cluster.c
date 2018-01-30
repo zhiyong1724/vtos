@@ -455,3 +455,16 @@ uint32 flush2()
 	}
 	return ret;
 }
+
+void uninit()
+{
+	flush2();
+	free(_cluster_controler.pcluster_manager);
+	_cluster_controler.pcluster_manager = NULL;
+	if (_cluster_controler.bitmap != NULL)
+	{
+		free(_cluster_controler.bitmap);
+		_cluster_controler.bitmap = NULL;
+		_cluster_controler.cache_id = 0;
+	}
+}

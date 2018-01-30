@@ -7,27 +7,29 @@
 #define FS_FILE_INFO_SIZE 248
 #define FS_MAX_NAME_SIZE 64
 
-typedef struct tnode
+typedef struct super_cluster
 {
-	uint32 node_id;
-	uint32 pointers[FS_MAX_KEY_NUM + 1];
-	uint32 num;     
-	uint32 leaf;
-	uint32 non[12];
-} tnode;
+	uint32 flag;
+	uint8 name[16];
+	uint32 bitmap_id;
+	uint32 root_id;
+	uint32 backup_id;
+} super_cluster;
 
 typedef struct file_info
 {
+	uint32 cluster_id;
+	uint64 size;
+	uint32 cluster_count;
+	uint64 create_time;
+	uint64 modif_time;
+	uint32 creator;
+	uint32 modifier;
+	uint32 limits;
+	uint32 backup_id;
 	char name[FS_MAX_NAME_SIZE];
-	uint8 non[184];
+	uint32 non[34];
 } file_info;
-
-typedef struct fnode
-{
-	tnode head;
-	file_info finfo[FS_MAX_KEY_NUM];
-
-} fnode;
 
 typedef struct disk_info
 {
@@ -40,4 +42,5 @@ typedef struct disk_info
 disk_info os_get_disk_info();
 uint32 os_disk_read(uint32 page_id, void *data);
 uint32 os_disk_write(uint32 page_id, void *data);
+uint64 os_get_time();
 #endif
