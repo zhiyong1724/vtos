@@ -33,8 +33,6 @@ static uint32 load(uint32 cluster, struct cluster_manager *data)
 
 		data->cur_index = convert_endian(data->cur_index);
 		data->cluster_id = convert_endian(data->cluster_id);
-		data->bitmap_size = convert_endian(data->bitmap_size);
-		data->total_cluster_count = convert_endian(data->total_cluster_count);
 		data->used_cluster_count = convert_endian(data->used_cluster_count);
 	}
 	return ret;
@@ -43,7 +41,7 @@ static uint32 load(uint32 cluster, struct cluster_manager *data)
 static uint32 bitmap_flush(uint32 cluster, uint8 *data)
 {
 	uint32 ret = CLUSTER_NONE;
-	uint32 cluster_count = _cluster_controler.pcluster_manager->bitmap_size /  FS_PAGE_SIZE + 1 + 1;
+	uint32 cluster_count = _cluster_controler.bitmap_size /  FS_PAGE_SIZE + 1 + 1;
 	ret = cluster_write(cluster, data);
 	if (CLUSTER_NONE == ret)
 	{
@@ -52,32 +50,29 @@ static uint32 bitmap_flush(uint32 cluster, uint8 *data)
 	return ret;
 }
 
-static uint32 cluster_manager_flush(uint32 cluster, struct cluster_manager *data)
+static uint32 cluster_manager_flush(uint32 cluster)
 {
 	uint32 ret = CLUSTER_NONE;
-	uint32 cluster_count = _cluster_controler.pcluster_manager->bitmap_size /  FS_PAGE_SIZE + 1 + 1;
+	uint32 cluster_count = _cluster_controler.bitmap_size /  FS_PAGE_SIZE + 1 + 1;
 	if (is_little_endian())
 	{
-		ret = cluster_write(cluster, (uint8 *)data);
+		ret = cluster_write(cluster, (uint8 *)_cluster_controler.pcluster_manager);
 		if (CLUSTER_NONE == ret)
 		{
-			ret = cluster_write(cluster + cluster_count, (uint8 *)data);
+			ret = cluster_write(cluster + cluster_count, (uint8 *)_cluster_controler.pcluster_manager);
 		}
 	}
 	else
 	{
 		struct cluster_manager *temp = (struct cluster_manager *)malloc(FS_PAGE_SIZE);
-		os_mem_cpy(temp, data, FS_PAGE_SIZE);
 
-		temp->cur_index = convert_endian(data->cur_index);
-		temp->cluster_id = convert_endian(data->cluster_id);
-		temp->bitmap_size = convert_endian(data->bitmap_size);
-		temp->total_cluster_count = convert_endian(data->total_cluster_count);
-		temp->used_cluster_count = convert_endian(data->used_cluster_count);
+		temp->cur_index = convert_endian(_cluster_controler.pcluster_manager->cur_index);
+		temp->cluster_id = convert_endian(_cluster_controler.pcluster_manager->cluster_id);
+		temp->used_cluster_count = convert_endian(_cluster_controler.pcluster_manager->used_cluster_count);
 		ret = cluster_write(cluster, (uint8 *)temp);
 		if (CLUSTER_NONE == ret)
 		{
-			ret = cluster_write(cluster + cluster_count, (uint8 *)data);
+			ret = cluster_write(cluster + cluster_count, (uint8 *)temp);
 		}
 		free(temp);
 	}
@@ -87,7 +82,7 @@ static uint32 cluster_manager_flush(uint32 cluster, struct cluster_manager *data
 static uint32 copy_bitmap(uint32 id1, uint32 id2)
 {
 	uint32 ret;
-	uint32 cluster_count = _cluster_controler.pcluster_manager->bitmap_size /  FS_PAGE_SIZE + 1 + 1;
+	uint32 cluster_count = _cluster_controler.bitmap_size /  FS_PAGE_SIZE + 1 + 1;
 	if (id2 == _cluster_controler.cache_id + cluster_count)
 	{
 		ret = cluster_write(id1, _cluster_controler.bitmap);
@@ -115,12 +110,12 @@ static uint32 copy_bitmap(uint32 id1, uint32 id2)
 
 static uint32 handle_error()
 {
-	uint32 cluster_count = _cluster_controler.pcluster_manager->bitmap_size /  FS_PAGE_SIZE + 1 + 1;
+	uint32 cluster_count = _cluster_controler.bitmap_size /  FS_PAGE_SIZE + 1 + 1;
 	uint32 backup_bitmap = _cluster_controler.pcluster_manager->cluster_id + cluster_count;
 	_cluster_controler.pcluster_manager->cluster_id += 2 * cluster_count;
 	for (; _cluster_controler.pcluster_manager->cluster_id <= RETAIN_AREA_SIZE + cluster_count * (BACKUP_AREA_COUNT - 2); _cluster_controler.pcluster_manager->cluster_id += 2 * cluster_count)
 	{
-		if (cluster_manager_flush(_cluster_controler.pcluster_manager->cluster_id, _cluster_controler.pcluster_manager) == CLUSTER_NONE)
+		if (cluster_manager_flush(_cluster_controler.pcluster_manager->cluster_id) == CLUSTER_NONE)
 		{
 			uint32 j;
 			for (j = 1; j < cluster_count; j++)
@@ -137,6 +132,7 @@ static uint32 handle_error()
 			}
 			if (j == cluster_count)
 			{
+				_cluster_controler.on_cluster_manager_change(_cluster_controler.pcluster_manager->cluster_id);
 				return 0;
 			}
 		}
@@ -158,14 +154,14 @@ static uint32 bitmap_flush2(uint32 cluster, uint8 *data)
 	return ret;
 }
 
-static uint32 cluster_manager_flush2(uint32 cluster, struct cluster_manager *data)
+static uint32 cluster_manager_flush2(uint32 cluster)
 {
-	uint32 ret = cluster_manager_flush(cluster, data);
+	uint32 ret = cluster_manager_flush(cluster);
 	if (ret != CLUSTER_NONE)
 	{
 		if (handle_error() == CLUSTER_NONE)
 		{
-			ret = cluster_manager_flush(cluster, data);
+			ret = cluster_manager_flush(cluster);
 		}
 	}
 	return ret;
@@ -174,7 +170,7 @@ static uint32 cluster_manager_flush2(uint32 cluster, struct cluster_manager *dat
 static uint32 bitmap_init(uint32 cluster_id)
 {
 	uint32 ret;
-	uint32 cluster_count = _cluster_controler.pcluster_manager->bitmap_size /  FS_PAGE_SIZE + 1 + 1;
+	uint32 cluster_count = _cluster_controler.bitmap_size /  FS_PAGE_SIZE + 1 + 1;
 	uint8 *temp = (uint8 *)malloc(FS_PAGE_SIZE);
 	os_mem_set(temp, 0, FS_PAGE_SIZE);
 	ret = bitmap_flush(cluster_id, temp);
@@ -182,8 +178,10 @@ static uint32 bitmap_init(uint32 cluster_id)
 	return ret;
 }
 
-static void cluster_controler_init()
+void cluster_controler_init()
 {
+	_cluster_controler.on_cluster_manager_change = NULL;
+	_cluster_controler.pcluster_manager = (struct cluster_manager *)malloc(FS_PAGE_SIZE);
 	_cluster_controler.bitmap = NULL;
 	_cluster_controler.cache_id = 0;
 	_cluster_controler.dinfo = os_get_disk_info();
@@ -194,14 +192,15 @@ static void cluster_controler_init()
 		{
 			_cluster_controler.dinfo.page_count--;
 		}
-		_cluster_controler.pcluster_manager->total_cluster_count = _cluster_controler.dinfo.page_count / _cluster_controler.divisor;
+		_cluster_controler.total_cluster_count = _cluster_controler.dinfo.page_count / _cluster_controler.divisor;
 
 	}
 	else
 	{
 		_cluster_controler.divisor = _cluster_controler.dinfo.page_size / FS_PAGE_SIZE;
-		_cluster_controler.pcluster_manager->total_cluster_count = _cluster_controler.dinfo.page_count * _cluster_controler.divisor;
+		_cluster_controler.total_cluster_count = _cluster_controler.dinfo.page_count * _cluster_controler.divisor;
 	}
+	_cluster_controler.bitmap_size = _cluster_controler.total_cluster_count / 8 + 1;
 }
 
 static uint32 bitmap_read(uint32 id, uint8 *data)
@@ -245,7 +244,7 @@ static uint32 do_cluster_alloc()
 			id = 8 * i + id + FS_PAGE_SIZE * 8 * (_cluster_controler.cache_id - _cluster_controler.pcluster_manager->cluster_id - 1);
 			_cluster_controler.pcluster_manager->used_cluster_count++;
 			_cluster_controler.pcluster_manager->cur_index = id + 1;
-			if (_cluster_controler.pcluster_manager->cur_index == _cluster_controler.pcluster_manager->total_cluster_count)
+			if (_cluster_controler.pcluster_manager->cur_index == _cluster_controler.total_cluster_count)
 			{
 				_cluster_controler.pcluster_manager->cur_index = 0;
 			}
@@ -253,7 +252,7 @@ static uint32 do_cluster_alloc()
 		}
 	}
 	_cluster_controler.pcluster_manager->cur_index = FS_PAGE_SIZE * 8 * (_cluster_controler.cache_id - _cluster_controler.pcluster_manager->cluster_id - 1 + 1);
-	if (_cluster_controler.pcluster_manager->cur_index == _cluster_controler.pcluster_manager->total_cluster_count)
+	if (_cluster_controler.pcluster_manager->cur_index == _cluster_controler.total_cluster_count)
 	{
 		_cluster_controler.pcluster_manager->cur_index = 0;
 	}
@@ -263,15 +262,12 @@ static uint32 do_cluster_alloc()
 uint32 cluster_manager_init()
 {
 	uint32 cluster_count;
-	_cluster_controler.pcluster_manager = (struct cluster_manager *)malloc(FS_PAGE_SIZE);
-	cluster_controler_init();
 	_cluster_controler.pcluster_manager->cur_index = 0;
-	_cluster_controler.pcluster_manager->bitmap_size = _cluster_controler.pcluster_manager->total_cluster_count / 8 + 1;
-	cluster_count = _cluster_controler.pcluster_manager->bitmap_size /  FS_PAGE_SIZE + 1 + 1;
+	cluster_count = _cluster_controler.bitmap_size /  FS_PAGE_SIZE + 1 + 1;
 	_cluster_controler.pcluster_manager->used_cluster_count = 0;
 	for (_cluster_controler.pcluster_manager->cluster_id = RETAIN_AREA_SIZE; _cluster_controler.pcluster_manager->cluster_id <= RETAIN_AREA_SIZE + cluster_count * (BACKUP_AREA_COUNT - 2); _cluster_controler.pcluster_manager->cluster_id += 2 * cluster_count)
 	{
-		if (cluster_manager_flush(_cluster_controler.pcluster_manager->cluster_id, _cluster_controler.pcluster_manager) == CLUSTER_NONE)
+		if (cluster_manager_flush(_cluster_controler.pcluster_manager->cluster_id) == CLUSTER_NONE)
 		{
 			uint32 j;
 			for (j = 1; j < cluster_count; j++)
@@ -301,14 +297,13 @@ uint32 cluster_manager_init()
 		}
 		
 	}
-	free(_cluster_controler.pcluster_manager);
 	return 0;
 }
 
 uint32 cluster_alloc()
 {
 	uint32 id;
-	if (_cluster_controler.pcluster_manager->used_cluster_count == _cluster_controler.pcluster_manager->total_cluster_count)
+	if (_cluster_controler.pcluster_manager->used_cluster_count == _cluster_controler.total_cluster_count)
 	{
 		return 0;
 	}
@@ -334,7 +329,7 @@ void cluster_free(uint32 cluster_id)
 	uint8 mark;
 	uint32 i;
 	uint32 j;
-	if (cluster_id >= _cluster_controler.pcluster_manager->total_cluster_count)
+	if (cluster_id >= _cluster_controler.total_cluster_count)
 	{
 		return;
 	}
@@ -426,29 +421,43 @@ uint32 cluster_write(uint32 cluster_id, uint8 *data)
 	return ret;
 }
 
-uint32 cluster_manager_load(uint32 id1, uint32 id2)
+uint32 cluster_manager_load(uint32 id)
 {
 	uint32 ret = 0;
-	_cluster_controler.pcluster_manager = (struct cluster_manager *)malloc(FS_PAGE_SIZE);
-	cluster_controler_init();
-	if (cluster_read(id1, (uint8 *)_cluster_controler.pcluster_manager) != CLUSTER_NONE)
+	if (is_little_endian())
 	{
-		if (cluster_read(id2, (uint8 *)_cluster_controler.pcluster_manager) != CLUSTER_NONE)
+		ret = cluster_read(id, (uint8 *)_cluster_controler.pcluster_manager);
+		if (ret != CLUSTER_NONE)
 		{
-			ret = 1;
-		}
-		else
-		{
-			ret = handle_error();
+			id += _cluster_controler.bitmap_size / FS_PAGE_SIZE + 1 + 1;
+			ret = cluster_read(id, (uint8 *)_cluster_controler.pcluster_manager);
 		}
 	}
+	else
+	{
+		struct cluster_manager *temp = (struct cluster_manager *)malloc(FS_PAGE_SIZE);
+		ret = cluster_read(id, (uint8 *)temp);
+		if (ret != CLUSTER_NONE)
+		{
+			id += _cluster_controler.bitmap_size / FS_PAGE_SIZE + 1 + 1;
+			ret = cluster_read(id, (uint8 *)temp);
+		}
+		if (CLUSTER_NONE == ret)
+		{
+			_cluster_controler.pcluster_manager->cur_index = convert_endian(temp->cur_index);
+			_cluster_controler.pcluster_manager->cluster_id = convert_endian(temp->cluster_id);
+			_cluster_controler.pcluster_manager->used_cluster_count = convert_endian(temp->used_cluster_count);
+		}
+		free(temp);
+	}
+	
  	return ret;
 }
 
 uint32 flush2()
 {
 	uint32 ret;
-	ret = cluster_manager_flush2(_cluster_controler.pcluster_manager->cluster_id, _cluster_controler.pcluster_manager);
+	ret = cluster_manager_flush2(_cluster_controler.pcluster_manager->cluster_id);
 	if (CLUSTER_NONE == ret && _cluster_controler.bitmap != NULL)
 	{
 		ret = bitmap_flush2(_cluster_controler.cache_id, _cluster_controler.bitmap);
@@ -458,13 +467,21 @@ uint32 flush2()
 
 void uninit()
 {
-	flush2();
-	free(_cluster_controler.pcluster_manager);
-	_cluster_controler.pcluster_manager = NULL;
-	if (_cluster_controler.bitmap != NULL)
+	if (_cluster_controler.pcluster_manager != NULL)
 	{
-		free(_cluster_controler.bitmap);
-		_cluster_controler.bitmap = NULL;
-		_cluster_controler.cache_id = 0;
+		flush2();
+		free(_cluster_controler.pcluster_manager);
+		_cluster_controler.pcluster_manager = NULL;
+		if (_cluster_controler.bitmap != NULL)
+		{
+			free(_cluster_controler.bitmap);
+			_cluster_controler.bitmap = NULL;
+			_cluster_controler.cache_id = 0;
+		}
 	}
+}
+
+void register_manager_callback(void(*on_cluster_manager_change)(uint32 cluster_id))
+{
+	_cluster_controler.on_cluster_manager_change = on_cluster_manager_change;
 }

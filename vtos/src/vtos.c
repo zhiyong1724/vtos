@@ -31,7 +31,7 @@ uint32 is_little_endian()
 			endian = 0;
 		}
 	}
-	return endian;
+	return !endian;
 }
 
 os_size_t os_sys_init(void)

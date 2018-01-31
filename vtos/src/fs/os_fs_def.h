@@ -10,6 +10,7 @@
 typedef struct super_cluster
 {
 	uint32 flag;
+	uint32 cluster_id;
 	uint8 name[16];
 	uint32 bitmap_id;
 	uint32 root_id;
