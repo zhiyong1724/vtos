@@ -160,25 +160,22 @@ static uint32 super_cluster_load(uint32 cluster)
 	}
 	else
 	{
-		super_cluster *temp = (super_cluster *)malloc(FS_PAGE_SIZE);
-		if (cluster_read(cluster, (uint8 *)temp) == CLUSTER_NONE)
+		if (cluster_read(cluster, (uint8 *)_super) == CLUSTER_NONE)
 		{
-			os_mem_cpy(_super, temp, FS_PAGE_SIZE);
-			_super->flag = convert_endian(temp->flag);
-			_super->cluster_id = convert_endian(temp->cluster_id);
-			_super->bitmap_id = convert_endian(temp->bitmap_id);
-			_super->root_id = convert_endian(temp->root_id);
-			_super->backup_id = convert_endian(temp->backup_id);
+			_super->flag = convert_endian(_super->flag);
+			_super->cluster_id = convert_endian(_super->cluster_id);
+			_super->bitmap_id = convert_endian(_super->bitmap_id);
+			_super->root_id = convert_endian(_super->root_id);
+			_super->backup_id = convert_endian(_super->backup_id);
 			if (cluster == _super->cluster_id)
 			{
-				if (cluster_read(cluster + 1, (uint8 *)temp) == CLUSTER_NONE)
+				if (cluster_read(cluster + 1, (uint8 *)_super) == CLUSTER_NONE)
 				{
-					os_mem_cpy(_super, temp, FS_PAGE_SIZE);
-					_super->flag = convert_endian(temp->flag);
-					_super->cluster_id = convert_endian(temp->cluster_id);
-					_super->bitmap_id = convert_endian(temp->bitmap_id);
-					_super->root_id = convert_endian(temp->root_id);
-					_super->backup_id = convert_endian(temp->backup_id);
+					_super->flag = convert_endian(_super->flag);
+					_super->cluster_id = convert_endian(_super->cluster_id);
+					_super->bitmap_id = convert_endian(_super->bitmap_id);
+					_super->root_id = convert_endian(_super->root_id);
+					_super->backup_id = convert_endian(_super->backup_id);
 					if (cluster == _super->cluster_id)
 					{
 						ret = 0;
@@ -186,7 +183,6 @@ static uint32 super_cluster_load(uint32 cluster)
 				}
 			}
 		}
-		free(temp);
 	}
 	return ret;
 }

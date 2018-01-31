@@ -18,9 +18,22 @@ static uint32 flush(fnode *node)
 		temp->head.node_id = convert_endian(node->head.node_id);
 		temp->head.num = convert_endian(node->head.num);
 		temp->head.leaf = convert_endian(node->head.leaf);
-		for (; i < FS_MAX_KEY_NUM + 1; i++)
+		for (i = 0; i < node->head.num + 1; i++)
 		{
 			temp->head.pointers[i] = convert_endian(node->head.pointers[i]);
+		}
+
+		for (i = 0; i < node->head.num; i++)
+		{
+			temp->finfo[i].cluster_id = convert_endian(node->finfo[i].cluster_id);
+			temp->finfo[i].cluster_count = convert_endian(node->finfo[i].cluster_count);
+			temp->finfo[i].creator = convert_endian(node->finfo[i].creator);
+			temp->finfo[i].modifier = convert_endian(node->finfo[i].modifier);
+			temp->finfo[i].limits = convert_endian(node->finfo[i].limits);
+			temp->finfo[i].backup_id = convert_endian(node->finfo[i].backup_id);
+			temp->finfo[i].size = convert_endian64(node->finfo[i].size);
+			temp->finfo[i].create_time = convert_endian64(node->finfo[i].create_time);
+			temp->finfo[i].modif_time = convert_endian64(node->finfo[i].modif_time);
 		}
 		ret = cluster_write(node->head.node_id, (uint8 *)temp);
 		free(temp);
@@ -42,9 +55,21 @@ static fnode *load(uint32 id)
 		node->head.node_id = convert_endian(node->head.node_id);
 		node->head.num = convert_endian(node->head.num);
 		node->head.leaf = convert_endian(node->head.leaf);
-		for (; i < FS_MAX_KEY_NUM + 1; i++)
+		for (i = 0; i < node->head.num + 1; i++)
 		{
 			node->head.pointers[i] = convert_endian(node->head.pointers[i]);
+		}
+		for (i = 0; i < node->head.num; i++)
+		{
+			node->finfo[i].cluster_id = convert_endian(node->finfo[i].cluster_id);
+			node->finfo[i].cluster_count = convert_endian(node->finfo[i].cluster_count);
+			node->finfo[i].creator = convert_endian(node->finfo[i].creator);
+			node->finfo[i].modifier = convert_endian(node->finfo[i].modifier);
+			node->finfo[i].limits = convert_endian(node->finfo[i].limits);
+			node->finfo[i].backup_id = convert_endian(node->finfo[i].backup_id);
+			node->finfo[i].size = convert_endian64(node->finfo[i].size);
+			node->finfo[i].create_time = convert_endian64(node->finfo[i].create_time);
+			node->finfo[i].modif_time = convert_endian64(node->finfo[i].modif_time);
 		}
 	}
 	return node;
@@ -336,6 +361,46 @@ static uint32 find_key(fnode *root, file_info *finfo)
 	while (idx < root->head.num && os_str_cmp(root->finfo[idx].name, finfo->name) < 0)
 		++idx;
 	return idx;
+}
+
+//查找文件
+file_info *find_from_tree(fnode *root, const char *name)
+{
+	uint32 idx = 0;
+	fnode *cur = root;
+	for(; cur != NULL;)
+	{
+		for (idx = 0; idx < cur->head.num; idx++)
+		{
+			if (os_str_cmp(cur->finfo[idx].name, name) == 0)
+			{
+				return &cur->finfo[idx];
+			}
+			else if (os_str_cmp(cur->finfo[idx].name, name) > 0)
+			{
+				break;
+			}
+		}
+		if (cur != root)
+		{
+			free(cur);
+		}
+		if (!cur->head.leaf && cur->head.pointers[idx] != 0)
+		{
+			cur = load(cur->head.pointers[idx]);
+		}
+		else
+		{
+			break;
+		}
+		
+	}
+	return NULL;
+}
+
+file_info *search_from_tree()
+{
+	return NULL;
 }
 
 //找到左边最大的key
