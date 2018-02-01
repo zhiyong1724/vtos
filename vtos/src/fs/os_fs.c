@@ -58,6 +58,7 @@ static void file_info_init(file_info *info)
 	info->modifier = 0;
 	info->limits = 0;
 	info->backup_id = 0;
+	info->file_count = 0;
 	info->name[0] = '\0';
 }
 

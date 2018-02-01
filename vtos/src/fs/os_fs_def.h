@@ -2,7 +2,6 @@
 #define __OS_FS_DEF_H__
 #include "os_cpu_def.h"
 #define FS_PAGE_SIZE 4096
-#define FS_TNODE_SIZE 128
 #define FS_MAX_KEY_NUM 16
 #define FS_FILE_INFO_SIZE 248
 #define FS_MAX_NAME_SIZE 64
@@ -28,8 +27,9 @@ typedef struct file_info
 	uint32 modifier;
 	uint32 limits;
 	uint32 backup_id;
+	uint32 file_count;
 	char name[FS_MAX_NAME_SIZE];
-	uint32 non[34];
+	uint32 non[33];
 } file_info;
 
 typedef struct disk_info
