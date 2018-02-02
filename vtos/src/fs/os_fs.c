@@ -1,13 +1,13 @@
 #include "fs/os_fs.h"
 #include "lib/os_string.h"
 #include "fs/os_dentry.h"
+#include "fs/os_cluster.h"
 #include <stdio.h>
 #include <vtos.h>
 #include <stdlib.h>
 static super_cluster *_super = NULL;
 static fnode *_root = NULL;
-static fnode *_backup = NULL;
-static uint32 get_file_name(char *dest, char *path, uint32 *index)
+static uint32 get_file_name(char *dest, const char *path, uint32 *index)
 {
 	if ('/' == *path)
 	{
@@ -52,11 +52,11 @@ static void file_info_init(file_info *info)
 	info->cluster_id = 0;
 	info->size = 0;
 	info->cluster_count = 0;
-	info->create_time = 0;
-	info->modif_time = 0;
+	info->create_time = os_get_time();
+	info->modif_time = os_get_time();
 	info->creator = 0;
 	info->modifier = 0;
-	info->limits = 0;
+	info->limits = 0x000001ff;
 	info->backup_id = 0;
 	info->file_count = 0;
 	info->name[0] = '\0';
@@ -214,18 +214,42 @@ uint32 fs_formatting()
 	_super->bitmap_id = cluster_manager_init();
 	if (_super->bitmap_id > 0)
 	{
-		for (_super->cluster_id = 1; _super->cluster_id < RETAIN_AREA_SIZE - 1; _super->cluster_id += 2)
+		uint32 status = 1;
+		file_info *finfo = (file_info *)malloc(sizeof(file_info));
+		file_info_init(finfo);
+		_root = insert_to_btree(_root, finfo, &status);
+		if (0 == status)
 		{
-			if (super_cluster_flush(_super->cluster_id) == CLUSTER_NONE)
+			_super->backup_id = _root->head.node_id;
+			_root->head.num = 0;
+			if (fnode_flush(_root) == 0)
 			{
-				break;
+				free(_root);
+				_root = NULL;
+				_root = insert_to_btree(_root, finfo, &status);
+				if (0 == status)
+				{
+					_super->root_id = _root->head.node_id;
+					_root->head.num = 0;
+					if (fnode_flush(_root) == 0)
+					{
+						for (_super->cluster_id = 1; _super->cluster_id < RETAIN_AREA_SIZE - 1; _super->cluster_id += 2)
+						{
+							if (super_cluster_flush(_super->cluster_id) == CLUSTER_NONE)
+							{
+								break;
+							}
+						}
+						if (_super->cluster_id < RETAIN_AREA_SIZE - 1)
+						{
+							ret = 0;
+						}
+					}
+				}
 			}
 		}
-		if (_super->cluster_id < RETAIN_AREA_SIZE - 1)
-		{
-			ret = 0;
-		}
 	}
+	fs_unloading();
 	return ret;
 }
 
@@ -257,6 +281,19 @@ uint32 fs_loading()
 	}
 	if (0 == ret)
 	{
+		ret = 1;
+		_root = fnode_load(_super->root_id);
+		if (NULL == _root)
+		{
+			_root = fnode_load(_super->backup_id);
+		}
+		if (_root != NULL)
+		{
+			ret = 0;
+		}
+	}
+	if (0 == ret)
+	{
 		ret = cluster_manager_load(_super->bitmap_id);
 	}
 	if (ret != 0)
@@ -279,16 +316,88 @@ void fs_unloading()
 		free(_root);
 		_root = NULL;
 	}
-	if (_backup != NULL)
-	{
-		free(_backup);
-		_backup = NULL;
-	}
 }
 
-uint32 create_dir()
+static uint32 get_partent(fnode *root, const char *path, file_info *parent, char *child_name)
 {
-	return 0;
+	uint32 ret = 1;
+	uint32 index = 0;
+	fnode *cur = root;
+	os_str_cpy(parent->name, "/", FS_MAX_NAME_SIZE);
+	if (get_file_name(child_name, path, &index) == 0)
+	{
+		ret = 0;
+		os_str_cpy(parent->name, child_name, FS_MAX_NAME_SIZE);
+		while (get_file_name(child_name, path, &index) == 0 && 0 == ret)
+		{
+			ret = 1;
+			if (find_from_tree(cur, parent, parent->name) == 0)
+			{
+				if (parent->file_count > 0)
+				{
+					if (cur != root)
+					{
+						free(cur);
+					}
+					cur = fnode_load(parent->cluster_id);
+					if (cur == NULL)
+					{
+						cur = fnode_load(parent->backup_id);
+					}
+					if (cur != NULL)
+					{
+						ret = 0;
+					}
+				}
+			}
+		}
+		if (cur != NULL && cur != root)
+		{
+			free(cur);
+		}
+	}
+	return ret;
+}
+
+uint32 create_dir(const char *path)
+{
+	uint32 ret = 1;
+	char child_name[FS_MAX_NAME_SIZE];
+	file_info *parent = malloc(sizeof(file_info));
+	if (get_partent(_root, path, parent, child_name) == 0)
+	{
+		if (os_str_find(child_name, "/") != -1 || os_str_find(child_name, "\\") != -1 || os_str_find(child_name, ":") != -1
+			|| os_str_find(child_name, "*") != -1 || os_str_find(child_name, "?") != -1 || os_str_find(child_name, "\"") != -1
+			|| os_str_find(child_name, "<") != -1 || os_str_find(child_name, ">") != -1 || os_str_find(child_name, "|") != -1)
+		{
+			uint32 status = 1;
+			file_info *finfo = (file_info *)malloc(sizeof(file_info));
+			file_info_init(finfo);
+			os_str_cpy(finfo->name, child_name, FS_MAX_NAME_SIZE);
+			finfo->backup_id = 1;
+			
+			if (parent->name[0] != '/')
+			{
+			}
+			else
+			{
+				fnode *root = insert_to_btree(_root, finfo, &status);
+				if (0 == status)
+				{
+					ret = 0;
+					if (root != _root)
+					{
+						_root = root;
+						fnode_flush(_root);
+					}
+				}
+			}
+			free(finfo);
+		}
+		
+	}
+	free(parent);
+	return ret;
 }
 
 uint32 create_file()
@@ -326,12 +435,12 @@ uint32 write_file()
 	return 0;
 }
 
-uint32 read_dir()
+uint32 seek_file()
 {
 	return 0;
 }
 
-uint32 write_dir()
+uint32 read_dir()
 {
 	return 0;
 }
@@ -345,7 +454,6 @@ void test()
 {
 	//fs_formatting();
 	fs_loading();
-	fs_unloading();
 }
 
 

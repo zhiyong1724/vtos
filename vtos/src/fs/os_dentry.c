@@ -3,7 +3,7 @@
 #include "fs/os_cluster.h"
 #include "vtos.h"
 #include <stdlib.h>
-static uint32 flush(fnode *node)
+uint32 fnode_flush(fnode *node)
 {
 	uint32 ret;
 	if (is_little_endian())
@@ -42,7 +42,7 @@ static uint32 flush(fnode *node)
 	return ret;
 }
 
-static fnode *load(uint32 id)
+fnode *fnode_load(uint32 id)
 {
 	fnode *node = (fnode *)malloc(sizeof(fnode));
 	if (cluster_read(id, (uint8 *)node) != CLUSTER_NONE)
@@ -207,7 +207,7 @@ static uint32 insert_non_full(fnode *root, file_info *finfo)
 		while (i > 0 && os_str_cmp(root->finfo[i - 1].name, finfo->name) > 0)
 			i--;
   
-		new_node = load(root->head.pointers[i]);
+		new_node = fnode_load(root->head.pointers[i]);
 		if (new_node != NULL)
 		{
 			if (new_node->head.num == FS_MAX_KEY_NUM)
@@ -218,7 +218,7 @@ static uint32 insert_non_full(fnode *root, file_info *finfo)
 				if (os_str_cmp(root->finfo[i].name, finfo->name) < 0)
 				{
 					flag = 0;
-					if (flush(new_node) == 0)
+					if (fnode_flush(new_node) == 0)
 					{
 						flag = 1;
 					}
@@ -229,7 +229,7 @@ static uint32 insert_non_full(fnode *root, file_info *finfo)
 						if (root->head.pointers[i] == split_node->head.node_id)
 							new_node = split_node;
 						else
-							new_node = load(root->head.pointers[i]);
+							new_node = fnode_load(root->head.pointers[i]);
 					}
 				}
 				if (flag)
@@ -237,7 +237,7 @@ static uint32 insert_non_full(fnode *root, file_info *finfo)
 					if (split_node != new_node)
 					{
 						flag = 0;
-						if (flush(split_node) == 0)
+						if (fnode_flush(split_node) == 0)
 						{
 							flag = 1;
 						}
@@ -253,7 +253,7 @@ static uint32 insert_non_full(fnode *root, file_info *finfo)
 			if (flag)
 			{
 				flag = 0;
-				if (insert_non_full(new_node, finfo) == 0 && flush(new_node) == 0)
+				if (insert_non_full(new_node, finfo) == 0 && fnode_flush(new_node) == 0)
 				{
 					flag = 1;
 				}
@@ -278,7 +278,6 @@ fnode *insert_to_btree(fnode *root, file_info *finfo, uint32 *status)
 			root->head.num = 1;
 			os_mem_cpy(root->finfo, finfo, sizeof(file_info));
 		}
-		*status = 0;
 	}
 	else // 如果树不为空  
 	{
@@ -314,7 +313,7 @@ fnode *insert_to_btree(fnode *root, file_info *finfo, uint32 *status)
 			if (flag)
 			{
 				flag = 0;
-				if (flush(root) == 0 && flush(split_node) == 0)
+				if (fnode_flush(root) == 0 && fnode_flush(split_node) == 0)
 				{
 					flag = 1;
 				}
@@ -339,7 +338,7 @@ fnode *insert_to_btree(fnode *root, file_info *finfo, uint32 *status)
 	}
 	if (flag)
 	{
-		if (flush(root) == 0)
+		if (fnode_flush(root) == 0)
 		{
 			*status = 0;
 		}
@@ -375,7 +374,7 @@ static uint32 merge(fnode *root, fnode *child, fnode *sibling, uint32 idx)
 	//更新父节点和孩子节点计数  
 	child->head.num += sibling->head.num + 1;
 	root->head.num--;
-	if (flush(child) != 0)
+	if (fnode_flush(child) != 0)
 	{
 		return 1;
 	}
@@ -394,7 +393,7 @@ static uint32 find_key(fnode *root, const char *name)
 }
 
 //查找文件
-file_info *find_from_tree(fnode *root, const char *name)
+uint32 find_from_tree(fnode *root, file_info *finfo, const char *name)
 {
 	uint32 idx = 0;
 	fnode *cur = root;
@@ -404,7 +403,12 @@ file_info *find_from_tree(fnode *root, const char *name)
 		{
 			if (os_str_cmp(cur->finfo[idx].name, name) == 0)
 			{
-				return &cur->finfo[idx];
+				os_mem_cpy(finfo, &cur->finfo[idx], sizeof(file_info));
+				if (cur != root)
+				{
+					free(cur);
+				}
+				return 0;
 			}
 			else if (os_str_cmp(cur->finfo[idx].name, name) > 0)
 			{
@@ -417,7 +421,7 @@ file_info *find_from_tree(fnode *root, const char *name)
 		}
 		if (!cur->head.leaf && cur->head.pointers[idx] != 0)
 		{
-			cur = load(cur->head.pointers[idx]);
+			cur = fnode_load(cur->head.pointers[idx]);
 		}
 		else
 		{
@@ -425,41 +429,31 @@ file_info *find_from_tree(fnode *root, const char *name)
 		}
 		
 	}
-	return NULL;
+	return 1;
 }
 
 //遍历文件
-uint32 search_from_tree(uint32 id, file_info *files, uint32 size)
+void search_from_tree(uint32 id, void (*call_back)(void *arg), void *arg)
 {
-	uint32 cur = 0;
 	uint32 i;
-	fnode *node = load(id);
+	fnode *node = fnode_load(id);
 	if (node != NULL)
 	{
 		for (i = 0; i < node->head.num; i++)    //遍历所有的key才是这个节点遍历完  
 		{
 			if (node->head.pointers[i] != 0)
 			{
-				cur = search_from_tree(node->head.pointers[i], files, size);
+				search_from_tree(node->head.pointers[i], call_back, arg);
 			}
-			if (cur < size)
-			{
-				os_mem_cpy(&files[cur], &node->finfo[i], sizeof(file_info));
-				cur++;
-			}
-			else
-			{
-				break;
-			}
+			call_back(arg);
 		}
 
 		if (node->head.pointers[i] != 0)
 		{
-			cur = search_from_tree(node->head.pointers[i], files, size);
+			search_from_tree(node->head.pointers[i], call_back, arg);
 		}
 		free(node);
 	}
-	return cur;
 }
 
 //找到左边最大的key
@@ -473,7 +467,7 @@ static uint32 get_pred(file_info *finfo, fnode *root)
 		{
 			free(cur);
 		}
-		cur = load(id);
+		cur = fnode_load(id);
 		if (NULL == cur)
 		{
 			return 1;
@@ -498,7 +492,7 @@ static uint32 get_succ(file_info *finfo, fnode *root)
 		{
 			free(cur);
 		}
-		cur = load(id);
+		cur = fnode_load(id);
 		if (NULL == cur)
 		{
 			return 1;
@@ -531,7 +525,7 @@ static uint32 remove_from_non_leaf(fnode *root, uint32 idx)
 	file_info *temp = (file_info *)malloc(sizeof(file_info));
 	os_mem_cpy(temp, &root->finfo[idx], sizeof(file_info));
 
-	node = load(root->head.pointers[idx]);
+	node = fnode_load(root->head.pointers[idx]);
 	if (node != NULL)
 	{
 		if (node->head.num >= FS_MAX_KEY_NUM / 2)
@@ -557,7 +551,7 @@ static uint32 remove_from_non_leaf(fnode *root, uint32 idx)
 		}
 		else
 		{
-			fnode *nnode = load(root->head.pointers[idx + 1]);
+			fnode *nnode = fnode_load(root->head.pointers[idx + 1]);
 			if (nnode != NULL)
 			{
 				if (nnode->head.num >= FS_MAX_KEY_NUM / 2)
@@ -632,7 +626,7 @@ static uint32 borrow_from_prev(fnode *root, fnode *child, fnode *sibling, uint32
 
 	child->head.num += 1;
 	sibling->head.num -= 1;
-	if (flush(child) != 0 || flush(sibling) != 0)
+	if (fnode_flush(child) != 0 || fnode_flush(sibling) != 0)
 	{
 		return 1;
 	}
@@ -661,7 +655,7 @@ static uint32 borrow_from_next(fnode *root, fnode *child, fnode *sibling, uint32
 
 	child->head.num += 1;
 	sibling->head.num -= 1;
-	if (flush(child) != 0 || flush(sibling) != 0)
+	if (fnode_flush(child) != 0 || fnode_flush(sibling) != 0)
 	{
 		return 1;
 	}
@@ -674,7 +668,7 @@ static uint32 fill(fnode *root, fnode *child, uint32 idx)
 	fnode *left = NULL;
 	if (idx != 0)
 	{
-		left = load(root->head.pointers[idx - 1]);
+		left = fnode_load(root->head.pointers[idx - 1]);
 		if (left != NULL)
 		{
 			if (left->head.num >= FS_MAX_KEY_NUM / 2)
@@ -698,7 +692,7 @@ static uint32 fill(fnode *root, fnode *child, uint32 idx)
 		{
 			free(left);
 		}
-		right = load(root->head.pointers[idx + 1]);
+		right = fnode_load(root->head.pointers[idx + 1]);
 		if (right != NULL)
 		{
 			if (right->head.num >= FS_MAX_KEY_NUM / 2)
@@ -724,7 +718,7 @@ static uint32 fill(fnode *root, fnode *child, uint32 idx)
 	{
 		if (NULL == left)
 		{
-			left = load(root->head.pointers[idx - 1]);
+			left = fnode_load(root->head.pointers[idx - 1]);
 		}
 		if (left != NULL)
 		{
@@ -770,7 +764,7 @@ fnode *remove_from_btree(fnode *root, const char *name, uint32 *status)
 
 			flag = ((idx == root->head.num) ? 1 : 0);
 
-			child = load(root->head.pointers[idx]);
+			child = fnode_load(root->head.pointers[idx]);
 			if (child != NULL)
 			{
 				if (child->head.num < FS_MAX_KEY_NUM / 2)
@@ -785,7 +779,7 @@ fnode *remove_from_btree(fnode *root, const char *name, uint32 *status)
 				{
 					if (flag && idx > root->head.num)
 					{
-						fnode *sibling = load(root->head.pointers[idx - 1]);
+						fnode *sibling = fnode_load(root->head.pointers[idx - 1]);
 						if (sibling != NULL)
 						{
 							remove_from_btree(sibling, name, status);
@@ -811,7 +805,7 @@ fnode *remove_from_btree(fnode *root, const char *name, uint32 *status)
 				root = NULL;
 			else
 			{
-				root = load(root->head.pointers[0]);
+				root = fnode_load(root->head.pointers[0]);
 				if (NULL == root)
 				{
 					*status = 1;
@@ -823,7 +817,7 @@ fnode *remove_from_btree(fnode *root, const char *name, uint32 *status)
 		}
 		else
 		{
-			if (flush(root) != 0)
+			if (fnode_flush(root) != 0)
 			{
 				*status = 1;
 			}

@@ -224,10 +224,7 @@ static uint32 bitmap_read(uint32 id, uint8 *data)
 	if (ret != CLUSTER_NONE)
 	{
 		_cluster_controler.cache_id = 0;
-		if (handle_error() == 0)
-		{
-			ret = cluster_read(id, data);
-		}
+		ret = cluster_read(id + _cluster_controler.bitmap_size / FS_PAGE_SIZE + 1 + 1, data);
 	}
 	return ret;
 }
