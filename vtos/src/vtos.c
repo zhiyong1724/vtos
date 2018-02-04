@@ -4,6 +4,11 @@
 #include "sched/os_timer.h"
 #include "lib/os_string.h"
 #include "fs/os_fs.h"
+#ifdef __WINDOWS__
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif
 const char *VERSION = "0.0.2";
 
 const char *os_version(void)
@@ -75,6 +80,7 @@ int main()
 		}*/
 
 	}
+	_CrtDumpMemoryLeaks();
 	return 0;
 }
 #endif

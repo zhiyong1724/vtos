@@ -5,7 +5,7 @@
 #define FS_MAX_KEY_NUM 16
 #define FS_FILE_INFO_SIZE 248
 #define FS_MAX_NAME_SIZE 64
-
+#pragma pack(1)
 typedef struct super_cluster
 {
 	uint32 flag;
@@ -15,7 +15,9 @@ typedef struct super_cluster
 	uint32 root_id;
 	uint32 backup_id;
 } super_cluster;
+#pragma pack()
 
+#pragma pack(1)
 typedef struct file_info
 {
 	uint32 cluster_id;
@@ -25,12 +27,12 @@ typedef struct file_info
 	uint64 modif_time;
 	uint32 creator;
 	uint32 modifier;
-	uint32 limits;
-	uint32 backup_id;
+	uint32 property;
 	uint32 file_count;
 	char name[FS_MAX_NAME_SIZE];
-	uint32 non[33];
+	uint32 non[34];
 } file_info;
+#pragma pack()
 
 typedef struct disk_info
 {

@@ -2,6 +2,7 @@
 #define __OS_DENTRY_H__
 #include "fs/os_cluster.h"
 #define FS_TNODE_SIZE 128
+#pragma pack(1)
 typedef struct tnode
 {
 	uint32 node_id;
@@ -10,13 +11,16 @@ typedef struct tnode
 	uint32 leaf;
 	uint32 non[12];
 } tnode;
+#pragma pack()
 
+#pragma pack(1)
 typedef struct fnode
 {
 	tnode head;
 	file_info finfo[FS_MAX_KEY_NUM];
 
 } fnode;
+#pragma pack()
 /*********************************************************************************************************************
 * 插入文件信息
 * root：目录项根节点
@@ -42,12 +46,20 @@ fnode *remove_from_btree(fnode *root, const char *name, uint32 *status);
 *********************************************************************************************************************/
 uint32 find_from_tree(fnode *root, file_info *finfo, const char *name);
 /*********************************************************************************************************************
+* 查找文件
+* root：目录项根节点
+* index：文件在fnode的指针
+* name：要查找的文件名字
+* return：文件所在的fnode
+*********************************************************************************************************************/
+fnode *find_from_tree2(fnode *root, uint32 *index, const char *name);
+/*********************************************************************************************************************
 * 遍历文件
 * id：要遍历的目录id
 * call_back：回调函数
 * arg：传递给回调的参数
 *********************************************************************************************************************/
-void search_from_tree(uint32 id, void(*call_back)(void *arg), void *arg);
+void search_from_tree(uint32 id, void(*call_back)(file_info *finfo, void *arg), void *arg);
 /*********************************************************************************************************************
 * 把fnode写入磁盘
 * node：要写入的fnode

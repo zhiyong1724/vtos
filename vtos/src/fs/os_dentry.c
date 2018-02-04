@@ -29,8 +29,7 @@ uint32 fnode_flush(fnode *node)
 			temp->finfo[i].cluster_count = convert_endian(node->finfo[i].cluster_count);
 			temp->finfo[i].creator = convert_endian(node->finfo[i].creator);
 			temp->finfo[i].modifier = convert_endian(node->finfo[i].modifier);
-			temp->finfo[i].limits = convert_endian(node->finfo[i].limits);
-			temp->finfo[i].backup_id = convert_endian(node->finfo[i].backup_id);
+			temp->finfo[i].property = convert_endian(node->finfo[i].property);
 			temp->finfo[i].file_count = convert_endian(node->finfo[i].file_count);
 			temp->finfo[i].size = convert_endian64(node->finfo[i].size);
 			temp->finfo[i].create_time = convert_endian64(node->finfo[i].create_time);
@@ -66,8 +65,7 @@ fnode *fnode_load(uint32 id)
 			node->finfo[i].cluster_count = convert_endian(node->finfo[i].cluster_count);
 			node->finfo[i].creator = convert_endian(node->finfo[i].creator);
 			node->finfo[i].modifier = convert_endian(node->finfo[i].modifier);
-			node->finfo[i].limits = convert_endian(node->finfo[i].limits);
-			node->finfo[i].backup_id = convert_endian(node->finfo[i].backup_id);
+			node->finfo[i].property = convert_endian(node->finfo[i].property);
 			node->finfo[i].file_count = convert_endian(node->finfo[i].file_count);
 			node->finfo[i].size = convert_endian64(node->finfo[i].size);
 			node->finfo[i].create_time = convert_endian64(node->finfo[i].create_time);
@@ -207,9 +205,11 @@ static uint32 insert_non_full(fnode *root, file_info *finfo)
 		while (i > 0 && os_str_cmp(root->finfo[i - 1].name, finfo->name) > 0)
 			i--;
   
+		flag = 0;
 		new_node = fnode_load(root->head.pointers[i]);
 		if (new_node != NULL)
 		{
+			flag = 1;
 			if (new_node->head.num == FS_MAX_KEY_NUM)
 			{
 				//如果孩子满  
@@ -245,7 +245,7 @@ static uint32 insert_non_full(fnode *root, file_info *finfo)
 						split_node = NULL;
 					}
 				}
-				if (split_node != NULL)
+				else
 				{
 					free(split_node);
 				}
@@ -343,6 +343,11 @@ fnode *insert_to_btree(fnode *root, file_info *finfo, uint32 *status)
 			*status = 0;
 		}
 	}
+	if (*status != NULL)
+	{
+		free(root);
+		root = NULL;
+	}
 	return root;
 }
 
@@ -415,12 +420,13 @@ uint32 find_from_tree(fnode *root, file_info *finfo, const char *name)
 				break;
 			}
 		}
-		if (cur != root)
-		{
-			free(cur);
-		}
+		
 		if (!cur->head.leaf && cur->head.pointers[idx] != 0)
 		{
+			if (cur != root)
+			{
+				free(cur);
+			}
 			cur = fnode_load(cur->head.pointers[idx]);
 		}
 		else
@@ -432,8 +438,43 @@ uint32 find_from_tree(fnode *root, file_info *finfo, const char *name)
 	return 1;
 }
 
+//查找文件
+fnode *find_from_tree2(fnode *root, uint32 *index, const char *name)
+{
+	fnode *cur = root;
+	for(; cur != NULL;)
+	{
+		for (*index = 0; *index < cur->head.num; (*index)++)
+		{
+			if (os_str_cmp(cur->finfo[*index].name, name) == 0)
+			{
+				return cur;
+			}
+			else if (os_str_cmp(cur->finfo[*index].name, name) > 0)
+			{
+				break;
+			}
+		}
+		
+		if (!cur->head.leaf && cur->head.pointers[*index] != 0)
+		{
+			if (cur != root)
+			{
+				free(cur);
+			}
+			cur = fnode_load(cur->head.pointers[*index]);
+		}
+		else
+		{
+			break;
+		}
+
+	}
+	return NULL;
+}
+
 //遍历文件
-void search_from_tree(uint32 id, void (*call_back)(void *arg), void *arg)
+void search_from_tree(uint32 id, void(*call_back)(file_info *finfo, void *arg), void *arg)
 {
 	uint32 i;
 	fnode *node = fnode_load(id);
@@ -445,7 +486,7 @@ void search_from_tree(uint32 id, void (*call_back)(void *arg), void *arg)
 			{
 				search_from_tree(node->head.pointers[i], call_back, arg);
 			}
-			call_back(arg);
+			call_back(&node->finfo[i], arg);
 		}
 
 		if (node->head.pointers[i] != 0)
@@ -539,7 +580,7 @@ static uint32 remove_from_non_leaf(fnode *root, uint32 idx)
 			if (flag)
 			{
 				uint32 status;
-				os_mem_cpy(&root->finfo[idx], pred->name, sizeof(file_info));
+				os_mem_cpy(&root->finfo[idx], pred, sizeof(file_info));
 				remove_from_btree(node, pred->name, &status);
 				flag = 0;
 				if (status == 0)
@@ -784,6 +825,10 @@ fnode *remove_from_btree(fnode *root, const char *name, uint32 *status)
 						{
 							remove_from_btree(sibling, name, status);
 						}
+						else
+						{
+							*status  = 1;
+						}
 						
 						free(sibling);
 					}
@@ -791,6 +836,10 @@ fnode *remove_from_btree(fnode *root, const char *name, uint32 *status)
 						remove_from_btree(child, name, status);
 				}
 				free(child);
+			}
+			else
+			{
+				*status  = 1;
 			}
 
 		}
@@ -823,6 +872,10 @@ fnode *remove_from_btree(fnode *root, const char *name, uint32 *status)
 			}
 		}
 	}
-	
+	if (*status != NULL)
+	{
+		free(root);
+		root = NULL;
+	}
 	return root;
 }

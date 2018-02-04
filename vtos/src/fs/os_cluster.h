@@ -11,12 +11,14 @@ enum CLUSTER_CONTROL_STATUS
 	CLUSTER_WRITE_FAILED,
 };
 
+#pragma pack(1)
 struct cluster_manager
 {
 	uint32 cluster_id;
 	uint32 used_cluster_count;
 	uint32 cur_index;
 };
+#pragma pack()
 
 struct cluster_controler
 {

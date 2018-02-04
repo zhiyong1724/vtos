@@ -245,7 +245,8 @@ static uint32 do_cluster_alloc()
 			return 0;
 		}
 	}
-	for (i = 0; i < FS_PAGE_SIZE; i++)
+	i = _cluster_controler.pcluster_manager->cur_index % (FS_PAGE_SIZE * 8) / 8;
+	for (; i < FS_PAGE_SIZE; i++)
 	{
 		id = _bitmap_index[_cluster_controler.bitmap[i]];
 		if (id != 8)

@@ -1,6 +1,9 @@
 #include "os_mem.h"
 #include "lib/os_string.h"
 #include "vtos.h"
+#ifdef __WINDOWS__
+#include <stdlib.h>
+#endif
 void *_start_addr = NULL;
 void *_end_addr = NULL;
 static struct mem_controler _mem_controler;
@@ -282,6 +285,9 @@ static void free_block(os_size_t group, void *addr)
 
 void *os_kmalloc(os_size_t size)
 {
+#ifdef __WINDOWS__
+	return malloc(size);
+#else
 	os_cpu_sr cpu_sr;
 	void *ret = NULL;
 	if (size <= _mem_controler.size_array[0])
@@ -408,10 +414,14 @@ void *os_kmalloc(os_size_t size)
 	os_error_msg("Memory allocation failure.", 0);
 	os_cpu_sr_restore(cpu_sr);
 	return ret;
+#endif
 }
 
 void os_kfree(void *addr)
 {
+#ifdef __WINDOWS__
+	free(addr);
+#else
 	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	if (addr >= (void *)_start_addr)
 	{
@@ -426,6 +436,7 @@ void os_kfree(void *addr)
 		}
 	}
 	os_cpu_sr_restore(cpu_sr);
+#endif
 }
 
 os_size_t os_total_mem_size(void)
