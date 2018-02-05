@@ -376,7 +376,7 @@ static uint32 insert_to_super(file_info *child)
 	if (0 == status1 && status2 != 0)
 	{
 		fnode *backup1 = NULL;
-		search_from_tree(_root->head.node_id, on_search_call_back, &backup1);
+		query_finfo(_root->head.node_id, on_search_call_back, &backup1);
 		if (backup1 != NULL)
 		{
 			ret = 0;
@@ -388,7 +388,7 @@ static uint32 insert_to_super(file_info *child)
 	if (status1 != 0 && 0 == status2)
 	{
 		fnode *root1 = NULL;
-		search_from_tree(backup->head.node_id, on_search_call_back, &root1);
+		query_finfo(backup->head.node_id, on_search_call_back, &root1);
 		if (root1 != NULL)
 		{
 			ret = 0;
@@ -451,7 +451,7 @@ static uint32 remove_from_super(file_info *child)
 		if (_root != NULL)
 		{
 			fnode *backup1 = NULL;
-			search_from_tree(_root->head.node_id, on_search_call_back, &backup1);
+			query_finfo(_root->head.node_id, on_search_call_back, &backup1);
 			if (backup1 != NULL)
 			{
 				ret = 0;
@@ -472,7 +472,7 @@ static uint32 remove_from_super(file_info *child)
 		if (_super->backup_id != 0)
 		{
 			fnode *root1 = NULL;
-			search_from_tree(backup->head.node_id, on_search_call_back, &root1);
+			query_finfo(backup->head.node_id, on_search_call_back, &root1);
 			if (root1 != NULL)
 			{
 				ret = 0;

@@ -9,7 +9,8 @@ typedef struct tnode
 	uint32 pointers[FS_MAX_KEY_NUM + 1];
 	uint32 num;
 	uint32 leaf;
-	uint32 non[12];
+	uint32 next;
+	uint32 non[11];
 } tnode;
 #pragma pack()
 
@@ -59,7 +60,7 @@ fnode *find_from_tree2(fnode *root, uint32 *index, const char *name);
 * call_back：回调函数
 * arg：传递给回调的参数
 *********************************************************************************************************************/
-void search_from_tree(uint32 id, void(*call_back)(file_info *finfo, void *arg), void *arg);
+void query_finfo(uint32 id, void(*call_back)(file_info *finfo, void *arg), void *arg);
 /*********************************************************************************************************************
 * 把fnode写入磁盘
 * node：要写入的fnode

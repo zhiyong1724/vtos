@@ -69,8 +69,9 @@ void task(void *p_arg)
 
 int main()
 {
-	if (0 == os_sys_init())
-	{
+	//_CrtSetBreakAlloc(135);
+	//if (0 == os_sys_init())
+	//{
 		test();
 		/*os_kthread_create(task, NULL, "task_a");
 		os_sys_start();
@@ -79,7 +80,7 @@ int main()
 			os_sys_tick();
 		}*/
 
-	}
+	//}
 	_CrtDumpMemoryLeaks();
 	return 0;
 }
