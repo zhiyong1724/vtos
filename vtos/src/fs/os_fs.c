@@ -1,6 +1,5 @@
 #include "fs/os_fs.h"
 #include "lib/os_string.h"
-#include "fs/os_dentry.h"
 #include "fs/os_cluster.h"
 #include <stdio.h>
 #include <vtos.h>
@@ -337,10 +336,14 @@ static fnode *get_partent(const char *path, uint32 *idx, char *child_name)
 	return ret;
 }
 
-static void on_search_call_back(file_info *finfo, void *arg)
+static dir_ctl *init_dir_ctl(uint32 id)
 {
-	uint32 status;
-	*((fnode **)arg) = insert_to_btree(*((fnode **)arg), finfo, &status);
+	dir_ctl *dir = (dir_ctl *)malloc(sizeof(dir_ctl));
+	dir->cur = NULL;
+	dir->id = id;
+	dir->index = 0;
+	dir->parent = NULL;
+	return dir;
 }
 
 static uint32 insert_to_super(file_info *child)
@@ -375,8 +378,15 @@ static uint32 insert_to_super(file_info *child)
 
 	if (0 == status1 && status2 != 0)
 	{
+		dir_ctl *dir = init_dir_ctl(_super->root_id);
 		fnode *backup1 = NULL;
-		query_finfo(_root->head.node_id, on_search_call_back, &backup1);
+		file_info *finfo = NULL;
+		while((finfo = read_dir(dir)) != NULL)
+		{
+			backup1 = insert_to_btree(backup1, finfo, &status2);
+			free(finfo);
+		}
+		close_dir(dir);
 		if (backup1 != NULL)
 		{
 			ret = 0;
@@ -387,8 +397,15 @@ static uint32 insert_to_super(file_info *child)
 
 	if (status1 != 0 && 0 == status2)
 	{
+		dir_ctl *dir = init_dir_ctl(_super->backup_id);
 		fnode *root1 = NULL;
-		query_finfo(backup->head.node_id, on_search_call_back, &root1);
+		file_info *finfo = NULL;
+		while((finfo = read_dir(dir)) != NULL)
+		{
+			root1 = insert_to_btree(root1, finfo, &status1);
+			free(finfo);
+		}
+		close_dir(dir);
 		if (root1 != NULL)
 		{
 			ret = 0;
@@ -450,8 +467,15 @@ static uint32 remove_from_super(file_info *child)
 	{
 		if (_root != NULL)
 		{
+			dir_ctl *dir = init_dir_ctl(_super->root_id);
 			fnode *backup1 = NULL;
-			query_finfo(_root->head.node_id, on_search_call_back, &backup1);
+			file_info *finfo = NULL;
+			while((finfo = read_dir(dir)) != NULL)
+			{
+				backup1 = insert_to_btree(backup1, finfo, &status2);
+				free(finfo);
+			}
+			close_dir(dir);
 			if (backup1 != NULL)
 			{
 				ret = 0;
@@ -471,8 +495,15 @@ static uint32 remove_from_super(file_info *child)
 	{
 		if (_super->backup_id != 0)
 		{
+			dir_ctl *dir = init_dir_ctl(_super->backup_id);
 			fnode *root1 = NULL;
-			query_finfo(backup->head.node_id, on_search_call_back, &root1);
+			file_info *finfo = NULL;
+			while((finfo = read_dir(dir)) != NULL)
+			{
+				root1 = insert_to_btree(root1, finfo, &status1);
+				free(finfo);
+			}
+			close_dir(dir);
 			if (root1 != NULL)
 			{
 				ret = 0;
@@ -699,9 +730,32 @@ uint32 seek_file()
 	return 0;
 }
 
-uint32 read_dir()
+dir_ctl *open_dir()
 {
-	return 0;
+	dir_ctl *dir = (dir_ctl *)malloc(sizeof(dir_ctl));
+	dir->cur = NULL;
+	dir->id = 0;
+	dir->index = 0;
+	dir->parent = NULL;
+	return dir;
+}
+
+void close_dir(dir_ctl *dir)
+{
+	if (dir->cur != NULL)
+	{
+		free(dir->cur);
+	}
+	if (dir->parent != NULL)
+	{
+		free(dir->parent);
+	}
+	free(dir);
+}
+
+file_info *read_dir(dir_ctl *dir)
+{
+	return query_finfo(&dir->id, &dir->parent, &dir->cur, &dir->index);
 }
 
 uint32 find_file()

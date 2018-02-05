@@ -56,11 +56,10 @@ uint32 find_from_tree(fnode *root, file_info *finfo, const char *name);
 fnode *find_from_tree2(fnode *root, uint32 *index, const char *name);
 /*********************************************************************************************************************
 * 遍历文件
-* id：要遍历的目录id
-* call_back：回调函数
-* arg：传递给回调的参数
+* args:需要外部提供用来存储的变量，需要外部初始化为0和NULL
+* return:查找到的值，用完需要外部释放内存
 *********************************************************************************************************************/
-void query_finfo(uint32 id, void(*call_back)(file_info *finfo, void *arg), void *arg);
+file_info *query_finfo(uint32 *id, fnode **parent, fnode **cur, uint32 *index);
 /*********************************************************************************************************************
 * 把fnode写入磁盘
 * node：要写入的fnode

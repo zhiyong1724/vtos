@@ -518,6 +518,8 @@ file_info *query_finfo(uint32 *id, fnode **parent, fnode **cur, uint32 *index)
 				{
 					free(*parent);
 					free(*cur);
+					*parent = NULL;
+					*cur = NULL;
 					return NULL;
 				}
 			}
@@ -530,6 +532,7 @@ file_info *query_finfo(uint32 *id, fnode **parent, fnode **cur, uint32 *index)
 		*index++;
 		return finfo;
 	}
+	return NULL;
 }
 
 //找到左边最大的key
