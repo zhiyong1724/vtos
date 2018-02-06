@@ -1,16 +1,6 @@
 #ifndef __OS_CLUSTER_H__
 #define __OS_CLUSTER_H__
 #include "fs/os_fs_def.h"
-#define CLUSTER_MANAGER_SIZE 256
-#define RETAIN_AREA_SIZE 17
-#define BACKUP_AREA_COUNT 8
-enum CLUSTER_CONTROL_STATUS
-{
-	CLUSTER_NONE,
-	CLUSTER_READ_FAILED,
-	CLUSTER_WRITE_FAILED,
-};
-
 #pragma pack(1)
 struct cluster_manager
 {
@@ -29,12 +19,7 @@ struct cluster_controler
 	uint32 divisor;
 	uint32 bitmap_size;
 	uint32 total_cluster_count;
-	void(*on_cluster_manager_change)(uint32 cluster_id);
 };
-/*********************************************************************************************************************
-* 加载簇管理器
-*********************************************************************************************************************/
-void register_manager_callback(void(*on_cluster_manager_change)(uint32 cluster_id));
 /*********************************************************************************************************************
 * 加载簇管理器
 * id：存放id
