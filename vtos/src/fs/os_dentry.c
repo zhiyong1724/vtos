@@ -267,8 +267,6 @@ fnode *insert_to_btree(fnode *root, file_info *finfo)
 
 	}
 	fnode_flush(root);
-	free(root);
-	root = NULL;
 	return root;
 }
 
@@ -593,6 +591,7 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 		{
 			borrow_from_prev(root, child, left, idx);
 			free(left);
+			return;
 		}
 
 	}
@@ -691,7 +690,5 @@ fnode *remove_from_btree(fnode *root, const char *name)
 	{
 		fnode_flush(root);
 	}
-	free(root);
-	root = NULL;
 	return root;
 }

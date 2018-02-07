@@ -41,7 +41,7 @@ static void super_cluster_init(super_cluster *super)
 {
 	super->flag = 0xaa55a55a;
 	os_str_cpy(super->name, "emfs", 16);
-	super->root_id = 0;
+	super->root_id = ROOT_CLUSTER_ID;
 	super->backup_id = 0;
 }
 
@@ -54,7 +54,7 @@ static void file_info_init(file_info *info)
 	info->modif_time = os_get_time();
 	info->creator = 0;
 	info->modifier = 0;
-	info->property = 0x000001ff;
+	info->property = 0x000001ff; //.10 dir or file;.9 sys w;.876 user r,w,x;.543 group r,w,x;.210 other r,w,x
 	info->file_count = 0;
 	info->name[0] = '\0';
 }
@@ -93,13 +93,82 @@ static void super_cluster_load(uint32 cluster)
 	}
 }
 
+static void file_info_flush(uint32 id, file_info *finfo)
+{
+	if (is_little_endian())
+	{
+		cluster_write(finfo, (uint8 *)finfo);
+	}
+	else
+	{
+		uint32 i = 0;
+		file_info *temp = (file_info  *)malloc(sizeof(fnode));
+		temp->finfo[i].cluster_id = convert_endian(finfo->cluster_id);
+			temp->finfo[i].cluster_count = convert_endian(finfo->cluster_count);
+			temp->finfo[i].creator = convert_endian(finfo->creator);
+			temp->finfo[i].modifier = convert_endian(finfo->modifier);
+			temp->finfo[i].property = convert_endian(finfo->property);
+			temp->finfo[i].file_count = convert_endian(finfo->file_count);
+			temp->finfo[i].size = convert_endian64(finfo->size);
+			temp->finfo[i].create_time = convert_endian64(finfo->create_time);
+			temp->finfo[i].modif_time = convert_endian64(finfo->modif_time);
+			cluster_write(id, (uint8 *)temp);
+		free(temp);
+	}
+}
+
+fnode *fnode_load(uint32 id)
+{
+	fnode *node = (fnode *)malloc(sizeof(fnode));
+	cluster_read(id, (uint8 *)node);
+	if (!is_little_endian())
+	{
+		uint32 i = 0;
+		node->head.node_id = convert_endian(node->head.node_id);
+		node->head.num = convert_endian(node->head.num);
+		node->head.leaf = convert_endian(node->head.leaf);
+		node->head.next = convert_endian(node->head.next);
+		for (i = 0; i < node->head.num + 1; i++)
+		{
+			node->head.pointers[i] = convert_endian(node->head.pointers[i]);
+		}
+		for (i = 0; i < node->head.num; i++)
+		{
+			node->finfo[i].cluster_id = convert_endian(node->finfo[i].cluster_id);
+			node->finfo[i].cluster_count = convert_endian(node->finfo[i].cluster_count);
+			node->finfo[i].creator = convert_endian(node->finfo[i].creator);
+			node->finfo[i].modifier = convert_endian(node->finfo[i].modifier);
+			node->finfo[i].property = convert_endian(node->finfo[i].property);
+			node->finfo[i].file_count = convert_endian(node->finfo[i].file_count);
+			node->finfo[i].size = convert_endian64(node->finfo[i].size);
+			node->finfo[i].create_time = convert_endian64(node->finfo[i].create_time);
+			node->finfo[i].modif_time = convert_endian64(node->finfo[i].modif_time);
+		}
+	}
+	return node;
+}
+
 void fs_formatting()
 {
+	file_info *finfo = NULL;
 	while(sizeof(fnode) != FS_PAGE_SIZE);
-	_super = (super_cluster *)malloc(FS_PAGE_SIZE);
 	cluster_controler_init();
-	super_cluster_init(_super);
 	cluster_manager_init();
+	_super = (super_cluster *)malloc(FS_PAGE_SIZE);
+	super_cluster_init(_super);
+	finfo = (file_info *)malloc(FS_PAGE_SIZE);
+	file_info_init(finfo);
+	finfo->property |= 0x00060000;
+	os_str_cpy(finfo->name, ".", FS_MAX_NAME_SIZE);
+	_root = insert_to_btree(_root, finfo);
+	os_str_cpy(finfo->name, "..", FS_MAX_NAME_SIZE);
+	_root = insert_to_btree(_root, finfo);
+	_root->finfo[0].cluster_id = _root->head.node_id;
+	_root->finfo[1].cluster_id = _root->head.node_id;
+	os_str_cpy(finfo->name, "/", FS_MAX_NAME_SIZE);
+	finfo->cluster_id = _root->head.node_id;
+	cluster_write(ROOT_CLUSTER_ID, finfo);
+	free(finfo);
 	super_cluster_flush();
 	fs_unloading();
 }
@@ -597,13 +666,13 @@ uint32 find_file()
 void test()
 {
 	fs_formatting();
-	/*fs_loading();
-	create_dir("chenzhiyong");
+	fs_loading();
+	/*create_dir("chenzhiyong");
 	create_dir("/");
 	create_dir("/home");
 	create_dir("/dev");
-	create_dir("/home/chenzhiyong");
-	fs_unloading();*/
+	create_dir("/home/chenzhiyong");*/
+	fs_unloading();
 }
 
 
