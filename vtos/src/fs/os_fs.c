@@ -597,13 +597,13 @@ uint32 find_file()
 void test()
 {
 	fs_formatting();
-	fs_loading();
-	/*create_dir("chenzhiyong");
+	/*fs_loading();
+	create_dir("chenzhiyong");
 	create_dir("/");
 	create_dir("/home");
 	create_dir("/dev");
-	create_dir("/home/chenzhiyong");*/
-	fs_unloading();
+	create_dir("/home/chenzhiyong");
+	fs_unloading();*/
 }
 
 
