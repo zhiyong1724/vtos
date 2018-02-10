@@ -62,7 +62,7 @@ static void cluster_manager_flush()
 	}
 }
 
-static void cluster_manager_load()
+void cluster_manager_load()
 {
 	if (is_little_endian())
 	{

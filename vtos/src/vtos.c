@@ -69,7 +69,7 @@ void task(void *p_arg)
 
 int main()
 {
-	//_CrtSetBreakAlloc(135);
+	//_CrtSetBreakAlloc(680);
 	//if (0 == os_sys_init())
 	//{
 		test();

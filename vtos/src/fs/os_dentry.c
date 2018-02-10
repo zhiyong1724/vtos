@@ -97,7 +97,7 @@ static fnode *init_leaf(fnode *node)
 	node->head.node_id = 0;
 	node->head.leaf = 1;
 	node->head.num = 0;
-	node->head.num = 0;
+	node->head.next = 0;
 	return node;
 }
 
@@ -324,7 +324,11 @@ uint32 find_from_tree(fnode *root, file_info *finfo, const char *name)
 		{
 			if (os_str_cmp(cur->finfo[idx].name, name) == 0)
 			{
-				os_mem_cpy(finfo, &cur->finfo[idx], sizeof(file_info));
+				if (finfo != NULL)
+				{
+					os_mem_cpy(finfo, &cur->finfo[idx], sizeof(file_info));
+				}
+				
 				if (cur != root)
 				{
 					free(cur);
@@ -350,6 +354,10 @@ uint32 find_from_tree(fnode *root, file_info *finfo, const char *name)
 			break;
 		}
 
+	}
+	if (cur != NULL && cur != root)
+	{
+		free(cur);
 	}
 	return 1;
 }
@@ -390,7 +398,7 @@ fnode *find_from_tree2(fnode *root, uint32 *index, const char *name)
 }
 
 //遍历文件
-file_info *query_finfo(uint32 *id, fnode **parent, fnode **cur, uint32 *index)
+uint32 query_finfo(file_info *finfo, uint32 *id, fnode **parent, fnode **cur, uint32 *index)
 {
 	if (NULL == *parent)
 	{
@@ -424,19 +432,18 @@ file_info *query_finfo(uint32 *id, fnode **parent, fnode **cur, uint32 *index)
 					free(*cur);
 					*parent = NULL;
 					*cur = NULL;
-					return NULL;
+					return 1;
 				}
 			}
 		}
 	}
 	if (*cur != NULL)
 	{
-		file_info *finfo = malloc(sizeof(file_info));
 		os_mem_cpy(finfo, &(*cur)->finfo[*index], sizeof(file_info));
-		*index++;
-		return finfo;
+		(*index)++;
+		return 0;
 	}
-	return NULL;
+	return 1;
 }
 
 //找到左边最大的key

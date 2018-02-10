@@ -11,6 +11,7 @@ static uint32 get_file_name(char *dest, const char *path, uint32 *index)
 	uint32 ret = 1;
 	if ('/' == path[*index])
 	{
+		uint32 i = 0;
 		ret = 0;
 		(*index)++;
 		for (; path[*index] != '\0'; (*index)++)
@@ -20,7 +21,7 @@ static uint32 get_file_name(char *dest, const char *path, uint32 *index)
 				break;
 			}
 		}
-		for (; path[*index] != '\0'; (*index)++)
+		for (; path[*index] != '\0'; (*index)++, i++)
 		{
 			if (path[*index] == '/')
 			{
@@ -28,11 +29,10 @@ static uint32 get_file_name(char *dest, const char *path, uint32 *index)
 			}
 			else
 			{
-				*dest = path[*index];
-				dest++;
+				dest[i] = path[*index];
 			}
 		}
-		*dest = '\0';
+		dest[i] = '\0';
 		if (os_str_cmp(dest, "") == 0)
 		{
 			ret = 1;
@@ -59,7 +59,7 @@ static void file_info_init(file_info *info)
 	info->creator = 0;
 	info->modifier = 0;
 	info->property = 0x000001ff; //.10 dir or file;.9 sys w;.876 user r,w,x;.543 group r,w,x;.210 other r,w,x
-	info->file_count = 0;
+	info->file_count = 2;
 	info->name[0] = '\0';
 }
 
@@ -67,7 +67,7 @@ static void super_cluster_flush()
 {
 	if (is_little_endian())
 	{
-		cluster_write(1, (uint8 *)_super);
+		cluster_write(SUPER_CLUSTER_ID, (uint8 *)_super);
 	}
 	else
 	{
@@ -77,20 +77,20 @@ static void super_cluster_flush()
 		temp->flag = convert_endian(_super->flag);
 		temp->root_id = convert_endian(_super->root_id);
 		temp->backup_id = convert_endian(_super->backup_id);
-		cluster_write(1, (uint8 *)temp);
+		cluster_write(SUPER_CLUSTER_ID, (uint8 *)temp);
 		free(temp);
 	}
 }
 
-static void super_cluster_load(uint32 cluster)
+static void super_cluster_load()
 {
 	if (is_little_endian())
 	{
-		cluster_read(cluster, (uint8 *)_super);
+		cluster_read(SUPER_CLUSTER_ID, (uint8 *)_super);
 	}
 	else
 	{
-		cluster_read(cluster, (uint8 *)_super);
+		cluster_read(SUPER_CLUSTER_ID, (uint8 *)_super);
 		_super->flag = convert_endian(_super->flag);
 		_super->root_id = convert_endian(_super->root_id);
 		_super->backup_id = convert_endian(_super->backup_id);
@@ -120,7 +120,7 @@ static void file_info_flush(uint32 id, file_info *finfo)
 	}
 }
 
-file_info *file_info_load(uint32 id)
+static file_info *file_info_load(uint32 id)
 {
 	file_info *finfo = (file_info *)malloc(FS_PAGE_SIZE);
 	cluster_read(id, (uint8 *)finfo);
@@ -149,7 +149,7 @@ void fs_formatting()
 	super_cluster_init(_super);
 	finfo = (file_info *)malloc(FS_PAGE_SIZE);
 	file_info_init(finfo);
-	finfo->property |= 0x00060000;
+	finfo->property |= 0x00000600;
 	os_str_cpy(finfo->name, ".", FS_MAX_NAME_SIZE);
 	_root = insert_to_btree(_root, finfo);
 	os_str_cpy(finfo->name, "..", FS_MAX_NAME_SIZE);
@@ -169,8 +169,9 @@ void fs_loading()
 	file_info *finfo = NULL;
 	while (sizeof(fnode) != FS_PAGE_SIZE);
 	cluster_controler_init();
+	cluster_manager_load();
 	_super = (super_cluster *)malloc(FS_PAGE_SIZE);
-	super_cluster_load(SUPER_CLUSTER_ID);
+	super_cluster_load();
 	finfo = file_info_load(ROOT_CLUSTER_ID);
 	_root = fnode_load(finfo->cluster_id);
 	free(finfo);
@@ -191,15 +192,15 @@ void fs_unloading()
 	}
 }
 
-static fnode *get_partent(const char *path, uint32 *idx, char *child_name)
+static fnode *get_partent(const char *path, uint32 *idx, char *child_name, uint32 *is_exist)
 {
 	uint32 index = 0;
 	char parent_name[FS_MAX_NAME_SIZE];
 	fnode *cur = _root;
 	fnode *ret = _root;
-	if (get_file_name(child_name, path, &index) == 0)
+	*is_exist = 0;
+	if (get_file_name(parent_name, path, &index) == 0)
 	{
-		os_str_cpy(parent_name, child_name, FS_MAX_NAME_SIZE);
 		while (get_file_name(child_name, path, &index) == 0)
 		{
 			if (ret != _root)
@@ -209,26 +210,83 @@ static fnode *get_partent(const char *path, uint32 *idx, char *child_name)
 			ret = find_from_tree2(cur, idx, parent_name);
 			if (ret != NULL)
 			{
-				if (ret->finfo[*idx].file_count > 0)
+				if (ret->finfo[*idx].property & 0x00000400)
 				{
-					if (cur != _root)
+					if (cur != ret)
 					{
 						free(cur);
 					}
 					cur = fnode_load(ret->finfo[*idx].cluster_id);
+				}
+				else
+				{
+					break;
 				}
 			}
 			else
 			{
 				break;
 			}
+			os_str_cpy(parent_name, child_name, FS_MAX_NAME_SIZE);
 		}
-		if (cur != NULL && cur != _root)
+		if (ret->finfo[*idx].property & 0x00000400)
+		{
+			if (find_from_tree(cur, NULL, child_name) == 0)
+			{
+				*is_exist = 1;
+			}
+		}
+		
+		if (cur != NULL && cur != _root && cur != ret)
 		{
 			free(cur);
 		}
 	}
 	return ret;
+}
+
+static file_info *get_file_info(const char *path)
+{
+	uint32 flag = 0;
+	uint32 index = 0;
+	char name[FS_MAX_NAME_SIZE];
+	fnode *cur = _root;
+	file_info *finfo = (file_info *)malloc(sizeof(file_info));
+	while (get_file_name(name, path, &index) == 0)
+	{
+		if (find_from_tree(cur, finfo, name) == 0)
+		{
+			if (finfo->property & 0x00000400)
+			{
+				if (cur != _root)
+				{
+					free(cur);
+				}
+				cur = fnode_load(finfo->cluster_id);
+			}
+			else
+			{
+				flag = 1;
+				break;
+			}
+		}
+		else
+		{
+			flag = 1;
+			break;
+		}
+	}
+
+	if (cur != NULL && cur != _root)
+	{
+		free(cur);
+	}
+	if (flag)
+	{
+		free(finfo);
+		finfo = NULL;
+	}
+	return finfo;
 }
 
 static dir_ctl *init_dir_ctl(uint32 id)
@@ -290,72 +348,81 @@ static uint32 do_create_file(const char *path, file_info *finfo)
 {
 	uint32 ret = 1;
 	uint32 index = 0;
-	if (get_file_name(finfo->name, path, &index) == 0 && get_file_name(finfo->name, path, &index) != 0)
+	if (get_file_name(finfo->name, path, &index) == 0)
 	{
-		index = 0;
-		get_file_name(finfo->name, path, &index);
-		if (os_str_find(finfo->name, "/") == -1 && os_str_find(finfo->name, "\\") && -1 && os_str_find(finfo->name, ":") == -1
-			&& os_str_find(finfo->name, "*") == -1 && os_str_find(finfo->name, "?") == -1 && os_str_find(finfo->name, "\"") == -1
-			&& os_str_find(finfo->name, "<") == -1 && os_str_find(finfo->name, ">") == -1 && os_str_find(finfo->name, "|") == -1)
+		if (get_file_name(finfo->name, path, &index) != 0)
 		{
-			if (finfo->property | 0x00000400)
-			{
-				fnode *root = NULL;
-				file_info *child = (file_info *)malloc(sizeof(file_info));
-				file_info_init(child);
-				child->property |= 0x00060000;
-				os_str_cpy(child->name, ".", FS_MAX_NAME_SIZE);
-				root = insert_to_btree(root, child);
-				os_str_cpy(child->name, "..", FS_MAX_NAME_SIZE);
-				root = insert_to_btree(root, child);
-				root->finfo[0].cluster_id = root->head.node_id;
-				root->finfo[1].cluster_id = _root->head.node_id;
-				fnode_flush(root);
-				finfo->cluster_id = root->head.node_id;
-				free(child);
-				free(root);
-			}
-			insert_to_root(finfo);
-			super_cluster_flush();
-			ret = 0;
-		}
-	}
-	else
-	{
-		fnode *node = NULL;
-		index = 0;
-		node = get_partent(path, &index, finfo->name);
-		if (node != NULL)
-		{
-			if (finfo->name[0] != '\0' && os_str_find(finfo->name, "/") == -1 && os_str_find(finfo->name, "\\") && -1 && os_str_find(finfo->name, ":") == -1
-				&& os_str_find(finfo->name, "*") == -1 && os_str_find(finfo->name, "?") == -1 && os_str_find(finfo->name, "\"") == -1
+			index = 0;
+			get_file_name(finfo->name, path, &index);
+			if (find_from_tree(_root, NULL, finfo->name) != 0 && os_str_find(finfo->name, "/") == -1 && os_str_find(finfo->name, "\\") && -1
+				&& os_str_find(finfo->name, ":") == -1 && os_str_find(finfo->name, "*") == -1 && os_str_find(finfo->name, "?") == -1 && os_str_find(finfo->name, "\"") == -1
 				&& os_str_find(finfo->name, "<") == -1 && os_str_find(finfo->name, ">") == -1 && os_str_find(finfo->name, "|") == -1)
 			{
-				if (node->finfo[index].file_count < 0xffffffff)
+				if (finfo->property | 0x00000400)
 				{
-					if (finfo->property | 0x00000400)
-					{
-						fnode *root = NULL;
-						file_info *child = (file_info *)malloc(sizeof(file_info));
-						file_info_init(child);
-						child->property |= 0x00060000;
-						os_str_cpy(child->name, ".", FS_MAX_NAME_SIZE);
-						root = insert_to_btree(root, child);
-						os_str_cpy(child->name, "..", FS_MAX_NAME_SIZE);
-						root = insert_to_btree(root, child);
-						root->finfo[0].cluster_id = root->head.node_id;
-						root->finfo[1].cluster_id = node->finfo[index].cluster_id;
-						fnode_flush(root);
-						finfo->cluster_id = root->head.node_id;
-						free(child);
-						free(root);
-					}
-					insert_to_parent(&node->finfo[index], finfo);
-					fnode_flush(node);
-					ret = 0;
+					fnode *root = NULL;
+					file_info *child = (file_info *)malloc(sizeof(file_info));
+					file_info_init(child);
+					child->property |= 0x00000600;
+					os_str_cpy(child->name, ".", FS_MAX_NAME_SIZE);
+					root = insert_to_btree(root, child);
+					os_str_cpy(child->name, "..", FS_MAX_NAME_SIZE);
+					root = insert_to_btree(root, child);
+					root->finfo[0].cluster_id = root->head.node_id;
+					root->finfo[1].cluster_id = _root->head.node_id;
+					fnode_flush(root);
+					finfo->cluster_id = root->head.node_id;
+					free(child);
+					free(root);
 				}
+				insert_to_root(finfo);
+				super_cluster_flush();
+				ret = 0;
 			}
+		}
+		else
+		{
+			uint32 is_exist;
+			fnode *node = NULL;
+			index = 0;
+			node = get_partent(path, &index, finfo->name, &is_exist);
+			if (node != NULL)
+			{
+				if (!is_exist && os_str_find(finfo->name, "/") == -1 && os_str_find(finfo->name, "\\") && -1
+					&& os_str_find(finfo->name, ":") == -1 && os_str_find(finfo->name, "*") == -1 && os_str_find(finfo->name, "?") == -1 && os_str_find(finfo->name, "\"") == -1
+					&& os_str_find(finfo->name, "<") == -1 && os_str_find(finfo->name, ">") == -1 && os_str_find(finfo->name, "|") == -1)
+				{
+					if (node->finfo[index].file_count < 0xffffffff)
+					{
+						if (finfo->property | 0x00000400)
+						{
+							fnode *root = NULL;
+							file_info *child = (file_info *)malloc(sizeof(file_info));
+							file_info_init(child);
+							child->property |= 0x00060000;
+							os_str_cpy(child->name, ".", FS_MAX_NAME_SIZE);
+							root = insert_to_btree(root, child);
+							os_str_cpy(child->name, "..", FS_MAX_NAME_SIZE);
+							root = insert_to_btree(root, child);
+							root->finfo[0].cluster_id = root->head.node_id;
+							root->finfo[1].cluster_id = node->finfo[index].cluster_id;
+							fnode_flush(root);
+							finfo->cluster_id = root->head.node_id;
+							free(child);
+							free(root);
+						}
 
+						insert_to_parent(&node->finfo[index], finfo);
+						fnode_flush(node);
+						ret = 0;
+					}
+				}
+				if (node != _root)
+				{
+					free(node);
+				}
+				
+			}
 		}
 	}
 	return ret;
@@ -386,6 +453,40 @@ uint32 create_file(const char *path)
 	free(finfo);
 	flush();
 	return ret;
+}
+
+dir_ctl *open_dir(const char *path)
+{
+	file_info *finfo = get_file_info(path);
+	if (finfo != NULL)
+	{
+		dir_ctl *dir = (dir_ctl *)malloc(sizeof(dir_ctl));
+		dir->cur = NULL;
+		dir->index = 0;
+		dir->parent = NULL;
+		dir->id = finfo->cluster_id;
+		free(finfo);
+		return dir;
+	}
+	return NULL;
+}
+
+void close_dir(dir_ctl *dir)
+{
+	if (dir->cur != NULL)
+	{
+		free(dir->cur);
+	}
+	if (dir->parent != NULL)
+	{
+		free(dir->parent);
+	}
+	free(dir);
+}
+
+uint32 read_dir(file_info *finfo, dir_ctl *dir)
+{
+	return query_finfo(finfo, &dir->id, &dir->parent, &dir->cur, &dir->index);
 }
 
 uint32 delete_dir()
@@ -423,48 +524,52 @@ uint32 seek_file()
 	return 0;
 }
 
-dir_ctl *open_dir()
-{
-	dir_ctl *dir = (dir_ctl *)malloc(sizeof(dir_ctl));
-	dir->cur = NULL;
-	dir->id = 0;
-	dir->index = 0;
-	dir->parent = NULL;
-	return dir;
-}
-
-void close_dir(dir_ctl *dir)
-{
-	if (dir->cur != NULL)
-	{
-		free(dir->cur);
-	}
-	if (dir->parent != NULL)
-	{
-		free(dir->parent);
-	}
-	free(dir);
-}
-
-file_info *read_dir(dir_ctl *dir)
-{
-	return query_finfo(&dir->id, &dir->parent, &dir->cur, &dir->index);
-}
-
-uint32 find_file()
-{
-	return 0;
-}
-
 void test()
 {
+	dir_ctl *dir;
+	file_info *finfo = (file_info *)malloc(sizeof(file_info));
 	fs_formatting();
 	fs_loading();
-	/*create_dir("chenzhiyong");
+	create_dir("chenzhiyong");
 	create_dir("/");
 	create_dir("/home");
+	create_dir("/home/");
 	create_dir("/dev");
-	create_dir("/home/chenzhiyong");*/
+	create_dir("/home/chenzhiyong");
+	create_dir("/home/chenzhiyong/develop");
+	create_dir("/home/chenzhiyong/develop/a");
+	create_dir("/home/chenzhiyong/develop/b");
+	create_dir("/home/chenzhiyong/develop/c");
+	create_dir("/home/chenzhiyong/develop/d");
+	create_dir("/home/chenzhiyong/develop/e");
+	create_dir("/home/chenzhiyong/develop/f");
+	create_dir("/home/chenzhiyong/develop/g");
+	create_dir("/home/chenzhiyong/develop/h");
+	create_dir("/home/chenzhiyong/develop/i");
+	create_dir("/home/chenzhiyong/develop/j");
+	create_dir("/home/chenzhiyong/develop/k");
+	create_dir("/home/chenzhiyong/develop/l");
+	create_dir("/home/chenzhiyong/develop/m");
+	create_dir("/home/chenzhiyong/develop/n");
+	create_dir("/home/chenzhiyong/develop/o");
+	create_dir("/home/chenzhiyong/develop/p");
+	create_dir("/home/chenzhiyong/develop/q");
+	create_dir("/home/chenzhiyong/develop/r");
+	create_dir("/home/chenzhiyong/develop/s");
+	create_dir("/home/chenzhiyong/develop/t");
+	dir = open_dir("/home");
+	while (read_dir(finfo, dir) == 0)
+	{
+		continue;
+	}
+	close_dir(dir);
+	dir = open_dir("/home/chenzhiyong/develop");
+	while (read_dir(finfo, dir) == 0)
+	{
+		continue;
+	}
+	free(finfo);
+	close_dir(dir);
 	fs_unloading();
 }
 
