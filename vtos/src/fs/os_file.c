@@ -3,44 +3,33 @@
 #include "vtos.h"
 #include <stdlib.h>
 
-uint32 little_file_data_write(uint32 id, uint32 index, void *data, uint32 size)
+uint32 little_file_data_write(uint32 id, uint64 index, void *data, uint32 size)
 {
-	uint32 i = 0;
-	if (index + size <= FS_PAGE_SIZE)
+	if (size == FS_PAGE_SIZE)
 	{
-		if (size == FS_PAGE_SIZE)
-		{
-			cluster_write(id, data);
-			i = size;
-		}
-		else
-		{
-			uint8 *buff = (uint8 *)malloc(FS_PAGE_SIZE);
-			cluster_read(id, buff);
-			os_mem_cpy(&buff[index], data, size);
-			cluster_write(id, buff);
-			i = size;
-			free(buff);
-		}
+		cluster_write(id, data);
 	}
-	return i;
-}
-
-uint32 little_file_data_read(uint32 id, uint32 index, void *data, uint32 size)
-{
-	uint32 i = 0;
-	if (index + size <= FS_PAGE_SIZE)
+	else
 	{
 		uint8 *buff = (uint8 *)malloc(FS_PAGE_SIZE);
-		cluster_read(id, data);
-		os_mem_cpy(data, &buff[index], size);
-		i = size;
+		cluster_read(id, buff);
+		os_mem_cpy(&buff[index], data, size);
+		cluster_write(id, buff);
 		free(buff);
 	}
-	return i;
+	return size;
 }
 
-static void cluster_dir_read(uint32 cluster_id, uint32 *data)
+uint32 little_file_data_read(uint32 id, uint64 index, void *data, uint32 size)
+{
+	uint8 *buff = (uint8 *)malloc(FS_PAGE_SIZE);
+	cluster_read(id, buff);
+	os_mem_cpy(data, &buff[index], size);
+	free(buff);
+	return size;
+}
+
+static void cluster_list_read(uint32 cluster_id, uint32 *data)
 {
 	if (is_little_endian())
 	{
@@ -58,7 +47,7 @@ static void cluster_dir_read(uint32 cluster_id, uint32 *data)
 	}
 }
 
-static void cluster_dir_write(uint32 cluster_id, uint32 *data)
+static void cluster_list_write(uint32 cluster_id, uint32 *data)
 {
 	if (is_little_endian())
 	{
@@ -77,44 +66,29 @@ static void cluster_dir_write(uint32 cluster_id, uint32 *data)
 	}
 }
 
-uint32 create_file_data()
+uint32 create_file_list(uint32 data_id)
 {
-	uint32 dir_id = cluster_alloc();
-	if (dir_id != 0)
+	uint32 list_id = cluster_alloc();
+	uint32 i;
+	uint32 *list = (uint32 *)malloc(FS_PAGE_SIZE);
+	list[0] = 0;
+	list[1] = data_id;
+	for (i = 2; i < FS_PAGE_SIZE / sizeof(uint32); i++)
 	{
-		uint32 data_id = cluster_alloc();
-		if (data_id != 0)
-		{
-			uint32 i;
-			uint32 *dir = (uint32 *)malloc(FS_PAGE_SIZE);
-			dir[0] = 0;
-			dir[1] = data_id;
-			for (i = 2; i < FS_PAGE_SIZE / sizeof(uint32); i++)
-			{
-				dir[i] = 0;
-			}
-			cluster_dir_write(dir_id, dir);
-			cluster_free(dir_id);
-			cluster_free(data_id);
-			dir_id = 0;
-			free(dir);
-		}
-		else
-		{
-			cluster_free(dir_id);
-			return 0;
-		}
+		list[i] = 0;
 	}
-	return dir_id;
+	cluster_list_write(list_id, list);
+	free(list);
+	return list_id;
 }
 
-uint32 get_data_id(uint32 *first, uint32 *i, uint32 is_create)
+uint32 get_data_id(uint32 *first, uint32 *i)
 {
 	uint32 id = 0;
 	if (*i < FS_PAGE_SIZE / sizeof(uint32) - 1)
 	{
 		id = first[*i + 1];
-		if (is_create && 0 == id)
+		if (0 == id)
 		{
 			id = cluster_alloc();
 		}
@@ -129,12 +103,12 @@ uint32 get_data_id(uint32 *first, uint32 *i, uint32 is_create)
 			id = first[*i + 1];
 			*i++;
 		}
-		else if (is_create)
+		else
 		{
 			*first = create_file_data();
 			if (*first != 0)
 			{
-				cluster_dir_read(*first, first);
+				cluster_list_read(*first, first);
 				*i = 0;
 				id = first[*i + 1];
 				*i++;
@@ -156,7 +130,7 @@ uint32 file_data_write(uint32 id, uint64 index, uint8 *data, uint32 size)
 	for (;; j--)
 	{
 		//找出目录页
-		cluster_dir_read(id, dir);
+		cluster_list_read(id, dir);
 		id = *dir;
 		if (0 == j)
 		{
@@ -214,7 +188,7 @@ uint32 file_data_read(uint32 id, uint64 index, uint8 *data, uint32 size)
 	for (;; j--)
 	{
 		//找出目录页
-		cluster_dir_read(id, dir);
+		cluster_list_read(id, dir);
 		id = *dir;
 		if (0 == j)
 		{
@@ -265,7 +239,7 @@ void file_data_remove(uint32 id)
 	uint32 i;
 	do
 	{
-		cluster_dir_read(id, dir);
+		cluster_list_read(id, dir);
 		id = dir[0];
 		for (i = 0; i < FS_PAGE_SIZE; i++)
 		{

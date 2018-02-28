@@ -5,11 +5,13 @@
 #define FS_MAX_KEY_NUM 16
 #define FS_FILE_INFO_SIZE 248
 #define FS_MAX_NAME_SIZE 64
+#define FS_MAX_PATH_LEN 1024
+#define FS_MAX_FSNAME_SIZE 16
 #pragma pack(1)
 typedef struct super_cluster
 {
 	uint32 flag;
-	uint8 name[16];
+	uint8 name[FS_MAX_FSNAME_SIZE];
 	uint32 root_id;
 	uint32 backup_id;
 } super_cluster;

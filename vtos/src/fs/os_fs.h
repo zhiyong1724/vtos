@@ -2,29 +2,42 @@
 #define __OS_FS_H__
 #include "fs/os_fs_def.h"
 #include "fs/os_dentry.h"
+#include "base/os_tree.h"
 #define SUPER_CLUSTER_ID 1
 #define ROOT_CLUSTER_ID 2
-typedef struct dir_ctl
+#define FS_READ 1
+#define FS_WRITE 2
+#define FS_APPEND 4
+#define FS_CREATE 8
+enum SEEK_TYPE
+{
+	FS_SEEK_SET, 
+	FS_SEEK_CUR,
+	FS_SEEK_END
+};
+typedef struct dir_obj
 {
 	uint32 id;
 	fnode *parent;
 	fnode *cur; 
 	uint32 index; 
-} dir_ctl;
+} dir_obj;
 
-typedef struct file_ctl
+typedef struct finfo_node
 {
-	uint32 id;
-	fnode *parent;
-	fnode *cur;
-	uint32 index;
-} file_ctl;
-
-typedef struct mf_info
-{
+	tree_node_type_def tree_node_structrue;
+	uint32 key;
 	uint32 count;
+	char path[FS_MAX_PATH_LEN];
 	file_info finfo;
-} mf_info;
+} finfo_node;
+
+typedef struct file_obj
+{
+	uint32 flags;
+	uint64 index;
+	finfo_node *node;
+} file_obj;
 /*********************************************************************************************************************
 * 格式化文件系统
 *********************************************************************************************************************/
@@ -48,17 +61,17 @@ uint32 create_dir(const char *path);
 * path：文件路径
 * return：目录
 *********************************************************************************************************************/
-dir_ctl *open_dir(const char *path);
+dir_obj *open_dir(const char *path);
 /*********************************************************************************************************************
 * 关闭一个目录
 * dir：目录
 *********************************************************************************************************************/
-void close_dir(dir_ctl *dir);
+void close_dir(dir_obj *dir);
 /*********************************************************************************************************************
 * 读取一个目录
 * finfo：存放找到的info
 * dir：目录
 *********************************************************************************************************************/
-uint32 read_dir(file_info *finfo, dir_ctl *dir);
+uint32 read_dir(file_info *finfo, dir_obj *dir);
 void test();
 #endif

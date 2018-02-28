@@ -1,11 +1,13 @@
 #include "fs/os_fs.h"
 #include "lib/os_string.h"
 #include "fs/os_cluster.h"
+#include "fs/os_file.h"
 #include <stdio.h>
 #include <vtos.h>
 #include <stdlib.h>
 static super_cluster *_super = NULL;
 static fnode *_root = NULL;
+static finfo_node *_finfo_tree = NULL;
 static uint32 get_file_name(char *dest, const char *path, uint32 *index)
 {
 	uint32 ret = 1;
@@ -44,7 +46,7 @@ static uint32 get_file_name(char *dest, const char *path, uint32 *index)
 static void super_cluster_init(super_cluster *super)
 {
 	super->flag = 0xaa55a55a;
-	os_str_cpy(super->name, "emfs", 16);
+	os_str_cpy(super->name, "emfs", FS_MAX_FSNAME_SIZE);
 	super->root_id = ROOT_CLUSTER_ID;
 	super->backup_id = 0;
 }
@@ -58,7 +60,7 @@ static void file_info_init(file_info *info)
 	info->modif_time = os_get_time();
 	info->creator = 0;
 	info->modifier = 0;
-	info->property = 0x000001ff; //.10 dir or file;.9 sys w;.876 user r,w,x;.543 group r,w,x;.210 other r,w,x
+	info->property = 0x000001ff; //.10 dir or file;.9 only sys w;.876 user r,w,x;.543 group r,w,x;.210 other r,w,x
 	info->file_count = 2;
 	info->name[0] = '\0';
 }
@@ -149,7 +151,7 @@ void fs_formatting()
 	super_cluster_init(_super);
 	finfo = (file_info *)malloc(FS_PAGE_SIZE);
 	file_info_init(finfo);
-	finfo->property |= 0x00000600;
+	finfo->property |= 0x00000600;       //设置只是系统写权限和目录标记
 	os_str_cpy(finfo->name, ".", FS_MAX_NAME_SIZE);
 	_root = insert_to_btree(_root, finfo);
 	os_str_cpy(finfo->name, "..", FS_MAX_NAME_SIZE);
@@ -210,7 +212,7 @@ static fnode *get_partent(const char *path, uint32 *idx, char *child_name, uint3
 			ret = find_from_tree2(cur, idx, parent_name);
 			if (ret != NULL)
 			{
-				if (ret->finfo[*idx].property & 0x00000400)
+				if (ret->finfo[*idx].property & 0x00000400)   //判断是否为目录
 				{
 					if (cur != ret)
 					{
@@ -229,7 +231,7 @@ static fnode *get_partent(const char *path, uint32 *idx, char *child_name, uint3
 			}
 			os_str_cpy(parent_name, child_name, FS_MAX_NAME_SIZE);
 		}
-		if (ret->finfo[*idx].property & 0x00000400)
+		if (ret->finfo[*idx].property & 0x00000400)  //判断是否为目录
 		{
 			if (find_from_tree(cur, NULL, child_name) == 0)
 			{
@@ -247,7 +249,7 @@ static fnode *get_partent(const char *path, uint32 *idx, char *child_name, uint3
 
 static file_info *get_file_info(const char *path)
 {
-	uint32 flag = 0;
+	uint32 flag = 1;
 	uint32 index = 0;
 	char name[FS_MAX_NAME_SIZE];
 	fnode *cur = _root;
@@ -256,7 +258,8 @@ static file_info *get_file_info(const char *path)
 	{
 		if (find_from_tree(cur, finfo, name) == 0)
 		{
-			if (finfo->property & 0x00000400)
+			flag = 0;
+			if (finfo->property & 0x00000400)  //判断是否为目录
 			{
 				if (cur != _root)
 				{
@@ -266,7 +269,6 @@ static file_info *get_file_info(const char *path)
 			}
 			else
 			{
-				flag = 1;
 				break;
 			}
 		}
@@ -276,7 +278,10 @@ static file_info *get_file_info(const char *path)
 			break;
 		}
 	}
-
+	if (get_file_name(name, path, &index) == 0)
+	{
+		flag = 1;
+	}
 	if (cur != NULL && cur != _root)
 	{
 		free(cur);
@@ -289,9 +294,9 @@ static file_info *get_file_info(const char *path)
 	return finfo;
 }
 
-static dir_ctl *init_dir_ctl(uint32 id)
+static dir_obj *init_dir_obj(uint32 id)
 {
-	dir_ctl *dir = (dir_ctl *)malloc(sizeof(dir_ctl));
+	dir_obj *dir = (dir_obj *)malloc(sizeof(dir_obj));
 	dir->cur = NULL;
 	dir->id = id;
 	dir->index = 0;
@@ -358,12 +363,12 @@ static uint32 do_create_file(const char *path, file_info *finfo)
 				&& os_str_find(finfo->name, ":") == -1 && os_str_find(finfo->name, "*") == -1 && os_str_find(finfo->name, "?") == -1 && os_str_find(finfo->name, "\"") == -1
 				&& os_str_find(finfo->name, "<") == -1 && os_str_find(finfo->name, ">") == -1 && os_str_find(finfo->name, "|") == -1)
 			{
-				if (finfo->property | 0x00000400)
+				if (finfo->property & 0x00000400)  //判断是否为目录
 				{
 					fnode *root = NULL;
 					file_info *child = (file_info *)malloc(sizeof(file_info));
 					file_info_init(child);
-					child->property |= 0x00000600;
+					child->property |= 0x00000600; //设置只是系统写权限和目录标记
 					os_str_cpy(child->name, ".", FS_MAX_NAME_SIZE);
 					root = insert_to_btree(root, child);
 					os_str_cpy(child->name, "..", FS_MAX_NAME_SIZE);
@@ -394,12 +399,12 @@ static uint32 do_create_file(const char *path, file_info *finfo)
 				{
 					if (node->finfo[index].file_count < 0xffffffff)
 					{
-						if (finfo->property | 0x00000400)
+						if (finfo->property & 0x00000400)  //判断是否为目录
 						{
 							fnode *root = NULL;
 							file_info *child = (file_info *)malloc(sizeof(file_info));
 							file_info_init(child);
-							child->property |= 0x00060000;
+							child->property |= 0x00060000;  //设置只是系统写权限和目录标记
 							os_str_cpy(child->name, ".", FS_MAX_NAME_SIZE);
 							root = insert_to_btree(root, child);
 							os_str_cpy(child->name, "..", FS_MAX_NAME_SIZE);
@@ -433,7 +438,7 @@ uint32 create_dir(const char *path)
 	uint32 ret;
 	file_info *finfo = (file_info *)malloc(sizeof(file_info));
 	file_info_init(finfo);
-	finfo->property |= 0x00000400;
+	finfo->property |= 0x00000400;  //设置目录标记
 	ret = do_create_file(path, finfo);
 	free(finfo);
 	if (0 == ret)
@@ -445,33 +450,50 @@ uint32 create_dir(const char *path)
 
 uint32 create_file(const char *path)
 {
-	uint32 ret;
+	uint32 ret = 1;
 	file_info *finfo = (file_info *)malloc(sizeof(file_info));
 	file_info_init(finfo);
-	finfo->property &= (~0x00000400);
-	ret = do_create_file(path, finfo);
+	finfo->property &= (~0x00000400);  //设置文件标记
+	finfo->cluster_id = cluster_alloc();
+	if (finfo->cluster_id != 0)
+	{
+		finfo->cluster_count = 1;
+		ret = do_create_file(path, finfo);
+		flush();
+	}
 	free(finfo);
-	flush();
 	return ret;
 }
 
-dir_ctl *open_dir(const char *path)
+dir_obj *open_dir(const char *path)
 {
-	file_info *finfo = get_file_info(path);
-	if (finfo != NULL)
+	uint32 id = 0;
+	if (os_str_cmp(path, "/") == 0)
 	{
-		dir_ctl *dir = (dir_ctl *)malloc(sizeof(dir_ctl));
+		id = _root->head.node_id;
+	}
+	else
+	{
+		file_info *finfo = get_file_info(path);
+		if (finfo != NULL)
+		{
+			id = finfo->cluster_id;
+			free(finfo);
+		}
+	}
+	if (id != 0)
+	{
+		dir_obj *dir = (dir_obj *)malloc(sizeof(dir_obj));
 		dir->cur = NULL;
 		dir->index = 0;
 		dir->parent = NULL;
-		dir->id = finfo->cluster_id;
-		free(finfo);
+		dir->id = id;
 		return dir;
 	}
 	return NULL;
 }
 
-void close_dir(dir_ctl *dir)
+void close_dir(dir_obj *dir)
 {
 	if (dir->cur != NULL)
 	{
@@ -484,53 +506,273 @@ void close_dir(dir_ctl *dir)
 	free(dir);
 }
 
-uint32 read_dir(file_info *finfo, dir_ctl *dir)
+uint32 read_dir(file_info *finfo, dir_obj *dir)
 {
 	return query_finfo(finfo, &dir->id, &dir->parent, &dir->cur, &dir->index);
 }
 
-uint32 delete_dir()
+uint32 delete_dir(const char *path)
 {
 	return 0;
 }
 
-uint32 delete_file()
+uint32 delete_file(const char *path)
 {
 	return 0;
 }
 
-uint32 open_file()
+static void insert_to_finfo_tree(tree_node_type_def **handle, finfo_node *node)
 {
+	finfo_node *cur_node = (finfo_node *)*handle;
+	os_init_node(&(node->tree_node_structrue));
+	if (NULL == *handle)
+	{
+		node->tree_node_structrue.color = BLACK;
+		*handle = &(node->tree_node_structrue);
+	}
+	else
+	{
+		for (;;)
+		{
+			if (node->key <= cur_node->key)
+			{
+				if (cur_node->tree_node_structrue.left_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur_node = (finfo_node *)cur_node->tree_node_structrue.left_tree;
+			}
+			else
+			{
+				if (cur_node->tree_node_structrue.right_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur_node = (finfo_node *)cur_node->tree_node_structrue.right_tree;
+			}
+		}
+		node->tree_node_structrue.parent = &cur_node->tree_node_structrue;
+		if (node->key <= cur_node->key)
+			cur_node->tree_node_structrue.left_tree = &(node->tree_node_structrue);
+		else
+			cur_node->tree_node_structrue.right_tree = &(node->tree_node_structrue);
+		os_insert_case(handle, &(node->tree_node_structrue));
+	}
+}
+
+static void remove_from_finfo_tree(tree_node_type_def **handle, finfo_node *node)
+{
+	os_delete_node(handle, &(node->tree_node_structrue));
+}
+
+static finfo_node *find_finfo_node(finfo_node *finfo_tree, uint32 key)
+{
+	finfo_node *cur = finfo_tree;
+	if (cur != NULL)
+	{
+		for (;;)
+		{
+			if (cur->key == key)
+			{
+				return cur;
+			}
+			else if (key < cur->key)
+			{
+				if (cur->tree_node_structrue.left_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur = (finfo_node *)cur->tree_node_structrue.left_tree;
+			}
+			else
+			{
+				if (cur->tree_node_structrue.right_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur = (finfo_node *)cur->tree_node_structrue.right_tree;
+			}
+		}
+	}
+	return NULL;
+}
+
+file_obj *open_file(const char *path, uint32 flags)
+{
+	file_info *finfo = NULL;
+	if (flags & FS_CREATE)
+	{
+		delete_file(path);
+		create_file(path);
+	}
+	finfo = get_file_info(path);
+	if (finfo != NULL && (finfo->property & 0x00000400) == 0)  //检查文件属性
+	{
+		file_obj *file = NULL;
+		finfo_node *node = find_finfo_node(_finfo_tree, finfo->cluster_id);
+		if (node != NULL)
+		{
+			if (node->count < 0xffffffff)
+			{
+				node->count++;
+			}
+			else
+			{
+				free(finfo);
+				return NULL;
+			}
+		}
+		else
+		{
+			node = (finfo_node *)malloc(sizeof(finfo_node));
+			node->count = 1;
+			node->key = finfo->cluster_id;
+			os_str_cpy(node->path, path, FS_MAX_PATH_LEN);
+			os_mem_cpy(&node->finfo, finfo, sizeof(file_info));
+			insert_to_finfo_tree((tree_node_type_def **)(&_finfo_tree), node);
+		}
+		file = (file_obj *)malloc(sizeof(file_obj));
+		file->flags = flags;
+		if (flags & FS_APPEND)
+		{
+			file->index = node->finfo.size - 1;
+		}
+		else
+		{
+			file->index = 0;
+		}
+		file->node = node;
+		free(finfo);
+		return file;
+	}
+	return NULL;
+}
+
+void close_file(file_obj *file)
+{
+	finfo_node *node = find_finfo_node(_finfo_tree, file->node->finfo.cluster_id);
+	node->count--;
+	if (0 == node->count)
+	{
+		uint32 is_exist;
+		fnode *node = NULL;
+		uint32 index = 0;
+		remove_from_finfo_tree((tree_node_type_def **)(&_finfo_tree), file->node);
+		node = get_partent(file->node->path, &index, file->node->finfo.name, &is_exist);
+		if (node != NULL && is_exist)
+		{
+			os_mem_cpy(&node->finfo[index], &file->node->finfo, sizeof(file_info));
+			fnode_flush(node);
+			if (_root != node)
+			{
+				free(node);
+			}
+		}
+	}
+	free(file);
+}
+
+uint32 read_file(file_obj *file, void *data, uint32 len)
+{
+	if ((file->flags & FS_READ) && (file->node->finfo.property & 0x00000124)) //判断是否具有读权限
+	{
+		if (1 == file->node->finfo.cluster_count)  //按照小文件方式读取
+		{
+			if (file->index + len > file->node->finfo.size)
+			{
+				len = (uint32)(file->node->finfo.size - file->index);
+			}
+			if (len > 0)
+			{
+				return little_file_data_read(file->node->finfo.cluster_id, file->index, data, len);
+			}
+		}
+	}
 	return 0;
 }
 
-uint32 close_file()
+uint32 write_file(file_obj *file, void *data, uint32 len)
 {
+	if ((file->flags & FS_WRITE) && (file->node->finfo.property & 0x00000092)) //判断是否具有写权限
+	{
+		if (file->index + len <= FS_PAGE_SIZE && 1 == file->node->finfo.cluster_count)  //按照小文件方式写入
+		{
+			len = little_file_data_write(file->node->finfo.cluster_id, file->index, data, len);
+		}
+		else
+		{
+			if (1 == file->node->finfo.cluster_count)
+			{
+				uint32 list_id = create_file_list(file->node->finfo.cluster_id);
+				if (list_id > 0)
+				{
+					file->node->finfo.cluster_id = list_id;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+			len = file_data_write(file->node->finfo.cluster_id, file->index, data, len);
+		}
+		if (len > 0)
+		{
+
+			if (file->index + len > file->node->finfo.size)
+			{
+				file->node->finfo.size = file->index + len;
+			}
+			file->index += len;
+			file->node->finfo.modif_time = os_get_time();
+		}
+		return len;
+	}
 	return 0;
 }
 
-uint32 read_file()
+uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)
 {
-	return 0;
-}
-
-uint32 write_file()
-{
-	return 0;
-}
-
-uint32 seek_file()
-{
-	return 0;
+	uint64 temp;
+	switch (fromwhere)
+	{
+	case FS_SEEK_SET:
+	{
+		temp = offset;
+		break;
+	}
+	case FS_SEEK_CUR:
+	{
+		temp = file->index + offset;
+		break;
+	}
+	case FS_SEEK_END:
+	{
+		temp = file->node->finfo.size + offset;
+		break;
+	}
+	}
+	if (temp <= file->node->finfo.size)
+	{
+		file->index = temp;
+		return 0;
+	}
+	return 1;
 }
 
 void test()
 {
-	dir_ctl *dir;
-	file_info *finfo = (file_info *)malloc(sizeof(file_info));
+	char buff[1024] = {0, };
+	file_obj *file;
+	/*dir_obj *dir;
+	file_info *finfo = (file_info *)malloc(sizeof(file_info));*/
 	fs_formatting();
 	fs_loading();
-	create_dir("chenzhiyong");
+	file = open_file("/test", FS_WRITE | FS_READ | FS_CREATE);
+	write_file(file, "asd", 3);
+	seek_file(file, 0, FS_SEEK_SET);
+	read_file(file, buff, 3);
+	close_file(file);
+	/*create_dir("chenzhiyong");
 	create_dir("/");
 	create_dir("/home");
 	create_dir("/home/");
@@ -569,7 +811,7 @@ void test()
 		continue;
 	}
 	free(finfo);
-	close_dir(dir);
+	close_dir(dir);*/
 	fs_unloading();
 }
 

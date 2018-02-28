@@ -23,7 +23,7 @@ static const uint32 prio_to_weight[40] =
 		110, 87, 70, 56, 45, //
 		36, 29, 23, 18, 15 //
 		};
-static void os_insert_to_run_task_tree(tree_node_type_def **handle, task_info_t *task_structrue)
+static void insert_to_run_task_tree(tree_node_type_def **handle, task_info_t *task_structrue)
 {
 	tree_node_type_def *cur_node = *handle;
 	task_info_t *cur_task_structrue = NULL;
@@ -68,7 +68,7 @@ static void os_insert_to_run_task_tree(tree_node_type_def **handle, task_info_t 
 	_scheduler.activity_task_count++;
 }
 
-static void os_remove_from_run_task_tree(tree_node_type_def **handle, task_info_t *task_structrue)
+static void remove_from_run_task_tree(tree_node_type_def **handle, task_info_t *task_structrue)
 {
 	os_delete_node(handle, &(task_structrue->tree_node_structrue));
 	_scheduler.activity_task_count--;
@@ -128,8 +128,8 @@ static void idle_task(void *p_arg)
 		os_cpu_sr cpu_sr = os_cpu_sr_off();
 		os_task_idle_hook();
 		_running_task->vruntime += _running_task->unit_vruntime;
-		os_remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
-		os_insert_to_run_task_tree(&_scheduler.run_task_tree, _running_task);
+		remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
+		insert_to_run_task_tree(&_scheduler.run_task_tree, _running_task);
 		_next_task = (task_info_t *) ((uint8 *) os_get_leftmost_node(
 				&_scheduler.run_task_tree) - TREE_NODE_ADDR_OFFSET);
 		_scheduler.min_vruntime = _next_task->vruntime;
@@ -150,7 +150,7 @@ static os_size_t create_idle_task(void)
 				&& task_structrue->pid < MAX_PID_COUNT)
 		{
 			_scheduler.task_info_index[task_structrue->pid] = task_structrue;
-			os_insert_to_run_task_tree(&_scheduler.run_task_tree, task_structrue);
+			insert_to_run_task_tree(&_scheduler.run_task_tree, task_structrue);
 			_next_task = task_structrue;
 			_scheduler.total_task_count++;
 			ret = 0;
@@ -214,7 +214,7 @@ os_size_t os_init_scheduler(void)
 static void do_exit(void)
 {
 	os_cpu_sr cpu_sr = os_cpu_sr_off();
-	os_remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
+	remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
 	os_insert_to_front(&_scheduler.end_task_list, &_running_task->list_node_structrue);
 	_next_task = (task_info_t *)((uint8 *)os_get_leftmost_node(&_scheduler.run_task_tree)
 		- TREE_NODE_ADDR_OFFSET);
@@ -240,8 +240,8 @@ void os_sys_tick(void)
 		_running_task->vruntime += _running_task->unit_vruntime;
 		if(0x55 == _running_task->stack_end[0] && 0xaa == _running_task->stack_end[1])
 		{
-			os_remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
-			os_insert_to_run_task_tree(&_scheduler.run_task_tree, _running_task);
+			remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
+			insert_to_run_task_tree(&_scheduler.run_task_tree, _running_task);
 		}
 		else
 		{
@@ -271,7 +271,7 @@ os_size_t os_kthread_create(void (*task)(void *p_arg), void *p_arg, const char *
 				&& task_structrue->pid < MAX_PID_COUNT)
 		{
 			_scheduler.task_info_index[task_structrue->pid] = task_structrue;
-			os_insert_to_run_task_tree(&_scheduler.run_task_tree, task_structrue);
+			insert_to_run_task_tree(&_scheduler.run_task_tree, task_structrue);
 			_scheduler.total_task_count++;
 			ret = 0;
 		}
@@ -303,7 +303,7 @@ os_size_t os_kthread_createEX(void (*task)(void *p_arg), void *p_arg, const char
 				&& task_structrue->pid < MAX_PID_COUNT)
 		{
 			_scheduler.task_info_index[task_structrue->pid] = task_structrue;
-			os_insert_to_run_task_tree(&_scheduler.run_task_tree,
+			insert_to_run_task_tree(&_scheduler.run_task_tree,
 					task_structrue);
 			_scheduler.total_task_count++;
 			ret = 0;
@@ -356,7 +356,7 @@ void os_task_sleep()
 	_running_task->task_status = TASK_SLEEP;
 	//由于无法知道该任务到底运行了多久，综合考虑，就当做运行了半个节拍的虚拟运行时间
 	_running_task->vruntime += (_running_task->unit_vruntime >> 1);
-	os_remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
+	remove_from_run_task_tree(&_scheduler.run_task_tree, _running_task);
 	_next_task = (task_info_t *) ((uint8 *) os_get_leftmost_node(
 			&_scheduler.run_task_tree) - TREE_NODE_ADDR_OFFSET);
 	_next_task->vruntime -= (_next_task->unit_vruntime >> 1);
@@ -375,6 +375,6 @@ void os_task_activity(uint32 pid)
 			_scheduler.task_info_index[pid]->vruntime = _scheduler.min_vruntime;
 		}
 
-		os_insert_to_run_task_tree(&_scheduler.run_task_tree, _scheduler.task_info_index[pid]);
+		insert_to_run_task_tree(&_scheduler.run_task_tree, _scheduler.task_info_index[pid]);
 	}
 }
