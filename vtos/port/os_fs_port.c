@@ -27,9 +27,8 @@ uint32 os_disk_read(uint32 page_id, void *data)
 	{
 		fread(data, FS_PAGE_SIZE, 1, file);
 		fclose(file);
-		return 0;
 	}
-	return 1;
+	return 0;
 #else
 	return 0;
 #endif // __WINDOWS__
@@ -44,9 +43,8 @@ uint32 os_disk_write(uint32 page_id, void *data)
 	{
 		fwrite(data, FS_PAGE_SIZE, 1, file);
 		fclose(file);
-		return 0;
 	}
-	return 1;
+	return 0;
 #else
 	return 0;
 #endif // __WINDOWS__

@@ -39,7 +39,7 @@ static void cluster_list_read(uint32 cluster_id, uint32 *data)
 	{
 		uint32 i;
 		cluster_read(cluster_id, (uint8 *)data);
-		for (i = 0; i < FS_PAGE_SIZE / sizeof(uint32); i++)
+		for (i = 0; i < FS_MAX_INDEX_NUM; i++)
 		{
 			data[i] = convert_endian(data[i]);
 		}
@@ -57,7 +57,7 @@ static void cluster_list_write(uint32 cluster_id, uint32 *data)
 	{
 		uint32 i;
 		uint32 *p = (uint32 *)malloc(FS_PAGE_SIZE);
-		for (i = 0; i < FS_PAGE_SIZE / sizeof(uint32); i++)
+		for (i = 0; i < FS_MAX_INDEX_NUM; i++)
 		{
 			p[i] = convert_endian(data[i]);
 		}
@@ -66,185 +66,182 @@ static void cluster_list_write(uint32 cluster_id, uint32 *data)
 	}
 }
 
-uint32 create_file_list(uint32 data_id)
+static void init_index_node(uint32 *node)
 {
-	uint32 list_id = cluster_alloc();
 	uint32 i;
-	uint32 *list = (uint32 *)malloc(FS_PAGE_SIZE);
-	list[0] = 0;
-	list[1] = data_id;
-	for (i = 2; i < FS_PAGE_SIZE / sizeof(uint32); i++)
+	for (i = 0; i < FS_MAX_INDEX_NUM; i++)
 	{
-		list[i] = 0;
+		node[i] = 0;
 	}
-	cluster_list_write(list_id, list);
-	free(list);
-	return list_id;
 }
 
-uint32 get_data_id(uint32 *first, uint32 *i)
+static uint32 calculate_tree_height(uint32 node_num)
 {
-	uint32 id = 0;
-	if (*i < FS_PAGE_SIZE / sizeof(uint32) - 1)
+	uint32 height = 0;
+	uint32 cur = 1;
+	uint32 total = 1;
+	while (node_num / total > 0)
 	{
-		id = first[*i + 1];
-		if (0 == id)
-		{
-			id = cluster_alloc();
-		}
-		*i++;
+		cur *= FS_MAX_INDEX_NUM;
+		total += cur;
+		height++;
+	}
+	node_num = node_num - total + cur;
+	if (node_num > 0)
+	{
+		height++;
+	}
+	return height;
+}
+
+static uint32 grow(uint32 id, uint32 is_list)
+{
+	uint32 new_id;
+	uint32 *buff = (uint32 *)malloc(FS_PAGE_SIZE);
+	if (is_list)
+	{
+		cluster_list_read(id, buff);
 	}
 	else
 	{
-		if (*first != 0)
+		cluster_read(id, (uint8 *)buff);
+	}
+	new_id = cluster_alloc();
+	if (is_list)
+	{
+		cluster_list_write(new_id, buff);
+	}
+	else
+	{
+		cluster_write(new_id, (uint8 *)buff);
+	}
+	
+	init_index_node(buff);
+	*buff = new_id;
+	cluster_list_write(id, buff);
+	free(buff);
+	return id;
+}
+
+static uint32 write_to_tree(uint32 tree, uint32 tree_height, uint32 *count, uint64 *index, uint8 **data, uint32 *size)
+{
+	uint32 i = (uint32)(*index / FS_PAGE_SIZE);
+	uint32 j = (uint32)(*index % FS_PAGE_SIZE);
+	uint32 k;
+	for (k = 1; k < tree_height - 1; k++)
+	{
+		i = i / FS_MAX_INDEX_NUM;
+	}
+	if (k < tree_height)
+	{
+		i = i % FS_MAX_INDEX_NUM;
+	}
+	if (1 == tree_height)
+	{
+		uint32 len = FS_PAGE_SIZE - j;
+		if (*size < len)
 		{
-			cluster_dir_read(*first, first);
-			*i = 0;
-			id = first[*i + 1];
-			*i++;
+			len = *size;
 		}
-		else
+		little_file_data_write(tree, j, *data, len);
+		*data += len;
+		*index += len;
+		*size -= len;
+	}
+	else
+	{
+		uint32 *list = (uint32 *)malloc(FS_PAGE_SIZE);
+		cluster_list_read(tree, list);
+		while (*size > 0 && i < FS_MAX_INDEX_NUM)
 		{
-			*first = create_file_data();
-			if (*first != 0)
+			if (0 == list[i])
 			{
-				cluster_list_read(*first, first);
-				*i = 0;
-				id = first[*i + 1];
-				*i++;
+				uint32 *empty = (uint32 *)malloc(FS_PAGE_SIZE);
+				init_index_node(empty);
+				list[i] = cluster_alloc();
+				(*count)++;
+				cluster_list_write(list[i], empty);
+				free(empty);
+			}
+			write_to_tree(list[i], tree_height - 1, count, index, data, size);
+			i++;
+		}
+		cluster_list_write(tree, list);
+		free(list);
+	}
+	return tree;
+}
+
+uint32 file_data_write(uint32 id, uint32 *count, uint64 index, uint8 *data, uint32 size)
+{
+	if (1 == *count)
+	{
+		id = grow(id, 0);
+		(*count)++;
+	}
+	{
+		uint32 tree_height = calculate_tree_height(*count);
+		while (size > 0)
+		{
+			write_to_tree(id, tree_height, count, &index, &data, &size);
+			if (size > 0)
+			{
+				id = grow(id, 1);
+				(*count)++;
+				tree_height++;
 			}
 		}
+		
 	}
 	return id;
 }
 
-uint32 file_data_write(uint32 id, uint64 index, uint8 *data, uint32 size)
+static uint32 read_from_tree(uint32 tree, uint32 tree_height, uint64 *index, uint8 **data, uint32 *size)
 {
-	uint32 cur_size = 0;
-	uint32 *dir = (uint32 *)malloc(FS_PAGE_SIZE);
-	uint8 *buff = (uint8 *)malloc(FS_PAGE_SIZE);
-	uint32 i = (uint32)(index / FS_PAGE_SIZE);
-	uint32 i1 = index % FS_PAGE_SIZE;
-	uint32 j = i / (FS_PAGE_SIZE - sizeof(uint32));
-	uint32 j1 = i % (FS_PAGE_SIZE - sizeof(uint32));
-	for (;; j--)
+	uint32 i = (uint32)(*index / FS_PAGE_SIZE);
+	uint32 j = (uint32)(*index % FS_PAGE_SIZE);
+	uint32 k;
+	for (k = 1; k < tree_height - 1; k++)
 	{
-		//找出目录页
-		cluster_list_read(id, dir);
-		id = *dir;
-		if (0 == j)
+		i = i / FS_MAX_INDEX_NUM;
+	}
+	if (k < tree_height)
+	{
+		i = i % FS_MAX_INDEX_NUM;
+	}
+	if (1 == tree_height)
+	{
+		uint32 len = FS_PAGE_SIZE - j;
+		if (*size < len)
 		{
-			break;
+			len = *size;
 		}
+		little_file_data_read(tree, j, *data, len);
+		*data += len;
+		*index += len;
+		*size -= len;
 	}
-	id = get_data_id(dir, &j1, 1);
-	if (id > 0)
+	else
 	{
-		cluster_read(id, buff);
-	}
-	uint32 temp;
-	temp = FS_PAGE_SIZE - i1;
-	if (size < temp)
-	{
-		temp = size;
-	}
-	os_mem_cpy(&buff[i1], data, temp);
-	cluster_write(id, buff);
-	cur_size = temp;
-	for (; cur_size < size;)
-	{
-		id = get_data_id(dir, &j1, 1);
-		if (id > 0)
+		uint32 *list = (uint32 *)malloc(FS_PAGE_SIZE);
+		cluster_list_read(tree, list);
+		while (*size > 0 && i < FS_MAX_INDEX_NUM)
 		{
-			if (cur_size + FS_PAGE_SIZE <= size)
-			{
-				cluster_write(id, &data[cur_size]);
-				cur_size += FS_PAGE_SIZE;
-			}
-			else
-			{
-				cluster_read(id, buff);
-				os_mem_cpy(buff, &data[cur_size], size - cur_size);
-				cluster_write(id, buff);
-				cur_size = size;
-			}
-
+			read_from_tree(list[i], tree_height - 1, index, data, size);
+			i++;
 		}
+		free(list);
 	}
-	free(dir);
-	free(buff);
-	return cur_size;
+	return tree;
 }
 
-uint32 file_data_read(uint32 id, uint64 index, uint8 *data, uint32 size)
+uint32 file_data_read(uint32 id, uint32 count, uint64 index, uint8 *data, uint32 size)
 {
-	uint32 cur_size = 0;
-	uint32 *dir = (uint32 *)malloc(FS_PAGE_SIZE);
-	uint8 *buff = (uint8 *)malloc(FS_PAGE_SIZE);
-	uint32 i = (uint32)(index / FS_PAGE_SIZE);
-	uint32 i1 = index % FS_PAGE_SIZE;
-	uint32 j = i / (FS_PAGE_SIZE - sizeof(uint32));
-	uint32 j1 = i % (FS_PAGE_SIZE - sizeof(uint32));
-	for (;; j--)
-	{
-		//找出目录页
-		cluster_list_read(id, dir);
-		id = *dir;
-		if (0 == j)
-		{
-			break;
-		}
-	}
-	cluster_read(id, buff);
-	id = get_data_id(dir, &j1, 0);
-	if (id > 0)
-	{
-		cluster_read(id, buff);
-	}
-	cur_size = FS_PAGE_SIZE - i1;
-	if (size < cur_size)
-	{
-		cur_size = size;
-	}
-	os_mem_cpy(data, &buff[i1], cur_size);
-	for (; cur_size < size;)
-	{
-		id = get_data_id(dir, &j1, 0);
-		if (id > 0)
-		{
-			cluster_read(id, buff);
-			if (cur_size + FS_PAGE_SIZE <= size)
-			{
-				cluster_read(id, &data[cur_size]);
-				cur_size += FS_PAGE_SIZE;
-			}
-			else
-			{
-				cluster_read(id, buff);
-				os_mem_cpy(&data[cur_size], buff, size - cur_size);
-				cur_size = size;
-			}
-		}
-		else
-		{
-			break;
-		}
-	}
-	return cur_size;
+	uint32 tree_height = calculate_tree_height(count);
+	read_from_tree(id, tree_height, &index, &data, &size);
+	return id;
 }
 
 void file_data_remove(uint32 id)
 {
-	uint32 *dir = (uint32 *)malloc(FS_PAGE_SIZE);
-	uint32 i;
-	do
-	{
-		cluster_list_read(id, dir);
-		id = dir[0];
-		for (i = 0; i < FS_PAGE_SIZE; i++)
-		{
-			cluster_free(dir[i]);
-		}
-	} while (id > 0);
-	free(dir);
 }

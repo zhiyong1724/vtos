@@ -654,18 +654,19 @@ void close_file(file_obj *file)
 	node->count--;
 	if (0 == node->count)
 	{
-		uint32 is_exist;
-		fnode *node = NULL;
-		uint32 index = 0;
 		remove_from_finfo_tree((tree_node_type_def **)(&_finfo_tree), file->node);
-		node = get_partent(file->node->path, &index, file->node->finfo.name, &is_exist);
-		if (node != NULL && is_exist)
+	}
+	{
+		uint32 is_exist;
+		uint32 index = 0;
+		fnode *n = get_partent(file->node->path, &index, file->node->finfo.name, &is_exist);
+		if (n != NULL && is_exist)
 		{
-			os_mem_cpy(&node->finfo[index], &file->node->finfo, sizeof(file_info));
-			fnode_flush(node);
-			if (_root != node)
+			os_mem_cpy(&n->finfo[index], &file->node->finfo, sizeof(file_info));
+			fnode_flush(n);
+			if (_root != n)
 			{
-				free(node);
+				free(n);
 			}
 		}
 	}
@@ -676,16 +677,22 @@ uint32 read_file(file_obj *file, void *data, uint32 len)
 {
 	if ((file->flags & FS_READ) && (file->node->finfo.property & 0x00000124)) //判断是否具有读权限
 	{
-		if (1 == file->node->finfo.cluster_count)  //按照小文件方式读取
+		if (file->index + len > file->node->finfo.size)
 		{
-			if (file->index + len > file->node->finfo.size)
+			len = (uint32)(file->node->finfo.size - file->index);
+		}
+		if (len > 0)
+		{
+			if (1 == file->node->finfo.cluster_count)  //按照小文件方式读取
 			{
-				len = (uint32)(file->node->finfo.size - file->index);
+				little_file_data_read(file->node->finfo.cluster_id, file->index, data, len);
 			}
-			if (len > 0)
+			else
 			{
-				return little_file_data_read(file->node->finfo.cluster_id, file->index, data, len);
+				file_data_read(file->node->finfo.cluster_id, file->node->finfo.cluster_count, file->index, data, len);
+				file->index += len;
 			}
+			return len;
 		}
 	}
 	return 0;
@@ -695,28 +702,16 @@ uint32 write_file(file_obj *file, void *data, uint32 len)
 {
 	if ((file->flags & FS_WRITE) && (file->node->finfo.property & 0x00000092)) //判断是否具有写权限
 	{
-		if (file->index + len <= FS_PAGE_SIZE && 1 == file->node->finfo.cluster_count)  //按照小文件方式写入
-		{
-			len = little_file_data_write(file->node->finfo.cluster_id, file->index, data, len);
-		}
-		else
-		{
-			if (1 == file->node->finfo.cluster_count)
-			{
-				uint32 list_id = create_file_list(file->node->finfo.cluster_id);
-				if (list_id > 0)
-				{
-					file->node->finfo.cluster_id = list_id;
-				}
-				else
-				{
-					return 0;
-				}
-			}
-			len = file_data_write(file->node->finfo.cluster_id, file->index, data, len);
-		}
 		if (len > 0)
 		{
+			if (file->index + len <= FS_PAGE_SIZE && 1 == file->node->finfo.cluster_count)  //按照小文件方式写入
+			{
+				little_file_data_write(file->node->finfo.cluster_id, file->index, data, len);
+			}
+			else
+			{
+				file->node->finfo.cluster_id = file_data_write(file->node->finfo.cluster_id, &file->node->finfo.cluster_count, file->index, data, len);
+			}
 
 			if (file->index + len > file->node->finfo.size)
 			{
@@ -724,8 +719,8 @@ uint32 write_file(file_obj *file, void *data, uint32 len)
 			}
 			file->index += len;
 			file->node->finfo.modif_time = os_get_time();
+			return len;
 		}
-		return len;
 	}
 	return 0;
 }
@@ -761,16 +756,28 @@ uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)
 
 void test()
 {
-	char buff[1024] = {0, };
 	file_obj *file;
+	FILE *cfile = NULL;
+	uint32 size;
+	char *buff = (char *)malloc(64 * 1024 * 1024);
+	if (0 == fopen_s(&cfile, "test.mp4", "rb"))
+	{
+		size = fread(buff, 1, 64 * 1024 * 1024, cfile);
+		fclose(cfile);
+	}
 	/*dir_obj *dir;
 	file_info *finfo = (file_info *)malloc(sizeof(file_info));*/
 	fs_formatting();
 	fs_loading();
 	file = open_file("/test", FS_WRITE | FS_READ | FS_CREATE);
-	write_file(file, "asd", 3);
+	write_file(file, buff, size);
 	seek_file(file, 0, FS_SEEK_SET);
-	read_file(file, buff, 3);
+	read_file(file, buff, size);
+	if (0 == fopen_s(&cfile, "test1.mp4", "wb"))
+	{
+		size = fwrite(buff, size, 1, cfile);
+		fclose(cfile);
+	}
 	close_file(file);
 	/*create_dir("chenzhiyong");
 	create_dir("/");
@@ -813,6 +820,7 @@ void test()
 	free(finfo);
 	close_dir(dir);*/
 	fs_unloading();
+	free(buff);
 }
 
 
