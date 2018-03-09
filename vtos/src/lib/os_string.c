@@ -176,3 +176,18 @@ int32 os_str_cmp(const char *str1, const char *str2)
 		return 1;
 	}
 }
+
+char *os_str_cat(char *dest, const char *src)
+{
+	uint32 i;
+	for (i = 0; dest[i] != '\0'; i++)
+	{
+	}
+	for (; *src != '\0'; i++)
+	{
+		dest[i] = *src;
+	}
+	i++;
+	dest[i] = '\0';
+	return dest;
+}

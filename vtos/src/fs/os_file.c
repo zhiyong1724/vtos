@@ -242,6 +242,34 @@ uint32 file_data_read(uint32 id, uint32 count, uint64 index, uint8 *data, uint32
 	return id;
 }
 
-void file_data_remove(uint32 id)
+static void do_file_data_remove(uint32 id, uint32 height)
 {
+	if (1 == height)
+	{
+		cluster_free(id);
+	}
+	else
+	{
+		uint32 *list = (uint32 *)malloc(FS_PAGE_SIZE);
+		uint32 i;
+		cluster_list_read(id, list);
+		for (i = 0; i < FS_MAX_INDEX_NUM; i++)
+		{
+			if (list[i] != 0)
+			{
+				do_file_data_remove(list[i], height - 1);
+			}
+			else
+			{
+				break;
+			}
+		}
+		free(list);
+	}
+}
+
+void file_data_remove(uint32 id, uint32 count)
+{
+	uint32 tree_height = calculate_tree_height(count);
+	do_file_data_remove(id, tree_height);
 }

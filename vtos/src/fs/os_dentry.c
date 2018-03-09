@@ -343,11 +343,12 @@ uint32 find_from_tree(fnode *root, file_info *finfo, const char *name)
 
 		if (!cur->head.leaf && cur->head.pointers[idx] != 0)
 		{
+			uint32 id = cur->head.pointers[idx];
 			if (cur != root)
 			{
 				free(cur);
 			}
-			cur = fnode_load(cur->head.pointers[idx]);
+			cur = fnode_load(id);
 		}
 		else
 		{
@@ -382,11 +383,12 @@ fnode *find_from_tree2(fnode *root, uint32 *index, const char *name)
 
 		if (!cur->head.leaf && cur->head.pointers[*index] != 0)
 		{
+			uint32 id = cur->head.pointers[*index];
 			if (cur != root)
 			{
 				free(cur);
 			}
-			cur = fnode_load(cur->head.pointers[*index]);
+			cur = fnode_load(id);
 		}
 		else
 		{

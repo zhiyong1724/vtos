@@ -42,7 +42,8 @@ uint32 file_data_write(uint32 id, uint32 *count, uint64 index, uint8 *data, uint
 uint32 file_data_read(uint32 id, uint32 count, uint64 index, uint8 *data, uint32 size);
 /*********************************************************************************************************************
 * 移除文件数据
-* id：目录项
+* id：数据簇id
+* count：占用簇数量
 *********************************************************************************************************************/
-void file_data_remove(uint32 id);
+void file_data_remove(uint32 id, uint32 count);
 #endif

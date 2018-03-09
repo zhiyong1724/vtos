@@ -151,7 +151,6 @@ void cluster_manager_init()
 	uint32 bitmap_cluster;
 	_cluster_controler.pcluster_manager->cur_index = 0;
 	_cluster_controler.pcluster_manager->used_cluster_count = 0;
-	cluster_manager_flush();
 	bitmap_cluster = _cluster_controler.bitmap_size / FS_PAGE_SIZE + 1;
 	for (i = 0; i < bitmap_cluster; i++)
 	{
@@ -161,7 +160,7 @@ void cluster_manager_init()
 	_cluster_controler.cache_id = 0;
 	bitmap_load(0, _cluster_controler.bitmap);
 
-	for (i = 0; i < 3 + 1 + bitmap_cluster; i++)
+	for (i = 0; i < SUPER_CLUSTER_ID + 3 + 1 + bitmap_cluster; i++)
 	{
 		//前面簇分配出来预留
 		do_cluster_alloc();
@@ -289,4 +288,14 @@ void uninit()
 			_cluster_controler.cache_id = 0;
 		}
 	}
+}
+
+uint32 get_all_cluster_num()
+{
+	return _cluster_controler.total_cluster_count;
+}
+
+uint32 get_free_cluster_num()
+{
+	return _cluster_controler.total_cluster_count - _cluster_controler.pcluster_manager->used_cluster_count;
 }

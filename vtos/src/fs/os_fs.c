@@ -8,6 +8,7 @@
 static super_cluster *_super = NULL;
 static fnode *_root = NULL;
 static finfo_node *_finfo_tree = NULL;
+
 static uint32 get_file_name(char *dest, const char *path, uint32 *index)
 {
 	uint32 ret = 1;
@@ -43,6 +44,74 @@ static uint32 get_file_name(char *dest, const char *path, uint32 *index)
 	return ret;
 }
 
+static char *pretreat_path(const char *path)
+{
+	uint32 index = 0;
+	char name[FS_MAX_NAME_SIZE];
+	char *buff = NULL;
+	if (os_str_cmp(path, "/") == 0)
+	{
+		buff = (char *)malloc(FS_MAX_PATH_LEN);
+		buff[0] = '/';
+		buff[1] = '\0';
+	}
+	else if (get_file_name(name, path, &index) == 0)
+	{
+		uint32 *array = (uint32 *)malloc(FS_MAX_PATH_LEN * sizeof(uint32));
+		int32 i;
+		uint32 pre_index = 0;
+		index = 0;
+		array[0] = 0;
+		for (i = 0; get_file_name(name, path, &index) == 0; i++)
+		{
+			if (os_str_cmp(name, ".") == 0)
+			{
+				i--;
+			}
+			else if (os_str_cmp(name, "..") == 0)
+			{
+				i--;
+				if (i < 0)
+				{
+					break;
+				}
+				i--;
+			}
+			else
+			{
+				array[i] = pre_index;
+			}
+			pre_index = index;
+		}
+		if (i >= 0)
+		{
+			int32 j;
+			uint32 k = 1;
+			uint32 n;
+			buff = (char *)malloc(FS_MAX_PATH_LEN);
+			buff[0] = '/';
+			buff[1] = '\0';
+			for (j = 0; j < i; j++)
+			{
+				index = array[j];
+				get_file_name(name, path, &index);
+				if (k != 1)
+				{
+					buff[k] = '/';
+					k++;
+				}
+				for (n = 0; name[n] != '\0'; n++, k++)
+				{
+					buff[k] = name[n];
+				}
+			}
+			buff[k] = '\0';
+		}
+		free(array);
+	}
+	return buff;
+}
+
 static void super_cluster_init(super_cluster *super)
 {
 	super->flag = 0xaa55a55a;
@@ -61,7 +130,7 @@ static void file_info_init(file_info *info)
 	info->creator = 0;
 	info->modifier = 0;
 	info->property = 0x000001ff; //.10 dir or file;.9 only sys w;.876 user r,w,x;.543 group r,w,x;.210 other r,w,x
-	info->file_count = 2;
+	info->file_count = 0;
 	info->name[0] = '\0';
 }
 
@@ -108,6 +177,7 @@ static void file_info_flush(uint32 id, file_info *finfo)
 	else
 	{
 		file_info *temp = (file_info  *)malloc(FS_PAGE_SIZE);
+		os_mem_cpy(temp, finfo, FS_PAGE_SIZE);
 		temp->cluster_id = convert_endian(finfo->cluster_id);
 		temp->cluster_count = convert_endian(finfo->cluster_count);
 		temp->creator = convert_endian(finfo->creator);
@@ -152,14 +222,8 @@ void fs_formatting()
 	finfo = (file_info *)malloc(FS_PAGE_SIZE);
 	file_info_init(finfo);
 	finfo->property |= 0x00000600;       //设置只是系统写权限和目录标记
-	os_str_cpy(finfo->name, ".", FS_MAX_NAME_SIZE);
-	_root = insert_to_btree(_root, finfo);
-	os_str_cpy(finfo->name, "..", FS_MAX_NAME_SIZE);
-	_root = insert_to_btree(_root, finfo);
-	_root->finfo[0].cluster_id = _root->head.node_id;
-	_root->finfo[1].cluster_id = _root->head.node_id;
 	os_str_cpy(finfo->name, "/", FS_MAX_NAME_SIZE);
-	finfo->cluster_id = _root->head.node_id;
+	finfo->cluster_id = 0;
 	file_info_flush(ROOT_CLUSTER_ID, finfo);
 	free(finfo);
 	super_cluster_flush();
@@ -175,7 +239,14 @@ void fs_loading()
 	_super = (super_cluster *)malloc(FS_PAGE_SIZE);
 	super_cluster_load();
 	finfo = file_info_load(ROOT_CLUSTER_ID);
-	_root = fnode_load(finfo->cluster_id);
+	if (finfo->cluster_id > 0)
+	{
+		_root = fnode_load(finfo->cluster_id);
+	}
+	else
+	{
+		_root = NULL;
+	}
 	free(finfo);
 }
 
@@ -194,15 +265,19 @@ void fs_unloading()
 	}
 }
 
-static fnode *get_partent(const char *path, uint32 *idx, char *child_name, uint32 *is_exist)
+static fnode *get_parent(const char *path, uint32 *idx, char *child_name, uint32 *is_exist)
 {
 	uint32 index = 0;
-	char parent_name[FS_MAX_NAME_SIZE];
-	fnode *cur = _root;
-	fnode *ret = _root;
+	fnode *ret = NULL;
+	uint32 flag = 0;
 	*is_exist = 0;
-	if (get_file_name(parent_name, path, &index) == 0)
+	*idx = FS_MAX_KEY_NUM;
+	if (get_file_name(child_name, path, &index) == 0)
 	{
+		char parent_name[FS_MAX_NAME_SIZE];
+		fnode *cur = _root;
+		ret = _root;
+		os_str_cpy(parent_name, child_name, FS_MAX_NAME_SIZE);
 		while (get_file_name(child_name, path, &index) == 0)
 		{
 			if (ret != _root)
@@ -210,38 +285,43 @@ static fnode *get_partent(const char *path, uint32 *idx, char *child_name, uint3
 				free(ret);
 			}
 			ret = find_from_tree2(cur, idx, parent_name);
-			if (ret != NULL)
+			if (ret != NULL && ret->finfo[*idx].cluster_id > 0 && ret->finfo[*idx].property & 0x00000400)
 			{
-				if (ret->finfo[*idx].property & 0x00000400)   //判断是否为目录
+				if (cur != ret)
 				{
-					if (cur != ret)
-					{
-						free(cur);
-					}
-					cur = fnode_load(ret->finfo[*idx].cluster_id);
+					free(cur);
 				}
-				else
-				{
-					break;
-				}
+				cur = fnode_load(ret->finfo[*idx].cluster_id);
 			}
 			else
 			{
+				flag = 1;
 				break;
 			}
 			os_str_cpy(parent_name, child_name, FS_MAX_NAME_SIZE);
 		}
-		if (ret->finfo[*idx].property & 0x00000400)  //判断是否为目录
+		if (0 == flag && find_from_tree(cur, NULL, child_name) == 0)
 		{
-			if (find_from_tree(cur, NULL, child_name) == 0)
-			{
-				*is_exist = 1;
-			}
+			*is_exist = 1;
 		}
-		
+
 		if (cur != NULL && cur != _root && cur != ret)
 		{
 			free(cur);
+		}
+
+		if (flag && get_file_name(child_name, path, &index) != 0)
+		{
+			flag = 0;
+		}
+
+		if (flag)
+		{
+			if (ret != NULL && ret != _root)
+			{
+				free(ret);
+				ret = NULL;
+			}
 		}
 	}
 	return ret;
@@ -259,7 +339,7 @@ static file_info *get_file_info(const char *path)
 		if (find_from_tree(cur, finfo, name) == 0)
 		{
 			flag = 0;
-			if (finfo->property & 0x00000400)  //判断是否为目录
+			if (finfo->cluster_id > 0 && finfo->property & 0x00000400)  //判断是否为目录
 			{
 				if (cur != _root)
 				{
@@ -333,7 +413,11 @@ static void remove_from_root(file_info *child)
 
 static void insert_to_parent(file_info *parent, file_info *child)
 {
-	fnode *root = fnode_load(parent->cluster_id);
+	fnode *root = NULL;
+	if (parent->cluster_id > 0)
+	{
+		root = fnode_load(parent->cluster_id);
+	}
 	root = insert_to_btree(root, child);
 	parent->file_count++;
 	parent->cluster_id = root->head.node_id;
@@ -352,98 +436,74 @@ static void remove_from_parent(file_info *parent, file_info *child)
 static uint32 do_create_file(const char *path, file_info *finfo)
 {
 	uint32 ret = 1;
+	uint32 flag = 0;
 	uint32 index = 0;
-	if (get_file_name(finfo->name, path, &index) == 0)
+	fnode *node = NULL;
+	fnode *temp = _root;
+	if (NULL == _root)
 	{
-		if (get_file_name(finfo->name, path, &index) != 0)
+		if (get_file_name(finfo->name, path, &index) == 0 && get_file_name(finfo->name, path, &index) != 0)
 		{
-			index = 0;
-			get_file_name(finfo->name, path, &index);
-			if (find_from_tree(_root, NULL, finfo->name) != 0 && os_str_find(finfo->name, "/") == -1 && os_str_find(finfo->name, "\\") && -1
-				&& os_str_find(finfo->name, ":") == -1 && os_str_find(finfo->name, "*") == -1 && os_str_find(finfo->name, "?") == -1 && os_str_find(finfo->name, "\"") == -1
-				&& os_str_find(finfo->name, "<") == -1 && os_str_find(finfo->name, ">") == -1 && os_str_find(finfo->name, "|") == -1)
+			flag = 1;
+		}
+	}
+	else
+	{
+		uint32 is_exist;
+		node = get_parent(path, &index, finfo->name, &is_exist);
+		if (node != NULL)
+		{
+			if (FS_MAX_KEY_NUM == index && find_from_tree(_root, NULL, finfo->name) != 0)                //父母是根目录
 			{
-				if (finfo->property & 0x00000400)  //判断是否为目录
-				{
-					fnode *root = NULL;
-					file_info *child = (file_info *)malloc(sizeof(file_info));
-					file_info_init(child);
-					child->property |= 0x00000600; //设置只是系统写权限和目录标记
-					os_str_cpy(child->name, ".", FS_MAX_NAME_SIZE);
-					root = insert_to_btree(root, child);
-					os_str_cpy(child->name, "..", FS_MAX_NAME_SIZE);
-					root = insert_to_btree(root, child);
-					root->finfo[0].cluster_id = root->head.node_id;
-					root->finfo[1].cluster_id = _root->head.node_id;
-					fnode_flush(root);
-					finfo->cluster_id = root->head.node_id;
-					free(child);
-					free(root);
-				}
-				insert_to_root(finfo);
-				super_cluster_flush();
-				ret = 0;
+				flag = 1;
 			}
+			else if (index < FS_MAX_KEY_NUM && !is_exist && node->finfo[index].property & 0x00000400 && node->finfo[index].file_count < 0xffffffff)
+			{
+				flag = 2;
+			}
+		}
+	}
+	if (flag > 0 && os_str_find(finfo->name, "/") == -1 && os_str_find(finfo->name, "\\") && os_str_find(finfo->name, ".") == -1 && os_str_find(finfo->name, "..")
+		&& os_str_find(finfo->name, ":") == -1 && os_str_find(finfo->name, "*") == -1 && os_str_find(finfo->name, "?") == -1 && os_str_find(finfo->name, "\"") == -1
+		&& os_str_find(finfo->name, "<") == -1 && os_str_find(finfo->name, ">") == -1 && os_str_find(finfo->name, "|") == -1)
+	{
+		if (1 == flag)
+		{
+			insert_to_root(finfo);
+			super_cluster_flush();
 		}
 		else
 		{
-			uint32 is_exist;
-			fnode *node = NULL;
-			index = 0;
-			node = get_partent(path, &index, finfo->name, &is_exist);
-			if (node != NULL)
-			{
-				if (!is_exist && os_str_find(finfo->name, "/") == -1 && os_str_find(finfo->name, "\\") && -1
-					&& os_str_find(finfo->name, ":") == -1 && os_str_find(finfo->name, "*") == -1 && os_str_find(finfo->name, "?") == -1 && os_str_find(finfo->name, "\"") == -1
-					&& os_str_find(finfo->name, "<") == -1 && os_str_find(finfo->name, ">") == -1 && os_str_find(finfo->name, "|") == -1)
-				{
-					if (node->finfo[index].file_count < 0xffffffff)
-					{
-						if (finfo->property & 0x00000400)  //判断是否为目录
-						{
-							fnode *root = NULL;
-							file_info *child = (file_info *)malloc(sizeof(file_info));
-							file_info_init(child);
-							child->property |= 0x00060000;  //设置只是系统写权限和目录标记
-							os_str_cpy(child->name, ".", FS_MAX_NAME_SIZE);
-							root = insert_to_btree(root, child);
-							os_str_cpy(child->name, "..", FS_MAX_NAME_SIZE);
-							root = insert_to_btree(root, child);
-							root->finfo[0].cluster_id = root->head.node_id;
-							root->finfo[1].cluster_id = node->finfo[index].cluster_id;
-							fnode_flush(root);
-							finfo->cluster_id = root->head.node_id;
-							free(child);
-							free(root);
-						}
-
-						insert_to_parent(&node->finfo[index], finfo);
-						fnode_flush(node);
-						ret = 0;
-					}
-				}
-				if (node != _root)
-				{
-					free(node);
-				}
-				
-			}
+			insert_to_parent(&node->finfo[index], finfo);
+			fnode_flush(node);
 		}
+
+		ret = 0;
+	}
+
+	if (node != NULL && node != temp)
+	{
+		free(node);
 	}
 	return ret;
 }
 
 uint32 create_dir(const char *path)
 {
-	uint32 ret;
-	file_info *finfo = (file_info *)malloc(sizeof(file_info));
-	file_info_init(finfo);
-	finfo->property |= 0x00000400;  //设置目录标记
-	ret = do_create_file(path, finfo);
-	free(finfo);
-	if (0 == ret)
+	uint32 ret = 1;
+	char *pre_path = pretreat_path(path);
+	if (pre_path != NULL)
 	{
-		flush();
+		file_info *finfo = (file_info *)malloc(sizeof(file_info));
+		file_info_init(finfo);
+		finfo->property |= 0x00000400;  //设置目录标记
+		ret = do_create_file(pre_path, finfo);
+		free(finfo);
+		if (0 == ret)
+		{
+			flush();
+		}
+		free(pre_path);
 	}
 	return ret;
 }
@@ -451,44 +511,59 @@ uint32 create_dir(const char *path)
 uint32 create_file(const char *path)
 {
 	uint32 ret = 1;
-	file_info *finfo = (file_info *)malloc(sizeof(file_info));
-	file_info_init(finfo);
-	finfo->property &= (~0x00000400);  //设置文件标记
-	finfo->cluster_id = cluster_alloc();
-	if (finfo->cluster_id != 0)
+	char *pre_path = pretreat_path(path);
+	if (pre_path != NULL)
 	{
-		finfo->cluster_count = 1;
-		ret = do_create_file(path, finfo);
-		flush();
+		file_info *finfo = (file_info *)malloc(sizeof(file_info));
+		file_info_init(finfo);
+		finfo->property &= (~0x00000400);  //设置文件标记
+		ret = do_create_file(pre_path, finfo);
+		free(finfo);
+		if (0 == ret)
+		{
+			flush();
+		}
+		free(pre_path);
 	}
-	free(finfo);
 	return ret;
 }
 
 dir_obj *open_dir(const char *path)
 {
 	uint32 id = 0;
-	if (os_str_cmp(path, "/") == 0)
+	uint32 flag = 0;
+	char *pre_path = pretreat_path(path);
+	if (pre_path != NULL)
 	{
-		id = _root->head.node_id;
-	}
-	else
-	{
-		file_info *finfo = get_file_info(path);
-		if (finfo != NULL)
+		if (os_str_cmp(pre_path, "/") == 0)
 		{
-			id = finfo->cluster_id;
-			free(finfo);
+			flag = 1;
+			if (_root != NULL)
+			{
+				id = _root->head.node_id;
+			}
 		}
-	}
-	if (id != 0)
-	{
-		dir_obj *dir = (dir_obj *)malloc(sizeof(dir_obj));
-		dir->cur = NULL;
-		dir->index = 0;
-		dir->parent = NULL;
-		dir->id = id;
-		return dir;
+		else
+		{
+			file_info *finfo = get_file_info(pre_path);
+			if (finfo != NULL && (finfo->property & 0x00000400))
+			{
+				flag = 1;
+				id = finfo->cluster_id;
+				free(finfo);
+			}
+		}
+		if (flag)
+		{
+			dir_obj *dir = (dir_obj *)malloc(sizeof(dir_obj));
+			dir->cur = NULL;
+			dir->index = 0;
+			dir->parent = NULL;
+			dir->id = id;
+			free(pre_path);
+			return dir;
+		}
+		free(pre_path);
 	}
 	return NULL;
 }
@@ -508,17 +583,312 @@ void close_dir(dir_obj *dir)
 
 uint32 read_dir(file_info *finfo, dir_obj *dir)
 {
-	return query_finfo(finfo, &dir->id, &dir->parent, &dir->cur, &dir->index);
+	if (dir->id > 0)
+	{
+		return query_finfo(finfo, &dir->id, &dir->parent, &dir->cur, &dir->index);
+	}
+	return 1;
 }
 
 uint32 delete_dir(const char *path)
 {
-	return 0;
+	uint32 ret = 1;
+	if (_root != NULL)
+	{
+		char *pre_path = pretreat_path(path);
+		if (pre_path != NULL)
+		{
+			uint32 index = 0;
+			char name[FS_MAX_NAME_SIZE];
+			uint32 is_exist = 0;
+			fnode *node = get_parent(pre_path, &index, name, &is_exist);
+			if (node != NULL)
+			{
+				fnode *temp = _root;
+				if (FS_MAX_KEY_NUM == index)                //父母是根目录
+				{
+					file_info *finfo = (file_info *)malloc(sizeof(file_info));
+					if (find_from_tree(_root, finfo, name) == 0)
+					{
+						if (0 == finfo->file_count && finfo->property & 0x00000400 && (finfo->property & 0x00000200) == 0)
+						{
+							_root = remove_from_btree(_root, name);
+							if (NULL == _root)
+							{
+								free(finfo);
+								finfo = file_info_load(ROOT_CLUSTER_ID);
+								finfo->cluster_id = 0;
+								file_info_flush(ROOT_CLUSTER_ID, finfo);
+							}
+							ret = 0;
+						}
+					}
+					free(finfo);
+				}
+				else if (index < FS_MAX_KEY_NUM && is_exist)
+				{
+					fnode *parent = NULL;
+					file_info *finfo = (file_info *)malloc(sizeof(file_info));
+					parent = fnode_load(node->finfo[index].cluster_id);
+					if (find_from_tree(parent, finfo, name) == 0)
+					{
+						if (0 == finfo->file_count && finfo->property & 0x00000400 && (finfo->property & 0x00000200) == 0)
+						{
+							parent = remove_from_btree(parent, name);
+							if (NULL == parent)
+							{
+								node->finfo[index].cluster_id = 0;
+							}
+							node->finfo[index].file_count--;
+							fnode_flush(node);
+							ret = 0;
+						}
+					}
+					free(parent);
+					free(finfo);
+				}
+				if (node != NULL && node != temp)
+				{
+					free(node);
+				}
+				if (0 == ret)
+				{
+					flush();
+				}
+			}
+			free(pre_path);
+		}
+	}
+	return ret;
 }
 
 uint32 delete_file(const char *path)
 {
-	return 0;
+	uint32 ret = 1;
+	if (_root != NULL)
+	{
+		char *pre_path = pretreat_path(path);
+		if (pre_path != NULL)
+		{
+			uint32 index = 0;
+			char name[FS_MAX_NAME_SIZE];
+			uint32 is_exist = 0;
+			fnode *node = get_parent(pre_path, &index, name, &is_exist);
+			if (node != NULL)
+			{
+				fnode *temp = _root;
+				if (FS_MAX_KEY_NUM == index)                //父母是根目录
+				{
+					file_info *finfo = (file_info *)malloc(sizeof(file_info));
+					if (find_from_tree(_root, finfo, name) == 0)
+					{
+						if ((finfo->property & 0x00000400) == 0 && (finfo->property & 0x00000200) == 0)
+						{
+							if (finfo->cluster_id > 0)
+							{
+								file_data_remove(finfo->cluster_id, finfo->cluster_count);
+							}
+							_root = remove_from_btree(_root, name);
+							if (NULL == _root)
+							{
+								free(finfo);
+								finfo = file_info_load(ROOT_CLUSTER_ID);
+								finfo->cluster_id = 0;
+								file_info_flush(ROOT_CLUSTER_ID, finfo);
+							}
+							ret = 0;
+						}
+					}
+					free(finfo);
+				}
+				else if (index < FS_MAX_KEY_NUM && is_exist)
+				{
+					fnode *parent = NULL;
+					file_info *finfo = (file_info *)malloc(sizeof(file_info));
+					parent = fnode_load(node->finfo[index].cluster_id);
+					if (find_from_tree(parent, finfo, name) == 0)
+					{
+						if ((finfo->property & 0x00000400) == 0 && (finfo->property & 0x00000200) == 0)
+						{
+							if (finfo->cluster_id > 0)
+							{
+								file_data_remove(finfo->cluster_id, finfo->cluster_count);
+							}
+							parent = remove_from_btree(parent, name);
+							if (NULL == parent)
+							{
+								node->finfo[index].cluster_id = 0;
+							}
+							node->finfo[index].file_count--;
+							fnode_flush(node);
+							ret = 0;
+						}
+					}
+					free(parent);
+					free(finfo);
+				}
+				if (node != NULL && node != temp)
+				{
+					free(node);
+				}
+				if (0 == ret)
+				{
+					flush();
+				}
+			}
+			free(pre_path);
+		}
+	}
+	return ret;
+}
+
+static uint32 insert_empty_file(const char *dir)
+{
+	uint32 ret = 1;
+	uint32 index = 0;
+	char name[FS_MAX_NAME_SIZE];
+	uint32 is_exist = 0;
+	fnode *node = get_parent(dir, &index, name, &is_exist);
+	if (node != NULL)
+	{
+		fnode *temp = _root;
+		if (FS_MAX_KEY_NUM == index)                //父母是根目录
+		{
+			if (find_from_tree(_root, NULL, name) != 0)
+			{
+				file_info *finfo = (file_info *)malloc(sizeof(file_info));
+				os_str_cpy(finfo->name, name, FS_MAX_NAME_SIZE);
+				_root = insert_to_btree(_root, finfo);
+				free(finfo);
+				ret = 0;
+			}
+		}
+		else if (index < FS_MAX_KEY_NUM && node->finfo[index].file_count < 0xffffffff && !is_exist)
+		{
+			fnode *parent = NULL;
+			file_info *finfo = (file_info *)malloc(sizeof(file_info));
+			parent = fnode_load(node->finfo[index].cluster_id);
+			os_str_cpy(finfo->name, name, FS_MAX_NAME_SIZE);
+			parent = insert_to_btree(parent, finfo);
+			node->finfo[index].file_count++;
+			fnode_flush(node);
+			free(parent);
+			free(finfo);
+			ret = 0;
+		}
+		if (node != NULL && node != temp)
+		{
+			free(node);
+		}
+	}
+	return ret;
+}
+
+uint32 move_file(const char *dest, const char *src)
+{
+	uint32 ret = 1;
+	char *pre_src = pretreat_path(src);
+	if (pre_src != NULL)
+	{
+		char *pre_dest = pretreat_path(dest);
+		if (pre_dest != NULL)
+		{
+			if (insert_empty_file(pre_dest) == 0)
+			{
+				uint32 index = 0;
+				char name[FS_MAX_NAME_SIZE];
+				uint32 is_exist = 0;
+				fnode *node = get_parent(pre_src, &index, name, &is_exist);
+				if (node != NULL)
+				{
+					fnode *temp = _root;
+					file_info *finfo = (file_info *)malloc(sizeof(file_info));
+					if (FS_MAX_KEY_NUM == index)                //父母是根目录
+					{
+
+						if (find_from_tree(_root, finfo, name) == 0)
+						{
+							_root = remove_from_btree(_root, name);
+							ret = 0;
+						}
+					}
+					else if (index < FS_MAX_KEY_NUM && is_exist)
+					{
+						fnode *parent = NULL;
+						parent = fnode_load(node->finfo[index].cluster_id);
+						if (find_from_tree(parent, finfo, name) == 0)
+						{
+							parent = remove_from_btree(parent, name);
+							if (NULL == parent)
+							{
+								node->finfo[index].cluster_id = 0;
+							}
+							node->finfo[index].file_count--;
+							fnode_flush(node);
+							ret = 0;
+						}
+						free(parent);
+					}
+					if (node != NULL && node != temp)
+					{
+						free(node);
+					}
+
+					if (0 == ret)
+					{
+						ret = 1;
+						node = get_parent(pre_dest, &index, name, &is_exist);
+						if (node != NULL)
+						{
+							temp = _root;
+							file_info *new_finfo = (file_info *)malloc(sizeof(file_info));
+							if (FS_MAX_KEY_NUM == index)                //父母是根目录
+							{
+
+								if (find_from_tree(_root, new_finfo, name) == 0)
+								{
+									os_str_cpy(finfo->name, new_finfo->name, sizeof(FS_MAX_NAME_SIZE));
+									os_mem_cpy(new_finfo, finfo, sizeof(file_info));
+									_root = remove_from_btree(_root, new_finfo->name);
+									_root = insert_to_btree(_root, new_finfo);
+									ret = 0;
+								}
+							}
+							else if (index < FS_MAX_KEY_NUM && is_exist)
+							{
+								fnode *parent = NULL;
+								parent = fnode_load(node->finfo[index].cluster_id);
+								if (find_from_tree(parent, new_finfo, name) == 0)
+								{
+									os_str_cpy(finfo->name, new_finfo->name, sizeof(FS_MAX_NAME_SIZE));
+									os_mem_cpy(new_finfo, finfo, sizeof(file_info));
+									parent = remove_from_btree(parent, new_finfo->name);
+									parent = insert_to_btree(parent, new_finfo);
+									fnode_flush(node);
+									ret = 0;
+								}
+								free(parent);
+							}
+							if (node != NULL && node != temp)
+							{
+								free(node);
+							}
+
+							if (0 == ret)
+							{
+								flush();
+							}
+							free(new_finfo);
+						}
+					}
+					free(finfo);
+				}
+			}
+			free(pre_dest);
+		}
+		free(pre_src);
+	}
+	return ret;
 }
 
 static void insert_to_finfo_tree(tree_node_type_def **handle, finfo_node *node)
@@ -659,7 +1029,7 @@ void close_file(file_obj *file)
 	{
 		uint32 is_exist;
 		uint32 index = 0;
-		fnode *n = get_partent(file->node->path, &index, file->node->finfo.name, &is_exist);
+		fnode *n = get_parent(file->node->path, &index, file->node->finfo.name, &is_exist);
 		if (n != NULL && is_exist)
 		{
 			os_mem_cpy(&n->finfo[index], &file->node->finfo, sizeof(file_info));
@@ -752,75 +1122,6 @@ uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)
 		return 0;
 	}
 	return 1;
-}
-
-void test()
-{
-	file_obj *file;
-	FILE *cfile = NULL;
-	uint32 size;
-	char *buff = (char *)malloc(64 * 1024 * 1024);
-	if (0 == fopen_s(&cfile, "test.mp4", "rb"))
-	{
-		size = fread(buff, 1, 64 * 1024 * 1024, cfile);
-		fclose(cfile);
-	}
-	/*dir_obj *dir;
-	file_info *finfo = (file_info *)malloc(sizeof(file_info));*/
-	fs_formatting();
-	fs_loading();
-	file = open_file("/test", FS_WRITE | FS_READ | FS_CREATE);
-	write_file(file, buff, size);
-	seek_file(file, 0, FS_SEEK_SET);
-	read_file(file, buff, size);
-	if (0 == fopen_s(&cfile, "test1.mp4", "wb"))
-	{
-		size = fwrite(buff, size, 1, cfile);
-		fclose(cfile);
-	}
-	close_file(file);
-	/*create_dir("chenzhiyong");
-	create_dir("/");
-	create_dir("/home");
-	create_dir("/home/");
-	create_dir("/dev");
-	create_dir("/home/chenzhiyong");
-	create_dir("/home/chenzhiyong/develop");
-	create_dir("/home/chenzhiyong/develop/a");
-	create_dir("/home/chenzhiyong/develop/b");
-	create_dir("/home/chenzhiyong/develop/c");
-	create_dir("/home/chenzhiyong/develop/d");
-	create_dir("/home/chenzhiyong/develop/e");
-	create_dir("/home/chenzhiyong/develop/f");
-	create_dir("/home/chenzhiyong/develop/g");
-	create_dir("/home/chenzhiyong/develop/h");
-	create_dir("/home/chenzhiyong/develop/i");
-	create_dir("/home/chenzhiyong/develop/j");
-	create_dir("/home/chenzhiyong/develop/k");
-	create_dir("/home/chenzhiyong/develop/l");
-	create_dir("/home/chenzhiyong/develop/m");
-	create_dir("/home/chenzhiyong/develop/n");
-	create_dir("/home/chenzhiyong/develop/o");
-	create_dir("/home/chenzhiyong/develop/p");
-	create_dir("/home/chenzhiyong/develop/q");
-	create_dir("/home/chenzhiyong/develop/r");
-	create_dir("/home/chenzhiyong/develop/s");
-	create_dir("/home/chenzhiyong/develop/t");
-	dir = open_dir("/home");
-	while (read_dir(finfo, dir) == 0)
-	{
-		continue;
-	}
-	close_dir(dir);
-	dir = open_dir("/home/chenzhiyong/develop");
-	while (read_dir(finfo, dir) == 0)
-	{
-		continue;
-	}
-	free(finfo);
-	close_dir(dir);*/
-	fs_unloading();
-	free(buff);
 }
 
 

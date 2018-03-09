@@ -6,6 +6,7 @@
 #include "fs/os_fs.h"
 #ifdef __WINDOWS__
 #define _CRTDBG_MAP_ALLOC
+#include <stdio.h>
 #include <stdlib.h>
 #include <crtdbg.h>
 #endif
@@ -59,7 +60,7 @@ void os_sys_start(void)
 }
 
 #ifdef __WINDOWS__
-void task(void *p_arg)
+static void task(void *p_arg)
 {
 	for (;;)
 	{
@@ -67,12 +68,42 @@ void task(void *p_arg)
 	}
 }
 
+static void get_command(const char *src, char *command, char *arg1, char *arg2)
+{
+	for (; *src != '\0' && *src != ' '; src++, command++)
+	{
+		*command = *src;
+	}
+	*command = '\0';
+	for (; *src != '\0' && *src == ' ';)
+	{
+		src++;
+	}
+	for (; *src != '\0' && *src != ' '; src++, arg1++)
+	{
+		*arg1 = *src;
+	}
+	*arg1 = '\0';
+	for (; *src != '\0' && *src == ' ';)
+	{
+		src++;
+	}
+	for (; *src != '\0' && *src != ' '; src++, arg2++)
+	{
+		*arg2 = *src;
+	}
+	*arg2 = '\0';
+	for (; *src != '\0' && *src == ' ';)
+	{
+		src++;
+	}
+}
+
 int main()
 {
-	//_CrtSetBreakAlloc(118);
+	//_CrtSetBreakAlloc(167);
 	//if (0 == os_sys_init())
 	//{
-		test();
 		/*os_kthread_create(task, NULL, "task_a");
 		os_sys_start();
 		while(1)
@@ -81,6 +112,95 @@ int main()
 		}*/
 
 	//}
+	char buff[256] = "";
+	char command[16] = "";
+	char arg1[256] = "";
+	char arg2[256] = "";
+	char c;
+	fs_formatting();
+	fs_loading();
+	while (os_str_cmp(buff, "quit") != 0)
+	{
+		scanf_s("%[^\n]%c", buff, 256, &c);
+		get_command(buff, command, arg1, arg2);
+		if (os_str_cmp(command, "df") == 0)
+		{
+			int all_cluster = get_all_cluster_num();
+			int free_cluster = get_free_cluster_num();
+			printf("总大小：%d\n", all_cluster * FS_PAGE_SIZE);
+			printf("剩余大小：%d\n", free_cluster * FS_PAGE_SIZE);
+		}
+		else if (os_str_cmp(command, "ls") == 0)
+		{
+			dir_obj *dir = open_dir(arg1);
+			if (dir != NULL)
+			{
+				file_info *finfo = (file_info *)malloc(sizeof(file_info));
+				printf("名字    大小    占用簇    文件数    创建时间    修改时间    创建者    修改者\n");
+				while (read_dir(finfo, dir) == 0)
+				{
+					printf("%s %lld %d %d %lld %lld %d %d\n", finfo->name, finfo->size, finfo->cluster_count, finfo->file_count, finfo->create_time, finfo->modif_time, finfo->creator, finfo->modifier);
+				}
+				close_dir(dir);
+				free(finfo);
+			}
+			else
+			{
+				printf("error\n");
+			}
+		}
+		else if (os_str_cmp(command, "mkdir") == 0)
+		{
+			if (create_dir(arg1) != 0)
+			{
+				printf("error\n");
+			}
+		}
+		else if (os_str_cmp(command, "touch") == 0)
+		{
+			if (create_file(arg1) != 0)
+			{
+				printf("error\n");
+			}
+		}
+		else if (os_str_cmp(command, "rmdir") == 0)
+		{
+			if (delete_dir(arg1) != 0)
+			{
+				printf("error\n");
+			}
+		}
+		else if (os_str_cmp(command, "rmfile") == 0)
+		{
+			if (delete_file(arg1) != 0)
+			{
+				printf("error\n");
+			}
+		}
+		else if (os_str_cmp(command, "mv") == 0)
+		{
+			if (move_file(arg2, arg1) != 0)
+			{
+				printf("error\n");
+			}
+		}
+		else if (os_str_cmp(command, "test") == 0)
+		{
+			int i;
+			char n[16];
+			for (i = 0; i < 512; i++)
+			{
+				sprintf_s(n, 16, "/a/%d", i);
+				create_dir(n);
+			}
+			
+		}
+		else
+		{
+			printf("command not found\n");
+		}
+	}
+	fs_unloading();
 	_CrtDumpMemoryLeaks();
 	return 0;
 }
