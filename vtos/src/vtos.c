@@ -184,6 +184,48 @@ int main()
 				printf("error\n");
 			}
 		}
+		else if (os_str_cmp(command, "push") == 0)
+		{
+			FILE *file1 = NULL;
+			if (0 == fopen_s(&file1, arg1, "rb"))
+			{
+				file_obj *file2 = open_file(arg2, FS_CREATE | FS_WRITE | FS_APPEND);
+				if (file2 != NULL)
+				{
+					char buff[1024];
+					int num;
+					while((num = fread_s(buff, 1024, 1, 1024, file1)) > 0)
+					{
+						write_file(file2, buff, num);
+					}
+					printf("%s to %s", arg1, arg2);
+					close_file(file2);
+				}
+				fclose(file1);
+			}
+
+		}
+		else if (os_str_cmp(command, "pull") == 0)
+		{
+			FILE *file2 = NULL;
+			if (0 == fopen_s(&file2, arg2, "wb"))
+			{
+				file_obj *file1 = open_file(arg1, FS_READ);
+				if (file1 != NULL)
+				{
+					char buff[1024];
+					int num;
+					while((num = read_file(file1, buff, 1024)) > 0)
+					{
+						fwrite(buff, 1, num, file2);
+					}
+					printf("%s to %s", arg1, arg2);
+					close_file(file1);
+				}
+				fclose(file2);
+			}
+
+		}
 		else if (os_str_cmp(command, "test") == 0)
 		{
 			int i;
