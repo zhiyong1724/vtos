@@ -194,7 +194,7 @@ int main()
 				{
 					char buff[1024];
 					int num;
-					while((num = fread_s(buff, 1024, 1, 1024, file1)) > 0)
+					while ((num = fread_s(buff, 1024, 1, 1024, file1)) > 0)
 					{
 						write_file(file2, buff, num);
 					}

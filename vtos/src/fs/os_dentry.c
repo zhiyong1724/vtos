@@ -314,57 +314,7 @@ static uint32 find_key(fnode *root, const char *name)
 }
 
 //查找文件
-uint32 find_from_tree(fnode *root, file_info *finfo, const char *name)
-{
-	uint32 idx = 0;
-	fnode *cur = root;
-	for(; cur != NULL;)
-	{
-		for (idx = 0; idx < cur->head.num; idx++)
-		{
-			if (os_str_cmp(cur->finfo[idx].name, name) == 0)
-			{
-				if (finfo != NULL)
-				{
-					os_mem_cpy(finfo, &cur->finfo[idx], sizeof(file_info));
-				}
-				
-				if (cur != root)
-				{
-					free(cur);
-				}
-				return 0;
-			}
-			else if (os_str_cmp(cur->finfo[idx].name, name) > 0)
-			{
-				break;
-			}
-		}
-
-		if (!cur->head.leaf && cur->head.pointers[idx] != 0)
-		{
-			uint32 id = cur->head.pointers[idx];
-			if (cur != root)
-			{
-				free(cur);
-			}
-			cur = fnode_load(id);
-		}
-		else
-		{
-			break;
-		}
-
-	}
-	if (cur != NULL && cur != root)
-	{
-		free(cur);
-	}
-	return 1;
-}
-
-//查找文件
-fnode *find_from_tree2(fnode *root, uint32 *index, const char *name)
+fnode *find_from_tree(fnode *root, uint32 *index, const char *name)
 {
 	fnode *cur = root;
 	for(; cur != NULL;)
@@ -396,7 +346,56 @@ fnode *find_from_tree2(fnode *root, uint32 *index, const char *name)
 		}
 
 	}
+	if (cur != NULL && cur != root)
+	{
+		free(cur);
+	}
 	return NULL;
+}
+
+//判断文件是否存在
+uint32 finfo_is_exist(fnode *root, const char *name)
+{
+	uint32 index;
+	fnode *cur = root;
+	for (; cur != NULL;)
+	{
+		for (index = 0; index < cur->head.num; (index)++)
+		{
+			if (os_str_cmp(cur->finfo[index].name, name) == 0)
+			{
+				if (cur != root)
+				{
+					free(cur);
+				}
+				return 1;
+			}
+			else if (os_str_cmp(cur->finfo[index].name, name) > 0)
+			{
+				break;
+			}
+		}
+
+		if (!cur->head.leaf && cur->head.pointers[index] != 0)
+		{
+			uint32 id = cur->head.pointers[index];
+			if (cur != root)
+			{
+				free(cur);
+			}
+			cur = fnode_load(id);
+		}
+		else
+		{
+			break;
+		}
+
+	}
+	if (cur != NULL && cur != root)
+	{
+		free(cur);
+	}
+	return 0;
 }
 
 //遍历文件
