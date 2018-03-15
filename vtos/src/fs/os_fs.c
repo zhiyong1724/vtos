@@ -300,7 +300,7 @@ static fnode *get_parent(const char *path, uint32 *idx, char *child_name, uint32
 			}
 			os_str_cpy(parent_name, child_name, FS_MAX_NAME_SIZE);
 		}
-		if (0 == flag && find_from_tree(cur, NULL, child_name) == 0)
+		if (0 == flag && finfo_is_exist(cur, child_name))
 		{
 			*is_exist = 1;
 		}
@@ -470,7 +470,7 @@ static uint32 do_create_file(const char *path, file_info *finfo)
 		node = get_parent(path, &index, finfo->name, &is_exist);
 		if (node != NULL)
 		{
-			if (FS_MAX_KEY_NUM == index && find_from_tree(_root, NULL, finfo->name) != 0)                //父母是根目录
+			if (FS_MAX_KEY_NUM == index && finfo_is_exist(_root, finfo->name) == 0)                //父母是根目录
 			{
 				flag = 1;
 			}
