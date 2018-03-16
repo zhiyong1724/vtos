@@ -321,11 +321,12 @@ fnode *find_from_tree(fnode *root, uint32 *index, const char *name)
 	{
 		for (*index = 0; *index < cur->head.num; (*index)++)
 		{
-			if (os_str_cmp(cur->finfo[*index].name, name) == 0)
+			int32 cmp = os_str_cmp(cur->finfo[*index].name, name);
+			if (0 == cmp)
 			{
 				return cur;
 			}
-			else if (os_str_cmp(cur->finfo[*index].name, name) > 0)
+			else if (cmp > 0)
 			{
 				break;
 			}
@@ -362,7 +363,8 @@ uint32 finfo_is_exist(fnode *root, const char *name)
 	{
 		for (index = 0; index < cur->head.num; (index)++)
 		{
-			if (os_str_cmp(cur->finfo[index].name, name) == 0)
+			int32 cmp = os_str_cmp(cur->finfo[index].name, name);
+			if (0 == cmp)
 			{
 				if (cur != root)
 				{
@@ -370,7 +372,7 @@ uint32 finfo_is_exist(fnode *root, const char *name)
 				}
 				return 1;
 			}
-			else if (os_str_cmp(cur->finfo[index].name, name) > 0)
+			else if (cmp > 0)
 			{
 				break;
 			}

@@ -101,7 +101,7 @@ static void get_command(const char *src, char *command, char *arg1, char *arg2)
 
 int main()
 {
-	//_CrtSetBreakAlloc(167);
+	//_CrtSetBreakAlloc(86);
 	//if (0 == os_sys_init())
 	//{
 		/*os_kthread_create(task, NULL, "task_a");
@@ -116,12 +116,12 @@ int main()
 	char command[16] = "";
 	char arg1[256] = "";
 	char arg2[256] = "";
-	char c;
+	char ln;
 	fs_formatting();
 	fs_loading();
 	while (os_str_cmp(buff, "quit") != 0)
 	{
-		scanf_s("%[^\n]%c", buff, 256, &c);
+		scanf_s("%[^\n]%c", buff, 256, &ln, 1);
 		get_command(buff, command, arg1, arg2);
 		if (os_str_cmp(command, "df") == 0)
 		{
