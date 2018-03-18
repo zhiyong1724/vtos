@@ -101,6 +101,11 @@ static void get_command(const char *src, char *command, char *arg1, char *arg2)
 
 int main()
 {
+	char buff[256] = "";
+	char command[16] = "";
+	char arg1[256] = "";
+	char arg2[256] = "";
+	char ln;
 	//_CrtSetBreakAlloc(86);
 	//if (0 == os_sys_init())
 	//{
@@ -112,11 +117,6 @@ int main()
 		}*/
 
 	//}
-	char buff[256] = "";
-	char command[16] = "";
-	char arg1[256] = "";
-	char arg2[256] = "";
-	char ln;
 	fs_formatting();
 	fs_loading();
 	while (os_str_cmp(buff, "quit") != 0)
