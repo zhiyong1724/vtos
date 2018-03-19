@@ -80,7 +80,7 @@ static uint32 calculate_tree_height(uint32 node_num)
 	uint32 height = 0;
 	uint32 cur = 1;
 	uint32 total = 1;
-	while (node_num / total > 0)
+	while (node_num >= total)
 	{
 		cur *= FS_MAX_INDEX_NUM;
 		total += cur;
@@ -264,6 +264,7 @@ static void do_file_data_remove(uint32 id, uint32 height)
 				break;
 			}
 		}
+		cluster_free(id);
 		free(list);
 	}
 }

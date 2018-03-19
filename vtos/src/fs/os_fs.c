@@ -669,7 +669,7 @@ static uint32 handle_file(const char *path, uint32 (*handle)(fnode *parent, uint
 			if (node != NULL)
 			{
 				fnode *temp = _root;
-				if (FS_MAX_KEY_NUM == index)                //父母是根目录
+				if (FS_MAX_KEY_NUM == index && is_exist)                //父母是根目录
 				{
 					uint32 i;
 					fnode *finfo = find_from_tree(_root, &i, name);
@@ -874,6 +874,7 @@ uint32 move_file(const char *dest, const char *src)
 				if (unlink_file(src) == 0)
 				{
 					ret = 0;
+					flush();
 				}
 				else
 				{
@@ -931,6 +932,7 @@ static void remove_from_finfo_tree(tree_node_type_def **handle, finfo_node *node
 
 file_obj *open_file(const char *path, uint32 flags)
 {
+	file_obj *file = NULL;
 	char *pre_path = pretreat_path(path);
 	if(pre_path != NULL)
 	{
@@ -944,7 +946,6 @@ file_obj *open_file(const char *path, uint32 flags)
 		node = get_file_info(pre_path, &index);
 		if (node != NULL && (node->finfo[index].property & 0x00000400) == 0)  //检查文件属性
 		{
-			file_obj *file = NULL;
 			finfo_node *f_node = find_finfo_node(_finfo_tree, node->finfo[index].cluster_id);
 			if (f_node != NULL)
 			{
@@ -958,7 +959,8 @@ file_obj *open_file(const char *path, uint32 flags)
 					{
 						free(node);
 					}
-					return NULL;
+					free(pre_path);
+					return file;
 				}
 			}
 			else
@@ -970,6 +972,11 @@ file_obj *open_file(const char *path, uint32 flags)
 				os_mem_cpy(&f_node->finfo, &node->finfo[index], sizeof(file_info));
 				insert_to_finfo_tree((tree_node_type_def **)(&_finfo_tree), f_node);
 			}
+			if (node != _root)
+			{
+				free(node);
+			}
+			free(pre_path);
 			file = (file_obj *)malloc(sizeof(file_obj));
 			file->flags = flags;
 			if (flags & FS_APPEND)
@@ -981,38 +988,29 @@ file_obj *open_file(const char *path, uint32 flags)
 				file->index = 0;
 			}
 			file->node = f_node;
-			if (node != _root)
-			{
-				free(node);
-			}
-			return file;
 		}
-		free(pre_path);
 	}
-	return NULL;
+	return file;
 }
 
 void close_file(file_obj *file)
 {
-	finfo_node *node = find_finfo_node(_finfo_tree, file->node->finfo.cluster_id);
-	node->count--;
-	if (0 == node->count)
+	uint32 index = 0;
+	fnode *n = get_file_info(file->node->path, &index);
+	if (n != NULL)
+	{
+		os_mem_cpy(&n->finfo[index], &file->node->finfo, sizeof(file_info));
+		fnode_flush(n);
+		if (_root != n)
+		{
+			free(n);
+		}
+	}
+	file->node->count--;
+	if (0 == file->node->count)
 	{
 		remove_from_finfo_tree((tree_node_type_def **)(&_finfo_tree), file->node);
-	}
-	{
-		uint32 is_exist;
-		uint32 index = 0;
-		fnode *n = get_parent(file->node->path, &index, file->node->finfo.name, &is_exist);
-		if (n != NULL && is_exist)
-		{
-			os_mem_cpy(&n->finfo[index], &file->node->finfo, sizeof(file_info));
-			fnode_flush(n);
-			if (_root != n)
-			{
-				free(n);
-			}
-		}
+		free(file->node);
 	}
 	free(file);
 }
@@ -1044,7 +1042,7 @@ uint32 read_file(file_obj *file, void *data, uint32 len)
 
 uint32 write_file(file_obj *file, void *data, uint32 len)
 {
-	if ((file->flags & FS_WRITE) && (file->node->finfo.property & 0x00000092)) //判断是否具有写权限
+	if ((file->flags & FS_WRITE) && (file->node->finfo.property & 0x00000092) && (file->node->finfo.property & 0x00000200) == 0) //判断是否具有写权限
 	{
 		if (len > 0)
 		{
@@ -1063,6 +1061,7 @@ uint32 write_file(file_obj *file, void *data, uint32 len)
 			}
 			file->index += len;
 			file->node->finfo.modif_time = os_get_time();
+			flush();
 			return len;
 		}
 	}

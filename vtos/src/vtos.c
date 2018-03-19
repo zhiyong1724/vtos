@@ -170,7 +170,7 @@ int main()
 				printf("error\n");
 			}
 		}
-		else if (os_str_cmp(command, "rmfile") == 0)
+		else if (os_str_cmp(command, "rm") == 0)
 		{
 			if (delete_file(arg1) != 0)
 			{
@@ -198,7 +198,7 @@ int main()
 					{
 						write_file(file2, buff, num);
 					}
-					printf("%s to %s", arg1, arg2);
+					printf("%s to %s\n", arg1, arg2);
 					close_file(file2);
 				}
 				fclose(file1);
@@ -219,7 +219,7 @@ int main()
 					{
 						fwrite(buff, 1, num, file2);
 					}
-					printf("%s to %s", arg1, arg2);
+					printf("%s to %s\n", arg1, arg2);
 					close_file(file1);
 				}
 				fclose(file2);
