@@ -231,6 +231,48 @@ void fs_formatting()
 	fs_unloading();
 }
 
+static finfo_node *find_finfo_node(finfo_node *finfo_tree, uint32 key)
+{
+	finfo_node *cur = finfo_tree;
+	if (cur != NULL)
+	{
+		for (;;)
+		{
+			if (cur->key == key)
+			{
+				return cur;
+			}
+			else if (key < cur->key)
+			{
+				if (cur->tree_node_structrue.left_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur = (finfo_node *)cur->tree_node_structrue.left_tree;
+			}
+			else
+			{
+				if (cur->tree_node_structrue.right_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur = (finfo_node *)cur->tree_node_structrue.right_tree;
+			}
+		}
+	}
+	return NULL;
+}
+
+static void on_move(uint32 id, uint32 index, uint32 key)
+{
+	finfo_node *f_node = find_finfo_node(_finfo_tree, key);
+	if (f_node != NULL)
+	{
+		f_node->cluster_id = id;
+		f_node->index = index;
+	}
+}
+
 void fs_loading()
 {
 	file_info *finfo = NULL;
@@ -249,10 +291,37 @@ void fs_loading()
 		_root = NULL;
 	}
 	free(finfo);
+	registr_on_move_info(on_move);
+}
+
+static void remove_from_finfo_tree(tree_node_type_def **handle, finfo_node *node)
+{
+	os_delete_node(handle, &(node->tree_node_structrue));
 }
 
 void fs_unloading()
 {
+	while(_finfo_tree != NULL)
+	{
+		finfo_node *temp = _finfo_tree;
+		fnode *n = NULL;
+		if (temp->cluster_id == _root->head.node_id)
+		{
+			n = _root;
+		}
+		else
+		{
+			n = fnode_load(temp->cluster_id);
+		}
+		os_mem_cpy(&n->finfo[temp->index], &temp->finfo, sizeof(file_info));
+		fnode_flush(n);
+		if (_root != n)
+		{
+			free(n);
+		}
+		remove_from_finfo_tree((tree_node_type_def **)(&_finfo_tree), temp);
+		free(temp);
+	}
 	uninit();
 	if (_super != NULL)
 	{
@@ -758,38 +827,6 @@ uint32 delete_dir(const char *path)
 	return ret;
 }
 
-static finfo_node *find_finfo_node(finfo_node *finfo_tree, uint32 key)
-{
-	finfo_node *cur = finfo_tree;
-	if (cur != NULL)
-	{
-		for (;;)
-		{
-			if (cur->key == key)
-			{
-				return cur;
-			}
-			else if (key < cur->key)
-			{
-				if (cur->tree_node_structrue.left_tree == &_leaf_node)
-				{
-					break;
-				}
-				cur = (finfo_node *)cur->tree_node_structrue.left_tree;
-			}
-			else
-			{
-				if (cur->tree_node_structrue.right_tree == &_leaf_node)
-				{
-					break;
-				}
-				cur = (finfo_node *)cur->tree_node_structrue.right_tree;
-			}
-		}
-	}
-	return NULL;
-}
-
 static uint32 do_delete_file(fnode *parent, uint32 i1, fnode **parent_root, fnode *child, uint32 i2)
 {
 	if (FS_MAX_KEY_NUM == i1)
@@ -926,11 +963,6 @@ static void insert_to_finfo_tree(tree_node_type_def **handle, finfo_node *node)
 	}
 }
 
-static void remove_from_finfo_tree(tree_node_type_def **handle, finfo_node *node)
-{
-	os_delete_node(handle, &(node->tree_node_structrue));
-}
-
 file_obj *open_file(const char *path, uint32 flags)
 {
 	file_obj *file = NULL;
@@ -1006,14 +1038,11 @@ void close_file(file_obj *file)
 	{
 		n = fnode_load(file->node->cluster_id);
 	}
-	if (n != NULL)
+	os_mem_cpy(&n->finfo[file->node->index], &file->node->finfo, sizeof(file_info));
+	fnode_flush(n);
+	if (_root != n)
 	{
-		os_mem_cpy(&n->finfo[file->node->index], &file->node->finfo, sizeof(file_info));
-		fnode_flush(n);
-		if (_root != n)
-		{
-			free(n);
-		}
+		free(n);
 	}
 	file->node->count--;
 	if (0 == file->node->count)
