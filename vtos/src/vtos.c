@@ -117,13 +117,20 @@ int main()
 		}*/
 
 	//}
-	fs_formatting();
+	//fs_formatting();
 	fs_loading();
 	while (os_str_cmp(buff, "quit") != 0)
 	{
 		scanf_s("%[^\n]%c", buff, 256, &ln, 1);
 		get_command(buff, command, arg1, arg2);
-		if (os_str_cmp(command, "df") == 0)
+		if (os_str_cmp(command, "formating") == 0)
+		{
+			fs_unloading();
+			fs_formatting();
+			fs_loading();
+			printf("ok\n");
+		}
+		else if (os_str_cmp(command, "df") == 0)
 		{
 			int all_cluster = get_all_cluster_num();
 			int free_cluster = get_free_cluster_num();
@@ -151,35 +158,55 @@ int main()
 		}
 		else if (os_str_cmp(command, "mkdir") == 0)
 		{
-			if (create_dir(arg1) != 0)
+			if (create_dir(arg1) == 0)
+			{
+				printf("ok\n");
+			}
+			else
 			{
 				printf("error\n");
 			}
 		}
 		else if (os_str_cmp(command, "touch") == 0)
 		{
-			if (create_file(arg1) != 0)
+			if (create_file(arg1) == 0)
+			{
+				printf("ok\n");
+			}
+			else
 			{
 				printf("error\n");
 			}
 		}
 		else if (os_str_cmp(command, "rmdir") == 0)
 		{
-			if (delete_dir(arg1) != 0)
+			if (delete_dir(arg1) == 0)
+			{
+				printf("ok\n");
+			}
+			else
 			{
 				printf("error\n");
 			}
 		}
 		else if (os_str_cmp(command, "rm") == 0)
 		{
-			if (delete_file(arg1) != 0)
+			if (delete_file(arg1) == 0)
+			{
+				printf("ok\n");
+			}
+			else
 			{
 				printf("error\n");
 			}
 		}
 		else if (os_str_cmp(command, "mv") == 0)
 		{
-			if (move_file(arg2, arg1) != 0)
+			if (move_file(arg2, arg1) == 0)
+			{
+				printf("ok\n");
+			}
+			else
 			{
 				printf("error\n");
 			}
@@ -192,13 +219,20 @@ int main()
 				file_obj *file2 = open_file(arg2, FS_CREATE | FS_WRITE | FS_APPEND);
 				if (file2 != NULL)
 				{
-					char buff[1024];
+					char buff[4096];
 					int num;
-					while ((num = fread_s(buff, 1024, 1, 1024, file1)) > 0)
+					long long size = 0;
+					long long cur = 0;
+					fseek(file1, 0, SEEK_END);
+					size = ftell(file1);
+					fseek(file1, 0, SEEK_SET);
+					while ((num = fread_s(buff, 4096, 1, 4096, file1)) > 0)
 					{
 						write_file(file2, buff, num);
+						cur += num;
+						printf("%lld%%\r", cur * 100 / size);
 					}
-					printf("%s to %s\n", arg1, arg2);
+					printf("\n%s to %s\n", arg1, arg2);
 					close_file(file2);
 				}
 				fclose(file1);
@@ -213,13 +247,20 @@ int main()
 				file_obj *file1 = open_file(arg1, FS_READ);
 				if (file1 != NULL)
 				{
-					char buff[1024];
+					char buff[4096];
 					int num;
-					while((num = read_file(file1, buff, 1024)) > 0)
+					long long size = 0;
+					long long cur = 0;
+					seek_file(file1, 0, FS_SEEK_END);
+					size = tell_file(file1);
+					seek_file(file1, 0, FS_SEEK_SET);
+					while((num = read_file(file1, buff, 4096)) > 0)
 					{
 						fwrite(buff, 1, num, file2);
+						cur += num;
+						printf("%lld%%\r", cur * 100 / size);
 					}
-					printf("%s to %s\n", arg1, arg2);
+					printf("\n%s to %s\n", arg1, arg2);
 					close_file(file1);
 				}
 				fclose(file2);

@@ -2,6 +2,7 @@
 #define __OS_DENTRY_H__
 #include "fs/os_cluster.h"
 #define FS_TNODE_SIZE 128
+typedef void(*on_move_info)(uint32 id, uint32 index, uint32 key);
 #pragma pack(1)
 typedef struct tnode
 {
@@ -69,4 +70,9 @@ void fnode_flush(fnode *node);
 * return：加载到的fnode；NULL：加载失败
 *********************************************************************************************************************/
 fnode *fnode_load(uint32 id);
+/*********************************************************************************************************************
+* 注册info移动回调
+* call_back：回调函数
+*********************************************************************************************************************/
+void registr_on_move_info(on_move_info call_back);
 #endif

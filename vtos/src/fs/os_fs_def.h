@@ -7,7 +7,6 @@
 #define FS_MAX_KEY_NUM 16
 #define FS_FILE_INFO_SIZE 248
 #define FS_MAX_NAME_SIZE 64
-#define FS_MAX_PATH_LEN 1024
 #define FS_MAX_FSNAME_SIZE 16
 #pragma pack(1)
 typedef struct super_cluster

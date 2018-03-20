@@ -3,6 +3,7 @@
 #include "fs/os_cluster.h"
 #include "vtos.h"
 #include <stdlib.h>
+static on_move_info _on_move_info = NULL;
 void fnode_flush(fnode *node)
 {
 	if (is_little_endian())
@@ -135,7 +136,13 @@ static fnode *split_child(fnode *root, uint32 i, fnode *child)
 
 	//复制child最后的FS_MAX_KEY_NUM / 2的keys到新节点
 	for (j = 0; j < FS_MAX_KEY_NUM / 2; j++)
+	{
 		os_mem_cpy(&new_node->finfo[j], &child->finfo[j + FS_MAX_KEY_NUM / 2], sizeof(file_info));
+		if (_on_move_info != NULL)
+		{
+			_on_move_info(new_node->head.node_id, j, child->finfo[j + FS_MAX_KEY_NUM / 2].cluster_id);
+		}
+	}
 
 	//复制child最后的FS_MAX_KEY_NUM / 2 + 1的孩子到新节点
 	if (child->head.leaf == 0)
@@ -151,10 +158,20 @@ static fnode *split_child(fnode *root, uint32 i, fnode *child)
 		root->head.pointers[j + 1] = root->head.pointers[j];
 	root->head.pointers[i + 1] = new_node->head.node_id;
 	for (j = root->head.num; j > i; j--)
+	{
 		os_mem_cpy(&root->finfo[j], &root->finfo[j - 1], sizeof(file_info));
+		if (_on_move_info != NULL)
+		{
+			_on_move_info(root->head.node_id, j, root->finfo[j - 1].cluster_id);
+		}
+	}
 
 	//复制child的中间key到root
 	os_mem_cpy(&root->finfo[i], &child->finfo[FS_MAX_KEY_NUM / 2 - 1], sizeof(file_info));
+	if (_on_move_info != NULL)
+	{
+		_on_move_info(root->head.node_id, i, child->finfo[FS_MAX_KEY_NUM / 2 - 1].cluster_id);
+	}
 
 	//增加root计数
 	root->head.num++;
@@ -171,9 +188,17 @@ static void insert_non_full(fnode *root, file_info *finfo)
 		while (i > 0 && os_str_cmp(root->finfo[i - 1].name, finfo->name) > 0)
 		{
 			os_mem_cpy(&root->finfo[i], &root->finfo[i - 1], sizeof(file_info));
+			if (_on_move_info != NULL)
+			{
+				_on_move_info(root->head.node_id, i, root->finfo[i - 1].cluster_id);
+			}
 			i--;
 		}
 		os_mem_cpy(&root->finfo[i], finfo, sizeof(file_info));
+		if (_on_move_info != NULL)
+		{
+			_on_move_info(root->head.node_id, i, finfo->cluster_id);
+		}
 		root->head.num++; 
 	}
 	else
@@ -701,4 +726,9 @@ fnode *remove_from_btree(fnode *root, const char *name)
 		fnode_flush(root);
 	}
 	return root;
+}
+
+void registr_on_move_info(on_move_info call_back)
+{
+	_on_move_info = call_back;
 }

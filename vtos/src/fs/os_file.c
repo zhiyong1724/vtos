@@ -125,17 +125,7 @@ static uint32 grow(uint32 id, uint32 is_list)
 
 static uint32 write_to_tree(uint32 tree, uint32 tree_height, uint32 *count, uint64 *index, uint8 **data, uint32 *size)
 {
-	uint32 i = (uint32)(*index / FS_PAGE_SIZE);
 	uint32 j = (uint32)(*index % FS_PAGE_SIZE);
-	uint32 k;
-	for (k = 1; k < tree_height - 1; k++)
-	{
-		i = i / FS_MAX_INDEX_NUM;
-	}
-	if (k < tree_height)
-	{
-		i = i % FS_MAX_INDEX_NUM;
-	}
 	if (1 == tree_height)
 	{
 		uint32 len = FS_PAGE_SIZE - j;
@@ -150,9 +140,17 @@ static uint32 write_to_tree(uint32 tree, uint32 tree_height, uint32 *count, uint
 	}
 	else
 	{
-		uint32 *list = (uint32 *)malloc(FS_PAGE_SIZE);
+		uint32 k;
+		uint32 i = (uint32)(*index / FS_PAGE_SIZE);
+		uint32 *list = NULL;
+		for (k = 1; k < tree_height - 1; k++)
+		{
+			i = i / FS_MAX_INDEX_NUM;
+		}
+		i = i % FS_MAX_INDEX_NUM;
+		list = (uint32 *)malloc(FS_PAGE_SIZE);
 		cluster_list_read(tree, list);
-		while (*size > 0 && i < FS_MAX_INDEX_NUM)
+		for (; *size > 0 && i < FS_MAX_INDEX_NUM; i++)
 		{
 			if (0 == list[i])
 			{
@@ -164,12 +162,21 @@ static uint32 write_to_tree(uint32 tree, uint32 tree_height, uint32 *count, uint
 				free(empty);
 			}
 			write_to_tree(list[i], tree_height - 1, count, index, data, size);
-			i++;
 		}
 		cluster_list_write(tree, list);
 		free(list);
 	}
 	return tree;
+}
+
+static uint32 data_cluster_count(uint32 tree_height)
+{
+	uint32 count = 1;
+	for (; tree_height > 1; tree_height--)
+	{
+		count *= FS_MAX_INDEX_NUM;
+	}
+	return count;
 }
 
 uint32 file_data_write(uint32 id, uint32 *count, uint64 index, uint8 *data, uint32 size)
@@ -183,13 +190,14 @@ uint32 file_data_write(uint32 id, uint32 *count, uint64 index, uint8 *data, uint
 		uint32 tree_height = calculate_tree_height(*count);
 		while (size > 0)
 		{
-			write_to_tree(id, tree_height, count, &index, &data, &size);
-			if (size > 0)
+			uint32 i = (uint32)(index / FS_PAGE_SIZE);
+			if (i >= data_cluster_count(tree_height))
 			{
 				id = grow(id, 1);
 				(*count)++;
 				tree_height++;
 			}
+			write_to_tree(id, tree_height, count, &index, &data, &size);
 		}
 		
 	}
@@ -198,17 +206,7 @@ uint32 file_data_write(uint32 id, uint32 *count, uint64 index, uint8 *data, uint
 
 static uint32 read_from_tree(uint32 tree, uint32 tree_height, uint64 *index, uint8 **data, uint32 *size)
 {
-	uint32 i = (uint32)(*index / FS_PAGE_SIZE);
 	uint32 j = (uint32)(*index % FS_PAGE_SIZE);
-	uint32 k;
-	for (k = 1; k < tree_height - 1; k++)
-	{
-		i = i / FS_MAX_INDEX_NUM;
-	}
-	if (k < tree_height)
-	{
-		i = i % FS_MAX_INDEX_NUM;
-	}
 	if (1 == tree_height)
 	{
 		uint32 len = FS_PAGE_SIZE - j;
@@ -223,12 +221,19 @@ static uint32 read_from_tree(uint32 tree, uint32 tree_height, uint64 *index, uin
 	}
 	else
 	{
-		uint32 *list = (uint32 *)malloc(FS_PAGE_SIZE);
+		uint32 k;
+		uint32 i = (uint32)(*index / FS_PAGE_SIZE);
+		uint32 *list = NULL;
+		for (k = 1; k < tree_height - 1; k++)
+		{
+			i = i / FS_MAX_INDEX_NUM;
+		}
+		i = i % FS_MAX_INDEX_NUM;
+		list = (uint32 *)malloc(FS_PAGE_SIZE);
 		cluster_list_read(tree, list);
-		while (*size > 0 && i < FS_MAX_INDEX_NUM)
+		for (; *size > 0 && i < FS_MAX_INDEX_NUM; i++)
 		{
 			read_from_tree(list[i], tree_height - 1, index, data, size);
-			i++;
 		}
 		free(list);
 	}

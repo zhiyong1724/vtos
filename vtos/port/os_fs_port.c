@@ -11,7 +11,7 @@ disk_info os_get_disk_info()
 	disk_info info;
 	info.first_page_id = 0;
 	info.page_size = FS_PAGE_SIZE;
-	info.page_count = 1024 * 64;
+	info.page_count = 1024 * 32;
 	return info;
 #else
 #endif // __WINDOWS__

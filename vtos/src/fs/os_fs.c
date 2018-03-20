@@ -49,15 +49,16 @@ static char *pretreat_path(const char *path)
 	uint32 index = 0;
 	char name[FS_MAX_NAME_SIZE];
 	char *buff = NULL;
+	uint32 path_len = os_str_len(path) + 1;
 	if (os_str_cmp(path, "/") == 0)
 	{
-		buff = (char *)malloc(FS_MAX_PATH_LEN);
+		buff = (char *)malloc(path_len);
 		buff[0] = '/';
 		buff[1] = '\0';
 	}
 	else if (get_file_name(name, path, &index) == 0)
 	{
-		uint32 *array = (uint32 *)malloc(FS_MAX_PATH_LEN * sizeof(uint32));
+		uint32 *array = (uint32 *)malloc(path_len * sizeof(uint32));
 		int32 i;
 		uint32 pre_index = 0;
 		index = 0;
@@ -88,7 +89,7 @@ static char *pretreat_path(const char *path)
 			int32 j;
 			uint32 k = 1;
 			uint32 n;
-			buff = (char *)malloc(FS_MAX_PATH_LEN);
+			buff = (char *)malloc(path_len);
 			buff[0] = '/';
 			buff[1] = '\0';
 			for (j = 0; j < i; j++)
@@ -968,7 +969,8 @@ file_obj *open_file(const char *path, uint32 flags)
 				f_node = (finfo_node *)malloc(sizeof(finfo_node));
 				f_node->count = 1;
 				f_node->key = node->finfo[index].cluster_id;
-				os_str_cpy(f_node->path, pre_path, FS_MAX_PATH_LEN);
+				f_node->cluster_id = node->head.node_id;
+				f_node->index = index;
 				os_mem_cpy(&f_node->finfo, &node->finfo[index], sizeof(file_info));
 				insert_to_finfo_tree((tree_node_type_def **)(&_finfo_tree), f_node);
 			}
@@ -995,11 +997,18 @@ file_obj *open_file(const char *path, uint32 flags)
 
 void close_file(file_obj *file)
 {
-	uint32 index = 0;
-	fnode *n = get_file_info(file->node->path, &index);
+	fnode *n = NULL;
+	if (file->node->cluster_id == _root->head.node_id)
+	{
+		n = _root;
+	}
+	else
+	{
+		n = fnode_load(file->node->cluster_id);
+	}
 	if (n != NULL)
 	{
-		os_mem_cpy(&n->finfo[index], &file->node->finfo, sizeof(file_info));
+		os_mem_cpy(&n->finfo[file->node->index], &file->node->finfo, sizeof(file_info));
 		fnode_flush(n);
 		if (_root != n)
 		{
@@ -1095,6 +1104,11 @@ uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)
 		return 0;
 	}
 	return 1;
+}
+
+uint64 tell_file(file_obj *file)
+{
+	return file->index;
 }
 
 

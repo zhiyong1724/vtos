@@ -26,7 +26,8 @@ typedef struct finfo_node
 	tree_node_type_def tree_node_structrue;
 	uint32 key;
 	uint32 count;
-	char path[FS_MAX_PATH_LEN];
+	uint32 cluster_id;
+	uint32 index;
 	file_info finfo;
 } finfo_node;
 
@@ -133,4 +134,10 @@ uint32 write_file(file_obj *file, void *data, uint32 len);
 * return：0：成功；
 *********************************************************************************************************************/
 uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere);
+/*********************************************************************************************************************
+* 获取指针位置
+* file：文件对象
+* return：指针位置
+*********************************************************************************************************************/
+uint64 tell_file(file_obj *file);
 #endif
