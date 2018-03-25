@@ -244,6 +244,36 @@ void cluster_read(uint32 cluster_id, uint8 *data)
 	}
 }
 
+uint32 cluster_read_return(uint32 cluster_id, uint8 *data)
+{
+	if (_cluster_controler.dinfo.page_size <= FS_PAGE_SIZE)
+	{
+		uint32 i;
+		for (i = 0; i < _cluster_controler.divisor; i++)
+		{
+			if (os_disk_read(_cluster_controler.dinfo.first_page_id + cluster_id * _cluster_controler.divisor + i, data) != 0)
+			{
+				return 1;
+			}
+			data += FS_PAGE_SIZE / _cluster_controler.divisor;
+		}
+	}
+	else
+	{
+		uint32 page_id = _cluster_controler.dinfo.first_page_id + cluster_id / _cluster_controler.divisor;
+		uint32 i = cluster_id % _cluster_controler.divisor;
+		uint8 *buff = (uint8 *)malloc(_cluster_controler.dinfo.page_size);
+		if (os_disk_read(page_id, buff) != 0)
+		{
+			free(buff);
+			return 1;
+		}
+		os_mem_cpy(data, &buff[i * FS_PAGE_SIZE], FS_PAGE_SIZE);
+		free(buff);
+	}
+	return 0;
+}
+
 void cluster_write(uint32 cluster_id, uint8 *data)
 {
 	if (_cluster_controler.dinfo.page_size <= FS_PAGE_SIZE)
@@ -265,6 +295,41 @@ void cluster_write(uint32 cluster_id, uint8 *data)
 		while (os_disk_write(page_id, buff) != 0);
 		free(buff);
 	}
+}
+
+uint32 cluster_write_return(uint32 cluster_id, uint8 *data)
+{
+	if (_cluster_controler.dinfo.page_size <= FS_PAGE_SIZE)
+	{
+		uint32 i;
+		for (i = 0; i < _cluster_controler.divisor; i++)
+		{
+			if (os_disk_write(_cluster_controler.dinfo.first_page_id + cluster_id * _cluster_controler.divisor + i, data) != 0)
+			{
+				return 1;
+			}
+			data += FS_PAGE_SIZE / _cluster_controler.divisor;
+		}
+	}
+	else
+	{
+		uint32 page_id = _cluster_controler.dinfo.first_page_id + cluster_id / _cluster_controler.divisor;
+		uint32 i = cluster_id % _cluster_controler.divisor;
+		uint8 *buff = (uint8 *)malloc(_cluster_controler.dinfo.page_size);
+		if (os_disk_read(page_id, buff) != 0)
+		{
+			free(buff);
+			return 1;
+		}
+		os_mem_cpy(&buff[i * FS_PAGE_SIZE], data, FS_PAGE_SIZE);
+		if (os_disk_write(page_id, buff) != 0)
+		{
+			free(buff);
+			return 1;
+		}
+		free(buff);
+	}
+	return 0;
 }
 
 void flush()

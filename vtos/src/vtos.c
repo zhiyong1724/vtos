@@ -37,7 +37,7 @@ uint32 is_little_endian()
 			endian = 0;
 		}
 	}
-	return !endian;
+	return endian;
 }
 
 os_size_t os_sys_init(void)
@@ -118,7 +118,21 @@ int main()
 
 	//}
 	//fs_formatting();
-	fs_loading();
+	if (fs_loading() != 0)
+	{
+		printf("磁盘可能没有格式化，是否要进行格式化？y/n\n");
+		scanf_s("%[^\n]%c", buff, 256, &ln, 1);
+		if (os_str_cmp(buff, "y") == 0)
+		{
+			fs_formatting();
+			fs_loading();
+			printf("ok\n");
+		}
+		else
+		{
+			return 0;
+		}
+	}
 	while (os_str_cmp(buff, "quit") != 0)
 	{
 		scanf_s("%[^\n]%c", buff, 256, &ln, 1);
@@ -271,9 +285,9 @@ int main()
 		{
 			int i;
 			char n[16];
-			for (i = 0; i < 512; i++)
+			for (i = 0; i < 10000; i++)
 			{
-				sprintf_s(n, 16, "/a/%d", i);
+				sprintf_s(n, 16, "/%d", i);
 				create_dir(n);
 			}
 			
