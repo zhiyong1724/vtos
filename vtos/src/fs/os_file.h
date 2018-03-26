@@ -1,7 +1,7 @@
 #ifndef __OS_FILE_H__
 #define __OS_FILE_H__
 #include "fs/os_cluster.h"
-#define FS_MAX_INDEX_NUM (FS_PAGE_SIZE / sizeof(uint32))
+#define FS_MAX_INDEX_NUM (FS_CLUSTER_SIZE / sizeof(uint32))
 /*********************************************************************************************************************
 * 写小文件，内容大小在一簇以内
 * id：要写入的簇id

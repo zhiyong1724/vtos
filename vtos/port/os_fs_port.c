@@ -10,7 +10,7 @@ disk_info os_get_disk_info()
 #ifdef __WINDOWS__
 	disk_info info;
 	info.first_page_id = 0;
-	info.page_size = FS_PAGE_SIZE;
+	info.page_size = FS_CLUSTER_SIZE;
 	info.page_count = 1024 * 32;
 	return info;
 #else
@@ -25,7 +25,7 @@ uint32 os_disk_read(uint32 page_id, void *data)
 	sprintf_s(name, 32, "%d", page_id);
 	if (0 == fopen_s(&file, name, "rb"))
 	{
-		fread(data, FS_PAGE_SIZE, 1, file);
+		fread(data, FS_CLUSTER_SIZE, 1, file);
 		fclose(file);
 	}
 	return 0;
@@ -41,7 +41,7 @@ uint32 os_disk_write(uint32 page_id, void *data)
 	sprintf_s(name, 32, "%d", page_id);
 	if (0 == fopen_s(&file, name, "wb"))
 	{
-		fwrite(data, FS_PAGE_SIZE, 1, file);
+		fwrite(data, FS_CLUSTER_SIZE, 1, file);
 		fclose(file);
 	}
 	return 0;

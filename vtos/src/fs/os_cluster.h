@@ -2,9 +2,10 @@
 #define __OS_CLUSTER_H__
 #include "fs/os_fs_def.h"
 #define FIRST_CLUSTER_MANAGER_ID (SUPER_CLUSTER_ID + 3)
-#define MAX_FLUSH_COUNT 256
+#define MAX_FLUSH_COUNT 1024
 typedef void (*flush_to_file)(uint32 id, void *data);
 typedef void(*load_from_file)(uint32 id, void *data);
+typedef void(*update_bitmap_file)();
 #pragma pack(1)
 struct cluster_manager
 {
@@ -112,4 +113,8 @@ void register_flush_callback(flush_to_file flush_callback);
 * 注册加载文件回调
 *********************************************************************************************************************/
 void register_load_callback(load_from_file load_callback);
+/*********************************************************************************************************************
+* 注册更新文件回调
+*********************************************************************************************************************/
+void register_update_callback(update_bitmap_file update_callback);
 #endif

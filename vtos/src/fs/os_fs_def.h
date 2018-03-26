@@ -3,7 +3,7 @@
 #include "os_cpu_def.h"
 #define SUPER_CLUSTER_ID 0
 #define ROOT_CLUSTER_ID (SUPER_CLUSTER_ID + 1)
-#define FS_PAGE_SIZE 4096
+#define FS_CLUSTER_SIZE 4096
 #define FS_MAX_KEY_NUM 16
 #define FS_FILE_INFO_SIZE 248
 #define FS_MAX_NAME_SIZE 64

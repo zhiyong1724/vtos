@@ -37,7 +37,7 @@ uint32 is_little_endian()
 			endian = 0;
 		}
 	}
-	return endian;
+	return !endian;
 }
 
 os_size_t os_sys_init(void)
@@ -146,8 +146,8 @@ int main()
 		{
 			int all_cluster = get_all_cluster_num();
 			int free_cluster = get_free_cluster_num();
-			printf("总大小：%d\n", all_cluster * FS_PAGE_SIZE);
-			printf("剩余大小：%d\n", free_cluster * FS_PAGE_SIZE);
+			printf("总大小：%d\n", all_cluster * FS_CLUSTER_SIZE);
+			printf("剩余大小：%d\n", free_cluster * FS_CLUSTER_SIZE);
 		}
 		else if (os_str_cmp(command, "ls") == 0)
 		{
