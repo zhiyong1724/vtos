@@ -117,7 +117,6 @@ int main()
 		}*/
 
 	//}
-	//fs_formatting();
 	if (fs_loading() != 0)
 	{
 		printf("磁盘可能没有格式化，是否要进行格式化？y/n\n");
@@ -125,7 +124,6 @@ int main()
 		if (os_str_cmp(buff, "y") == 0)
 		{
 			fs_formatting();
-			fs_loading();
 			printf("ok\n");
 		}
 		else
@@ -290,7 +288,7 @@ int main()
 				sprintf_s(n, 16, "/%d", i);
 				create_dir(n);
 			}
-			
+			printf("ok\n");
 		}
 		else
 		{

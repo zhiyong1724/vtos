@@ -267,26 +267,6 @@ static file_info *file_info_load_return(uint32 id)
 	return finfo;
 }
 
-void fs_formatting()
-{
-	file_info *finfo = NULL;
-	while (sizeof(fnode) != FS_PAGE_SIZE);
-	cluster_controler_init();
-	cluster_manager_init();
-	_super = (super_cluster *)malloc(FS_PAGE_SIZE);
-	super_cluster_init(_super);
-	finfo = (file_info *)malloc(FS_PAGE_SIZE);
-	file_info_init(finfo);
-	finfo->property |= 0x00000600;       //设置只是系统写权限和目录标记
-	os_str_cpy(finfo->name, "/", FS_MAX_NAME_SIZE);
-	finfo->cluster_id = 0;
-	file_info_flush(ROOT_CLUSTER_ID, finfo);
-	file_info_flush(ROOT_CLUSTER_ID + 1, finfo);
-	free(finfo);
-	super_cluster_flush();
-	fs_unloading();
-}
-
 static finfo_node *find_finfo_node(finfo_node *finfo_tree, uint32 key)
 {
 	finfo_node *cur = finfo_tree;
@@ -353,7 +333,7 @@ uint32 fs_loading()
 			_root = NULL;
 		}
 		free(finfo);
-		registr_on_move_info(on_move);
+		register_on_move_info(on_move);
 		return 0;
 	}
 	fs_unloading();
@@ -1158,9 +1138,9 @@ uint32 read_file(file_obj *file, void *data, uint32 len)
 	return 0;
 }
 
-uint32 write_file(file_obj *file, void *data, uint32 len)
+static uint32 sys_write_file(file_obj *file, void *data, uint32 len)
 {
-	if ((file->flags & FS_WRITE) && (file->node->finfo.property & 0x00000092) && (file->node->finfo.property & 0x00000200) == 0) //判断是否具有写权限
+	if ((file->flags & FS_WRITE) && (file->node->finfo.property & 0x00000092)) //判断是否具有写权限
 	{
 		if (len > 0)
 		{
@@ -1184,6 +1164,77 @@ uint32 write_file(file_obj *file, void *data, uint32 len)
 		}
 	}
 	return 0;
+}
+
+uint32 write_file(file_obj *file, void *data, uint32 len)
+{
+	if ((file->node->finfo.property & 0x00000200) == 0) //判断是否具有写权限
+	{
+		return sys_write_file(file, data, len);
+	}
+	return 0;
+}
+
+static void flush_bitmap(uint32 id, void *data)
+{
+	file_obj *file = open_file("/.bitmap", FS_WRITE);
+	if (file != NULL)
+	{
+		seek_file(file, FS_PAGE_SIZE * id, FS_SEEK_SET);
+		sys_write_file(file, data, FS_PAGE_SIZE);
+		close_file(file);
+	}
+}
+
+static void load_bitmap(uint32 id, void *data)
+{
+	file_obj *file = open_file("/.bitmap", FS_READ);
+	if (file != NULL)
+	{
+		seek_file(file, FS_PAGE_SIZE * id, FS_SEEK_SET);
+		read_file(file, data, FS_PAGE_SIZE);
+		close_file(file);
+	}
+}
+
+static uint32 create_sys_file(const char *path)
+{
+	uint32 ret = 1;
+	file_info *finfo = (file_info *)malloc(sizeof(file_info));
+	file_info_init(finfo);
+	finfo->property &= (~0x00000600);  //设置文件标记
+	finfo->cluster_id = cluster_alloc();
+	finfo->cluster_count = 1;
+	ret = do_create_file(path, finfo);
+	free(finfo);
+	if (0 == ret)
+	{
+		flush();
+	}
+	return ret;
+}
+
+void fs_formatting()
+{
+	file_info *finfo = NULL;
+	while (sizeof(fnode) != FS_PAGE_SIZE);
+	cluster_controler_init();
+	cluster_manager_init();
+	_super = (super_cluster *)malloc(FS_PAGE_SIZE);
+	super_cluster_init(_super);
+	finfo = (file_info *)malloc(FS_PAGE_SIZE);
+	file_info_init(finfo);
+	finfo->property |= 0x00000600;       //设置只是系统写权限和目录标记
+	os_str_cpy(finfo->name, "/", FS_MAX_NAME_SIZE);
+	finfo->cluster_id = 0;
+	file_info_flush(ROOT_CLUSTER_ID, finfo);
+	file_info_flush(ROOT_CLUSTER_ID + 1, finfo);
+	free(finfo);
+	super_cluster_flush();
+	register_flush_callback(flush_bitmap);
+	create_sys_file("/.bitmap");
+	copy_bitmap_to_file();
+	register_load_callback(load_bitmap);
 }
 
 uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)

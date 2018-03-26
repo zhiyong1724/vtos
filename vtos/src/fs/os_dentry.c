@@ -733,7 +733,7 @@ fnode *remove_from_btree(fnode *root, const char *name)
 	return root;
 }
 
-void registr_on_move_info(on_move_info call_back)
+void register_on_move_info(on_move_info call_back)
 {
 	_on_move_info = call_back;
 }

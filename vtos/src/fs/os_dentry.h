@@ -74,5 +74,5 @@ fnode *fnode_load(uint32 id);
 * 注册info移动回调
 * call_back：回调函数
 *********************************************************************************************************************/
-void registr_on_move_info(on_move_info call_back);
+void register_on_move_info(on_move_info call_back);
 #endif
