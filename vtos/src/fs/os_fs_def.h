@@ -15,6 +15,7 @@ typedef struct super_cluster
 	uint8 name[FS_MAX_FSNAME_SIZE];
 	uint32 root_id;
 	uint32 backup_id;
+	uint32 property;
 } super_cluster;
 #pragma pack()
 

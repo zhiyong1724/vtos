@@ -139,7 +139,6 @@ int main()
 		{
 			fs_unloading();
 			fs_formatting();
-			fs_loading();
 			printf("ok\n");
 		}
 		else if (os_str_cmp(command, "df") == 0)
@@ -290,7 +289,7 @@ int main()
 			}
 			printf("ok\n");
 		}
-		else
+		else if (os_str_cmp(command, "quit") != 0)
 		{
 			printf("command not found\n");
 		}

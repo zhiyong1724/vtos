@@ -2,6 +2,7 @@
 #include "lib/os_string.h"
 #include "fs/os_cluster.h"
 #include "fs/os_file.h"
+#include "fs/os_journal.h"
 #include <stdio.h>
 #include <vtos.h>
 #include <stdlib.h>
@@ -119,6 +120,7 @@ static void super_cluster_init(super_cluster *super)
 	os_str_cpy(super->name, "emfs", FS_MAX_FSNAME_SIZE);
 	super->root_id = ROOT_CLUSTER_ID;
 	super->backup_id = ROOT_CLUSTER_ID + 1;
+	super->property = 1;        //.0 whether open journal
 }
 
 static void file_info_init(file_info *info)
@@ -149,6 +151,7 @@ static void super_cluster_flush()
 		temp->flag = convert_endian(_super->flag);
 		temp->root_id = convert_endian(_super->root_id);
 		temp->backup_id = convert_endian(_super->backup_id);
+		temp->property = convert_endian(_super->property);
 		cluster_write(SUPER_CLUSTER_ID, (uint8 *)temp);
 		free(temp);
 	}
@@ -166,6 +169,7 @@ static void super_cluster_load()
 		_super->flag = convert_endian(_super->flag);
 		_super->root_id = convert_endian(_super->root_id);
 		_super->backup_id = convert_endian(_super->backup_id);
+		_super->property = convert_endian(_super->property);
 	}
 }
 
@@ -1014,7 +1018,7 @@ uint32 move_file(const char *dest, const char *src)
 				}
 				else
 				{
-					unlink_file(dest);
+					sys_unlink_file(dest);
 				}
 			}
 		}
@@ -1194,7 +1198,7 @@ static uint32 sys_write_file(file_obj *file, void *data, uint32 len)
 				file->node->finfo.cluster_id = file_data_write(file->node->finfo.cluster_id, &file->node->finfo.cluster_count, file->index, data, len);
 			}
 
-			if (file->index + len > file->node->finfo.size)
+			if (data != NULL && file->index + len > file->node->finfo.size)
 			{
 				file->node->finfo.size = file->index + len;
 			}
@@ -1216,34 +1220,13 @@ uint32 write_file(file_obj *file, void *data, uint32 len)
 	return 0;
 }
 
-static void flush_bitmap(uint32 id, void *data)
-{
-	file_obj *file = open_file("/.bitmap", FS_WRITE);
-	if (file != NULL)
-	{
-		seek_file(file, FS_CLUSTER_SIZE * id, FS_SEEK_SET);
-		sys_write_file(file, data, FS_CLUSTER_SIZE);
-		close_file(file);
-	}
-}
-
-static void load_bitmap(uint32 id, void *data)
-{
-	file_obj *file = open_file("/.bitmap", FS_READ);
-	if (file != NULL)
-	{
-		seek_file(file, FS_CLUSTER_SIZE * id, FS_SEEK_SET);
-		read_file(file, data, FS_CLUSTER_SIZE);
-		close_file(file);
-	}
-}
-
 static uint32 create_sys_file(const char *path)
 {
 	uint32 ret = 1;
 	file_info *finfo = (file_info *)malloc(sizeof(file_info));
 	file_info_init(finfo);
-	finfo->property &= (~0x00000600);  //设置文件标记
+	finfo->property &= (~0x00000400);  //设置文件标记
+	finfo->property |= 0x00000200;  //设置系统只写
 	finfo->cluster_id = cluster_alloc();
 	finfo->cluster_count = 1;
 	ret = do_create_file(path, finfo);
@@ -1253,48 +1236,6 @@ static uint32 create_sys_file(const char *path)
 		flush();
 	}
 	return ret;
-}
-
-static void create_bitmap_file(const char *path, uint32 file_size)
-{
-	file_obj *file = NULL;
-	create_sys_file(path);
-	file = open_file(path, FS_WRITE);
-	if (file != NULL)
-	{
-		if (file_size > 0)
-		{
-			sys_write_file(file, NULL, file_size);
-		}
-		close_file(file);
-	}
-}
-
-static void update_bitmap()
-{
-	uint32 file_size = 0;
-	char *buff = NULL;
-	file_obj *bitmap_file = open_file("/.bitmap", FS_READ);
-	buff = (char *)malloc(FS_CLUSTER_SIZE);
-	if (bitmap_file != NULL)
-	{
-		file_obj *empty_file = open_file("/.empty", FS_WRITE);
-		if (empty_file != NULL)
-		{
-			uint32 size;
-			for (; (size = read_file(bitmap_file, buff, FS_CLUSTER_SIZE)) > 0; )
-			{
-				sys_write_file(empty_file, buff, size);
-				file_size += size;
-			}
-			close_file(empty_file);
-		}
-		close_file(bitmap_file);
-	}
-	free(buff);
-	delete_sys_file("/.bitmap");
-	move_sys_file("/.bitmap", "/.empty");
-	create_bitmap_file("/.empty", file_size);
 }
 
 uint32 fs_loading()
@@ -1322,9 +1263,7 @@ uint32 fs_loading()
 		}
 		free(finfo);
 		register_on_move_info(on_move);
-		register_flush_callback(flush_bitmap);
-		register_load_callback(load_bitmap);
-		register_flush_callback(flush_bitmap);
+		register_callback(create_sys_file, delete_sys_file, sys_write_file, move_sys_file);
 		return 0;
 	}
 	fs_unloading();
@@ -1349,15 +1288,8 @@ void fs_formatting()
 	file_info_flush(ROOT_CLUSTER_ID + 1, finfo);
 	free(finfo);
 	super_cluster_flush();
-	register_flush_callback(flush_bitmap);
-	create_bitmap_file("/.bitmap", 0);
-	copy_bitmap_to_file();
-	register_load_callback(load_bitmap);
-	file = open_file("/.bitmap", FS_READ);
-	seek_file(file, 0, FS_SEEK_END);
-	create_bitmap_file("/.empty", (uint32)tell_file(file));
-	close_file(file);
-	register_flush_callback(flush_bitmap);
+	register_callback(create_sys_file, delete_sys_file, sys_write_file, move_sys_file);
+	journal_init();
 }
 
 uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)

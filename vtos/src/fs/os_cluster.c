@@ -4,9 +4,6 @@
 #include "vtos.h"
 #include <stdlib.h>
 static struct cluster_controler _cluster_controler;
-static flush_to_file _flush_to_file = NULL;
-static load_from_file _load_from_file = NULL;
-static update_bitmap_file _update_bitmap_file = NULL;
 uint32 convert_endian(uint32 src)
 {
 	uint32 dest;
@@ -39,40 +36,19 @@ uint64 convert_endian64(uint64 src)
 
 static void bitmap_load(uint32 id, uint8 *data)
 {
-	if (_load_from_file != NULL)
-	{
-		_load_from_file(id + 1, data);
-	}
-	else
-	{
-		cluster_read(FIRST_CLUSTER_MANAGER_ID + 1 + id, data);
-	}
+	cluster_read(FIRST_CLUSTER_MANAGER_ID + 1 + id, data);
 }
 
 static void bitmap_flush(uint32 id, uint8 *data)
 {
-	if (_load_from_file != NULL)
-	{
-		_flush_to_file(id + 1, data);
-	}
-	else
-	{
-		cluster_write(FIRST_CLUSTER_MANAGER_ID + 1 + id, data);
-	}
+	cluster_write(FIRST_CLUSTER_MANAGER_ID + 1 + id, data);
 }
 
 static void cluster_manager_flush()
 {
 	if (is_little_endian())
 	{
-		if (_load_from_file != NULL)
-		{
-			_flush_to_file(0, _cluster_controler.pcluster_manager);
-		}
-		else
-		{
-			cluster_write(FIRST_CLUSTER_MANAGER_ID, (uint8 *)_cluster_controler.pcluster_manager);
-		}
+		cluster_write(FIRST_CLUSTER_MANAGER_ID, (uint8 *)_cluster_controler.pcluster_manager);
 	}
 	else
 	{
@@ -80,15 +56,7 @@ static void cluster_manager_flush()
 
 		temp->cur_index = convert_endian(_cluster_controler.pcluster_manager->cur_index);
 		temp->used_cluster_count = convert_endian(_cluster_controler.pcluster_manager->used_cluster_count);
-		temp->flush_count = convert_endian(_cluster_controler.pcluster_manager->flush_count);
-		if (_load_from_file != NULL)
-		{
-			_flush_to_file(0, temp);
-		}
-		else
-		{
-			cluster_write(FIRST_CLUSTER_MANAGER_ID, (uint8 *)temp);
-		}
+		cluster_write(FIRST_CLUSTER_MANAGER_ID, (uint8 *)temp);
 		free(temp);
 	}
 }
@@ -97,28 +65,13 @@ void cluster_manager_load()
 {
 	if (is_little_endian())
 	{
-		if (_load_from_file != NULL)
-		{
-			_load_from_file(0, _cluster_controler.pcluster_manager);
-		}
-		else
-		{
-			cluster_read(FIRST_CLUSTER_MANAGER_ID, (uint8 *)_cluster_controler.pcluster_manager);
-		}
+		cluster_read(FIRST_CLUSTER_MANAGER_ID, (uint8 *)_cluster_controler.pcluster_manager);
 	}
 	else
 	{
-		if (_load_from_file != NULL)
-		{
-			_load_from_file(0, _cluster_controler.pcluster_manager);
-		}
-		else
-		{
-			cluster_read(FIRST_CLUSTER_MANAGER_ID, (uint8 *)_cluster_controler.pcluster_manager);
-		}
+		cluster_read(FIRST_CLUSTER_MANAGER_ID, (uint8 *)_cluster_controler.pcluster_manager);
 		_cluster_controler.pcluster_manager->cur_index = convert_endian(_cluster_controler.pcluster_manager->cur_index);
 		_cluster_controler.pcluster_manager->used_cluster_count = convert_endian(_cluster_controler.pcluster_manager->used_cluster_count);
-		_cluster_controler.pcluster_manager->flush_count = convert_endian(_cluster_controler.pcluster_manager->flush_count);
 	}
 }
 
@@ -197,7 +150,6 @@ void cluster_manager_init()
 	uint32 bitmap_cluster;
 	_cluster_controler.pcluster_manager->cur_index = 0;
 	_cluster_controler.pcluster_manager->used_cluster_count = 0;
-	_cluster_controler.pcluster_manager->flush_count = 0;
 	bitmap_cluster = _cluster_controler.bitmap_size / FS_CLUSTER_SIZE + 1;
 	for (i = 0; i < bitmap_cluster; i++)
 	{
@@ -384,12 +336,6 @@ void flush()
 	cluster_manager_flush();
 	if (_cluster_controler.bitmap != NULL)
 		bitmap_flush(_cluster_controler.cache_id, _cluster_controler.bitmap);
-	_cluster_controler.pcluster_manager->flush_count++;
-	if (MAX_FLUSH_COUNT == _cluster_controler.pcluster_manager->flush_count)
-	{
-		_cluster_controler.pcluster_manager->flush_count = 0;
-		_update_bitmap_file();
-	}
 }
 
 void uninit()
@@ -416,44 +362,4 @@ uint32 get_all_cluster_num()
 uint32 get_free_cluster_num()
 {
 	return _cluster_controler.total_cluster_count - _cluster_controler.pcluster_manager->used_cluster_count;
-}
-
-void copy_bitmap_to_file()
-{
-	uint32 bitmap_cluster;
-	if (is_little_endian())
-	{
-		_flush_to_file(0, _cluster_controler.pcluster_manager);
-	}
-	else
-	{
-		struct cluster_manager *temp = (struct cluster_manager *)malloc(FS_CLUSTER_SIZE);
-
-		temp->cur_index = convert_endian(_cluster_controler.pcluster_manager->cur_index);
-		temp->used_cluster_count = convert_endian(_cluster_controler.pcluster_manager->used_cluster_count);
-		temp->flush_count = convert_endian(_cluster_controler.pcluster_manager->flush_count);
-		_flush_to_file(0, temp);
-		free(temp);
-	}
-	bitmap_cluster = _cluster_controler.bitmap_size / FS_CLUSTER_SIZE + 1;
-	for (_cluster_controler.cache_id = 0; _cluster_controler.cache_id < bitmap_cluster; _cluster_controler.cache_id++)
-	{
-		bitmap_load(_cluster_controler.cache_id, _cluster_controler.bitmap);
-		_flush_to_file(_cluster_controler.cache_id + 1, _cluster_controler.bitmap);
-	}
-}
-
-void register_flush_callback(flush_to_file flush_callback)
-{
-	_flush_to_file = flush_callback;
-}
-
-void register_load_callback(load_from_file load_callback)
-{
-	_load_from_file = load_callback;
-}
-
-void register_update_callback(update_bitmap_file update_callback)
-{
-	_update_bitmap_file = update_callback;
 }
