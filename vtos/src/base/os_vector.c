@@ -72,32 +72,31 @@ os_size_t os_vector_insert(os_vector *obj, void *data, os_size_t n)
 	return obj->size;
 }
 
-os_size_t os_vector_back(os_vector *obj, void *data)
+void *os_vector_back(os_vector *obj)
 {
 	if (obj->size > 0)
 	{
-		return os_vector_at(obj, data, obj->size - 1);
+		return os_vector_at(obj, obj->size - 1);
 	}
-	return 1;
+	return NULL;
 }
 
-os_size_t os_vector_front(os_vector *obj, void *data)
+void *os_vector_front(os_vector *obj)
 {
 	if (obj->size > 0)
 	{
-		return os_vector_at(obj, data, 0);
+		return os_vector_at(obj, 0);
 	}
-	return 1;
+	return NULL;
 }
 
-os_size_t os_vector_at(os_vector *obj, void *data, os_size_t n)
+void *os_vector_at(os_vector *obj, os_size_t n)
 {
 	if (n < obj->size)
 	{
-		os_mem_cpy(data, &obj->buff[n * obj->unit_size], obj->unit_size);
-		return 0;
+		return &obj->buff[n * obj->unit_size];
 	}
-	return 1;
+	return NULL;
 }
 
 os_size_t os_vector_erase(os_vector *obj, os_size_t n)

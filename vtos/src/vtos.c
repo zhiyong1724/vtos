@@ -11,7 +11,7 @@
 
 #include "base/os_string.h"
 #include "fs/os_fs.h"
-#include "base/os_vector.h"
+#include "base/os_mem_pool.h"
 const char *VERSION = "0.0.2";
 
 const char *os_version(void)
@@ -282,32 +282,43 @@ int main()
 		}
 		else if (os_str_cmp(command, "test") == 0)
 		{
-			uint32 i;
-			uint32 value;
-			os_vector v;
-			os_vector_init(&v, sizeof(uint32));
-			for (i = 11; i <= 20; i++)
+			os_vector arrays;
+			os_size_t i;
+			os_mem_pool *mem_pool = os_mem_pool_create(sizeof(void *));
+			os_vector_init(&arrays, sizeof(void *));
+			for (i = 0; i < 120; i++)
 			{
-				os_vector_push_back(&v, &i);
+				os_size_t value = (os_size_t)os_mem_block_get(mem_pool);
+				os_vector_push_back(&arrays, &value);
+				printf("%d\n", value);
 			}
-			for (i = 1; i <= 10; i++)
+			for (i = 0; i < 128; i++)
 			{
-				os_vector_push_front(&v, &i);
+				os_size_t value = (os_size_t)os_mem_block_get(mem_pool);
+				os_vector_push_back(&arrays, &value);
+				printf("%d\n", value);
 			}
-			for (i = 1; i <= 10; i++)
+			for (i = 0; i < os_vector_size(&arrays); i++)
 			{
-				os_vector_pop_back(&v);
+				os_size_t *value = (os_size_t *)os_vector_at(&arrays, i);
+				printf("%x\n", *value);
+				os_mem_block_put(mem_pool, (void *)*value);
 			}
-			for (i = 1; i <= 10; i++)
+			os_vector_clear(&arrays);
+			for (i = 0; i < 248; i++)
 			{
-				os_vector_pop_front(&v);
+				os_size_t value = (os_size_t)os_mem_block_get(mem_pool);
+				os_vector_push_back(&arrays, &value);
+				printf("%d\n", value);
 			}
-			for (i = 0; i < os_vector_size(&v); i++)
+			for (i = 0; i < os_vector_size(&arrays); i++)
 			{
-				os_vector_at(&v, &value, i);
-				printf("%d ", value);
+				os_size_t *value = (os_size_t *)os_vector_at(&arrays, i);
+				printf("%x\n", *value);
+				os_mem_block_put(mem_pool, (void *)*value);
 			}
-			os_vector_free(&v);
+			os_vector_free(&arrays);
+			os_mem_pool_free(mem_pool);
 			/*int i;
 			char n[16];
 			for (i = 0; i < 10000; i++)
