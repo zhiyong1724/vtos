@@ -1,9 +1,9 @@
 #ifndef __VTOS_H__
 #define __VTOS_H__
 #include "os_cpu.h"
-#include "sched/os_sem_def.h"
-#include "sched/os_q_def.h"
-#include "sched/os_sched_def.h"
+#include "sched/os_sem.h"
+#include "sched/os_q.h"
+#include "sched/os_sched.h"
 /*********************************************************************************************************************
 * 判断CPU字节序是否为小端模式
 * return：1：小端模式；0：大端模式

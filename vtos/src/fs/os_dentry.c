@@ -1,5 +1,5 @@
 #include "fs/os_dentry.h"
-#include "lib/os_string.h"
+#include "base/os_string.h"
 #include "fs/os_cluster.h"
 #include "vtos.h"
 #include <stdlib.h>

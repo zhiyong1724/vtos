@@ -1,5 +1,5 @@
 #include "os_mem.h"
-#include "lib/os_string.h"
+#include "base/os_string.h"
 #include "vtos.h"
 #ifdef __WINDOWS__
 #include <stdlib.h>

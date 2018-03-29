@@ -1,5 +1,5 @@
 #include "fs/os_file.h"
-#include "lib/os_string.h"
+#include "base/os_string.h"
 #include "vtos.h"
 #include <stdlib.h>
 

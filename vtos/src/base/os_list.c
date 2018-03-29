@@ -58,3 +58,4 @@ list_node_type_def *os_get_back_from_list(list_node_type_def **handle)
 {
 	return (*handle)->pre_node;
 }
+

@@ -3,6 +3,18 @@
 #include "base/os_tree.h"
 #include "base/os_list.h"
 #include "os_timer.h"
+enum task_status_def
+{
+	TASK_RUNNING,
+	TASK_SLEEP,
+};
+
+enum event_status_def
+{
+	EVENT_NONE,
+	EVENT_GET_SIGNAL,
+	EVENT_WAIT_TIMEOUT
+};
 extern const os_size_t TREE_NODE_ADDR_OFFSET;     //task_info_t对象中tree_node_structrue地址减去该对象地址
 extern const os_size_t LIST_NODE_ADDR_OFFSET;     //task_info_t对象中list_node_structrue地址减去该对象地址
 typedef struct task_info_t

@@ -1,5 +1,5 @@
 #include "sched/os_pid.h"
-#include "lib/os_string.h"
+#include "base/os_string.h"
 #include "base/os_bitmap_index.h"
 static uint8 _pid_bitmap[PID_BITMAP_SIZE];
 void init_pid(void)

@@ -1,5 +1,5 @@
 #include "fs/os_cluster.h"
-#include "lib/os_string.h"
+#include "base/os_string.h"
 #include "base/os_bitmap_index.h"
 #include "vtos.h"
 #include <stdlib.h>

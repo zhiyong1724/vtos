@@ -1,5 +1,5 @@
 #include "fs/os_fs.h"
-#include "lib/os_string.h"
+#include "base/os_string.h"
 #include "fs/os_cluster.h"
 #include "fs/os_file.h"
 #include "fs/os_journal.h"

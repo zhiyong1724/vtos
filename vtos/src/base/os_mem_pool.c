@@ -1,15 +1,22 @@
 #include "os_mem_pool.h"
-os_size_t os_mem_pool_create(void *addr, os_size_t mem_size, os_size_t blk_size)
+#include <stdlib.h>
+static void link(void *root, os_size_t blk_size, os_size_t n)
 {
-	os_size_t ret = 1;
-	if (blk_size > sizeof(void *) && mem_size > sizeof(struct mem_pool_def))
+	void *paddr = root;
+	void **ppaddr = (void **)paddr;
+}
+
+os_mem_pool *os_mem_pool_create(os_size_t blk_size)
+{
+	os_mem_pool *ret = NULL;
+	if (blk_size > sizeof(void *))
 	{
-		os_size_t nblks = (mem_size - sizeof(struct mem_pool_def)) / blk_size;
-		if (nblks > 0)
+		os_size_t nblks = 8;
+		ret = (os_mem_pool *)malloc(sizeof(os_mem_pool) + nblks * blk_size);
+		if (ret != NULL)
 		{
-			void *paddr = (uint8 *)addr + sizeof(struct mem_pool_def);
+			void *paddr = &ret[1];
 			void **ppaddr = (void **)paddr;
-			struct mem_pool_def *mem_pool = addr;
 			os_size_t i;
 			mem_pool->total_count = nblks;
 			mem_pool->idle_count = nblks;

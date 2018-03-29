@@ -376,3 +376,52 @@ tree_node_type_def *os_get_leftmost_node(tree_node_type_def **handle)
 	}
 	return cur_node;
 }
+
+uint32 os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_compare callback)
+{
+	int32 cmp;
+	tree_node_type_def *cur_node = *handle;
+	os_init_node(node);
+	if (NULL == *handle)
+	{
+		node->color = BLACK;
+		*handle = node;
+	}
+	else
+	{
+		for (;;)
+		{
+			cmp = callback(node, cur_node);
+			if (cmp < 0)
+			{
+				if (cur_node->left_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur_node = cur_node->left_tree;
+			}
+			else if(cmp > 0)
+			{
+				if (cur_node->right_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur_node = cur_node->right_tree;
+			}
+			else
+			{
+				return 1;
+			}
+		}
+		node->parent = cur_node;
+		cmp = callback(node, cur_node);
+		if (cmp < 0)
+			cur_node->left_tree = node;
+		else if (cmp > 0)
+			cur_node->right_tree = node;
+		else
+			return 1;
+		os_insert_case(handle, node);
+	}
+	return 0;
+}

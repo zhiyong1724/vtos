@@ -1,22 +1,22 @@
 #ifndef __OS_MEM_POOL_H__
 #define __OS_MEM_POOL_H__
 #include "os_cpu.h"
-struct mem_pool_def
+#include "os_vector.h"
+#pragma pack()
+typedef struct os_mem_pool
 {
 	void *start;
 	os_size_t total_count;
 	os_size_t idle_count;
 	os_size_t block_size;
-};
-
+} os_mem_pool;
+#pragma pack()
 /*********************************************************************************************************************
-* 这个函数把一段内存空间格式化为一个内存池
-* addr：指向要格式化的内存
-* mem_size：这个内存的大小
+* 创建一个内存池
 * blk_size：内存池中块的大小,这个块的大小必须要保证能放下一个地址
-* return 1：创建失败；0：创建成功
+* return os_mem_pool
 *********************************************************************************************************************/
-os_size_t os_mem_pool_create(void *addr, os_size_t mem_size, os_size_t blk_size);
+os_mem_pool *os_mem_pool_create(os_size_t blk_size);
 /*********************************************************************************************************************
 * 从内存池中获取一个内存块
 * addr：指向被格式化的内存池

@@ -2,14 +2,16 @@
 #include "mem/os_mem.h"
 #include "sched/os_sched.h"
 #include "sched/os_timer.h"
-#include "lib/os_string.h"
-#include "fs/os_fs.h"
 #ifdef __WINDOWS__
 #define _CRTDBG_MAP_ALLOC
 #include <stdio.h>
 #include <stdlib.h>
 #include <crtdbg.h>
 #endif
+
+#include "base/os_string.h"
+#include "fs/os_fs.h"
+#include "base/os_vector.h"
 const char *VERSION = "0.0.2";
 
 const char *os_version(void)
@@ -280,14 +282,40 @@ int main()
 		}
 		else if (os_str_cmp(command, "test") == 0)
 		{
-			int i;
+			uint32 i;
+			uint32 value;
+			os_vector v;
+			os_vector_init(&v, sizeof(uint32));
+			for (i = 11; i <= 20; i++)
+			{
+				os_vector_push_back(&v, &i);
+			}
+			for (i = 1; i <= 10; i++)
+			{
+				os_vector_push_front(&v, &i);
+			}
+			for (i = 1; i <= 10; i++)
+			{
+				os_vector_pop_back(&v);
+			}
+			for (i = 1; i <= 10; i++)
+			{
+				os_vector_pop_front(&v);
+			}
+			for (i = 0; i < os_vector_size(&v); i++)
+			{
+				os_vector_at(&v, &value, i);
+				printf("%d ", value);
+			}
+			os_vector_free(&v);
+			/*int i;
 			char n[16];
 			for (i = 0; i < 10000; i++)
 			{
 				sprintf_s(n, 16, "/%d", i);
 				create_dir(n);
 			}
-			printf("ok\n");
+			printf("ok\n");*/
 		}
 		else if (os_str_cmp(command, "quit") != 0)
 		{

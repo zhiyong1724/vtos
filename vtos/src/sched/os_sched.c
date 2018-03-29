@@ -1,10 +1,10 @@
 #include "os_sched.h"
 #include "os_cfg.h"
 #include "os_cpu.h"
-#include "lib/os_string.h"
+#include "base/os_string.h"
 #include "vtos.h"
 #include "os_pid.h"
-#include "os_sched_def.h"
+#include "os_sched.h"
 #include "os_sem.h"
 
 const os_size_t TREE_NODE_ADDR_OFFSET = (os_size_t)sizeof(os_stk *);     //task_info_t对象中tree_node_structrue地址减去该对象地址
