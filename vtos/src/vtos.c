@@ -11,7 +11,7 @@
 
 #include "base/os_string.h"
 #include "fs/os_fs.h"
-#include "base/os_mem_pool.h"
+#include "base/os_list.h"
 const char *VERSION = "0.0.2";
 
 const char *os_version(void)
@@ -282,43 +282,59 @@ int main()
 		}
 		else if (os_str_cmp(command, "test") == 0)
 		{
-			os_vector arrays;
+			os_size_t v;
 			os_size_t i;
-			os_mem_pool *mem_pool = os_mem_pool_create(sizeof(void *));
-			os_vector_init(&arrays, sizeof(void *));
-			for (i = 0; i < 120; i++)
+			os_list list;
+			os_list_init(&list, sizeof(os_size_t));
+			v = 3;
+			os_list_insert(&list, &v, 0);
+			for (i = 0; i < os_list_size(&list); i++)
 			{
-				os_size_t value = (os_size_t)os_mem_block_get(mem_pool);
-				os_vector_push_back(&arrays, &value);
-				printf("%d\n", value);
+				os_size_t *value = os_list_at(&list, i);
+				printf("%d ", *value);
 			}
-			for (i = 0; i < 128; i++)
+			printf("\n");
+			v = 5;
+			os_list_insert(&list, &v, 1);
+			for (i = 0; i < os_list_size(&list); i++)
 			{
-				os_size_t value = (os_size_t)os_mem_block_get(mem_pool);
-				os_vector_push_back(&arrays, &value);
-				printf("%d\n", value);
+				os_size_t *value = os_list_at(&list, i);
+				printf("%d ", *value);
 			}
-			for (i = 0; i < os_vector_size(&arrays); i++)
+			printf("\n");
+			v = 1;
+			os_list_insert(&list, &v, 0);
+			for (i = 0; i < os_list_size(&list); i++)
 			{
-				os_size_t *value = (os_size_t *)os_vector_at(&arrays, i);
-				printf("%x\n", *value);
-				os_mem_block_put(mem_pool, (void *)*value);
+				os_size_t *value = os_list_at(&list, i);
+				printf("%d ", *value);
 			}
-			os_vector_clear(&arrays);
-			for (i = 0; i < 248; i++)
+			printf("\n");
+			v = 2;
+			os_list_insert(&list, &v, 1);
+			for (i = 0; i < os_list_size(&list); i++)
 			{
-				os_size_t value = (os_size_t)os_mem_block_get(mem_pool);
-				os_vector_push_back(&arrays, &value);
-				printf("%d\n", value);
+				os_size_t *value = os_list_at(&list, i);
+				printf("%d ", *value);
 			}
-			for (i = 0; i < os_vector_size(&arrays); i++)
+			printf("\n");
+			v = 4;
+			os_list_insert(&list, &v, 3);
+			for (i = 0; i < os_list_size(&list); i++)
 			{
-				os_size_t *value = (os_size_t *)os_vector_at(&arrays, i);
-				printf("%x\n", *value);
-				os_mem_block_put(mem_pool, (void *)*value);
+				os_size_t *value = os_list_at(&list, i);
+				printf("%d ", *value);
 			}
-			os_vector_free(&arrays);
-			os_mem_pool_free(mem_pool);
+			os_list_erase(&list, 0);
+			os_list_erase(&list, 3);
+			os_list_erase(&list, 2);
+			printf("\n");
+			for (i = 0; i < os_list_size(&list); i++)
+			{
+				os_size_t *value = os_list_at(&list, i);
+				printf("%d ", *value);
+			}
+			os_list_clear(&list);
 			/*int i;
 			char n[16];
 			for (i = 0; i < 10000; i++)

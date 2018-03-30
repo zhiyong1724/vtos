@@ -1,6 +1,5 @@
 #ifndef __OS_TREE_H__
 #define __OS_TREE_H__
-#include "os_tree.h"
 #include "os_cpu.h"
 #ifndef BLACK
 #define BLACK 0
@@ -9,6 +8,7 @@
 #ifndef RED
 #define RED 1
 #endif
+#pragma pack()
 typedef struct tree_node_type_def
 {
 	os_size_t color;
@@ -16,6 +16,7 @@ typedef struct tree_node_type_def
 	struct tree_node_type_def *left_tree;
 	struct tree_node_type_def *right_tree;
 } tree_node_type_def;
+#pragma pack()
 
 typedef int32 (*on_compare)(tree_node_type_def *node1, tree_node_type_def *node2);
 
