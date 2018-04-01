@@ -1,23 +1,17 @@
-#ifndef __OS_MAP_H__
-#define __OS_MAP_H__
-#include "os_tree.h"
-#include "os_list.h"
+#ifndef __OS_MULTIMAP_H__
+#define __OS_MULTIMAP_H__
+#include "os_map.h"
 #pragma pack()
-typedef struct os_map_iterator
+typedef struct os_multimap_iterator
 {
-	tree_node_type_def tree_node;
-	list_node_type_def list_node;
-} os_map_iterator;
+	os_map_iterator map_iterator;
+} os_multimap_iterator;
 #pragma pack()
 
-typedef struct os_map
+typedef struct os_multimap
 {
-	tree_node_type_def *tree;
-	list_node_type_def *head;
-	os_size_t key_size;
-	os_size_t value_size;
-	os_size_t size;
-} os_map;
+	os_map map;
+} os_multimap;
 
 /*********************************************************************************************************************
 * 初始化容器
@@ -25,22 +19,22 @@ typedef struct os_map
 * key_size key类型大小
 * value_size value类型大小
 *********************************************************************************************************************/
-void os_map_init(os_map *obj, os_size_t key_size, os_size_t value_size);
+void os_multimap_init(os_multimap *obj, os_size_t key_size, os_size_t value_size);
 /*********************************************************************************************************************
 * 释放容器
 * obj 容器对象
 *********************************************************************************************************************/
-void os_map_free(os_map *obj);
+void os_multimap_free(os_multimap *obj);
 /*********************************************************************************************************************
 * 获取容器大小
 * obj 容器对象
 *********************************************************************************************************************/
-os_size_t os_map_size(os_map *obj);
+os_size_t os_multimap_size(os_multimap *obj);
 /*********************************************************************************************************************
 * 判断容器是否为空
 * obj 容器对象
 *********************************************************************************************************************/
-os_size_t os_map_empty(os_map *obj);
+os_size_t os_multimap_empty(os_multimap *obj);
 /*********************************************************************************************************************
 * 插入元素
 * obj 容器对象
@@ -48,50 +42,50 @@ os_size_t os_map_empty(os_map *obj);
 * value 值
 * return 0 成功插入
 *********************************************************************************************************************/
-os_size_t os_map_insert(os_map *obj, void *key, void *value);
+os_size_t os_multimap_insert(os_multimap *obj, void *key, void *value);
 /*********************************************************************************************************************
 * 查找元素
 * obj 容器对象
 * key 键
 * return 对应的迭代器
 *********************************************************************************************************************/
-os_map_iterator *os_map_find(os_map *obj, void *key);
+os_multimap_iterator *os_multimap_find(os_multimap *obj, void *key);
 /*********************************************************************************************************************
 * 移除元素
 * obj 容器对象
 * itr 要移除的数据
 * return 0:成功移除
 *********************************************************************************************************************/
-os_size_t os_map_erase(os_map *obj, os_map_iterator *itr);
+os_size_t os_multimap_erase(os_multimap *obj, os_multimap_iterator *itr);
 /*********************************************************************************************************************
 * 清空所有元素
 * obj 容器对象
 *********************************************************************************************************************/
-void os_map_clear(os_map *obj);
+void os_multimap_clear(os_multimap *obj);
 /*********************************************************************************************************************
 * 返回key对象
 * itr 迭代器
 * retuan 数据指针
 *********************************************************************************************************************/
-void *os_map_first(os_map_iterator *itr);
+void *os_multimap_first(os_multimap_iterator *itr);
 /*********************************************************************************************************************
 * 返回value对象
 * obj 容器对象
 * itr 迭代器
 * retuan 数据指针
 *********************************************************************************************************************/
-void *os_map_second(os_map *obj, os_map_iterator *itr);
+void *os_multimap_second(os_multimap *obj, os_multimap_iterator *itr);
 /*********************************************************************************************************************
 * 返回第一个值的迭代器
 * obj 容器对象
 * retuan 迭代器
 *********************************************************************************************************************/
-os_map_iterator *os_map_begin(os_map *obj);
+os_multimap_iterator *os_multimap_begin(os_multimap *obj);
 /*********************************************************************************************************************
 * 返回下一个迭代器
 * obj 容器对象
 * itr 迭代器
 * retuan 下一个迭代器
 *********************************************************************************************************************/
-os_map_iterator *os_map_next(os_map *obj, os_map_iterator *itr);
+os_multimap_iterator *os_multimap_next(os_multimap *obj, os_multimap_iterator *itr);
 #endif

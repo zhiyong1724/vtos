@@ -18,7 +18,7 @@ typedef struct tree_node_type_def
 } tree_node_type_def;
 #pragma pack()
 
-typedef int32 (*on_compare)(tree_node_type_def *node1, tree_node_type_def *node2);
+typedef int32 (*on_compare)(void *key1, void *key2, void *arg);
 
 extern tree_node_type_def _leaf_node;
 
@@ -29,9 +29,10 @@ void os_insert_case(tree_node_type_def **handle, tree_node_type_def *node);
 * handle 树根
 * node：新节点
 * callback：条件判断函数，小于0，新节点插入到左子树，大于0，新节点插入到右子树
+* arg：传递到回调函数的参数
 * return：0：插入成功
 *********************************************************************************************************************/
-uint32 os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_compare callback);
+uint32 os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_compare callback, void *arg);
 /*********************************************************************************************************************
 * 删除节点
 * handle 树根
@@ -43,4 +44,13 @@ void os_delete_node(tree_node_type_def **handle, tree_node_type_def *node);
 * handle 树根
 *********************************************************************************************************************/
 tree_node_type_def *os_get_leftmost_node(tree_node_type_def **handle);
+/*********************************************************************************************************************
+* 查找节点
+* handle 树根
+* key：key
+* callback：条件判断函数，小于0，新节点插入到左子树，大于0，新节点插入到右子树
+* arg：传递到回调函数的参数
+* return：查找到的节点
+*********************************************************************************************************************/
+tree_node_type_def *find_node(tree_node_type_def **handle, void *key, on_compare callback, void *arg);
 #endif

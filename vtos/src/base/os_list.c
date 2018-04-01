@@ -33,7 +33,6 @@ void os_insert_to_back(list_node_type_def **handle, list_node_type_def *node)
 		(*handle)->pre_node = node;
 		node->pre_node->next_node = node;
 	}
-	*handle = node->pre_node;
 }
 
 void os_remove_from_list(list_node_type_def **handle, list_node_type_def *node)

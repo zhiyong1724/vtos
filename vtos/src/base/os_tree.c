@@ -377,7 +377,7 @@ tree_node_type_def *os_get_leftmost_node(tree_node_type_def **handle)
 	return cur_node;
 }
 
-uint32 os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_compare callback)
+uint32 os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_compare callback, void *arg)
 {
 	int32 cmp;
 	tree_node_type_def *cur_node = *handle;
@@ -391,7 +391,7 @@ uint32 os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_
 	{
 		for (;;)
 		{
-			cmp = callback(node, cur_node);
+			cmp = callback(node, cur_node, arg);
 			if (cmp < 0)
 			{
 				if (cur_node->left_tree == &_leaf_node)
@@ -414,7 +414,7 @@ uint32 os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_
 			}
 		}
 		node->parent = cur_node;
-		cmp = callback(node, cur_node);
+		cmp = callback(node, cur_node, arg);
 		if (cmp < 0)
 			cur_node->left_tree = node;
 		else if (cmp > 0)
@@ -424,4 +424,36 @@ uint32 os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_
 		os_insert_case(handle, node);
 	}
 	return 0;
+}
+
+tree_node_type_def *find_node(tree_node_type_def **handle, void *key, on_compare callback, void *arg)
+{
+	tree_node_type_def *cur = *handle;
+	if (cur != NULL)
+	{
+		for (;;)
+		{
+			if (callback(key, cur, arg) == 0)
+			{
+				return cur;
+			}
+			else if (callback(key, cur, arg) < 0)
+			{
+				if (cur->left_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur = cur->left_tree;
+			}
+			else
+			{
+				if (cur->right_tree == &_leaf_node)
+				{
+					break;
+				}
+				cur = cur->right_tree;
+			}
+		}
+	}
+	return NULL;
 }
