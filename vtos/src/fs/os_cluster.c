@@ -34,14 +34,43 @@ uint64 convert_endian64(uint64 src)
 	return dest;
 }
 
-static void bitmap_load(uint32 id, uint8 *data)
+static uint8 *bitmap_load(uint32 id)
 {
-	cluster_read(FIRST_CLUSTER_MANAGER_ID + 1 + id, data);
+	uint8 *data = NULL;
+	os_map_iterator *itr = os_map_find(&_cluster_controler.bitmaps, &id);
+	if (itr != NULL)
+	{
+		uint8 **pp = (uint8 **)os_map_second(&_cluster_controler.bitmaps, itr);
+		data = *pp;
+	}
+	else
+	{
+		uint8 *data = (uint8 *)malloc(FS_CLUSTER_SIZE);
+		cluster_read(FIRST_CLUSTER_MANAGER_ID + 1 + id, data);
+		os_map_insert(&_cluster_controler.bitmaps, &id, &data);
+	}
+	return data;
 }
 
 static void bitmap_flush(uint32 id, uint8 *data)
 {
 	cluster_write(FIRST_CLUSTER_MANAGER_ID + 1 + id, data);
+}
+
+static void bitmaps_flush()
+{
+	os_map_iterator *itr = os_map_begin(&_cluster_controler.bitmaps);
+	for (; itr != NULL; (itr = os_map_next(&_cluster_controler.bitmaps, itr)))
+	{
+		uint32 *key = (uint32 *)os_map_first(itr);
+		uint8 **pp = (uint8 **)os_map_second(&_cluster_controler.bitmaps, itr);
+		bitmap_flush(*key, *pp);
+		if (*key != _cluster_controler.cache_id)
+		{
+			free(*pp);
+		}
+	}
+	os_map_clear(&_cluster_controler.bitmaps);
 }
 
 static void cluster_manager_flush()
@@ -105,6 +134,7 @@ void cluster_controler_init()
 		_cluster_controler.total_cluster_count = _cluster_controler.dinfo.page_count * _cluster_controler.divisor;
 	}
 	_cluster_controler.bitmap_size = _cluster_controler.total_cluster_count / 8 + 1;
+	os_map_init(&_cluster_controler.bitmaps, sizeof(uint32), sizeof(void *));
 }
 
 static uint32 do_cluster_alloc()
@@ -113,9 +143,8 @@ static uint32 do_cluster_alloc()
 	uint32 id;
 	if (_cluster_controler.cache_id != _cluster_controler.pcluster_manager->cur_index / (FS_CLUSTER_SIZE * 8))
 	{
-		bitmap_flush(_cluster_controler.cache_id, _cluster_controler.bitmap);
 		_cluster_controler.cache_id = _cluster_controler.pcluster_manager->cur_index / (FS_CLUSTER_SIZE * 8);
-		bitmap_load(_cluster_controler.cache_id, _cluster_controler.bitmap);
+		_cluster_controler.bitmap = bitmap_load(_cluster_controler.cache_id);
 	}
 	i = _cluster_controler.pcluster_manager->cur_index % (FS_CLUSTER_SIZE * 8) / 8;
 	for (; i < FS_CLUSTER_SIZE; i++)
@@ -155,9 +184,8 @@ void cluster_manager_init()
 	{
 		bitmap_init(i);
 	}
-	_cluster_controler.bitmap = (uint8 *)malloc(FS_CLUSTER_SIZE);
 	_cluster_controler.cache_id = 0;
-	bitmap_load(0, _cluster_controler.bitmap);
+	_cluster_controler.bitmap = bitmap_load(0);
 
 	for (i = 0; i < SUPER_CLUSTER_ID + 3 + 1 + bitmap_cluster; i++)
 	{
@@ -177,7 +205,7 @@ uint32 cluster_alloc()
 	{
 		_cluster_controler.bitmap = (uint8 *)malloc(FS_CLUSTER_SIZE);
 		_cluster_controler.cache_id = _cluster_controler.pcluster_manager->cur_index / (FS_CLUSTER_SIZE * 8);
-		bitmap_load(_cluster_controler.cache_id, _cluster_controler.bitmap);
+		_cluster_controler.bitmap = bitmap_load(_cluster_controler.cache_id);
 	}
 	id = do_cluster_alloc();
 	for (; 0 == id;)
@@ -200,13 +228,12 @@ void cluster_free(uint32 cluster_id)
 	{
 		_cluster_controler.bitmap = (uint8 *)malloc(FS_CLUSTER_SIZE);
 		_cluster_controler.cache_id = cluster_id / (FS_CLUSTER_SIZE * 8);
-		bitmap_load(_cluster_controler.cache_id, _cluster_controler.bitmap);
+		_cluster_controler.bitmap = bitmap_load(_cluster_controler.cache_id);
 	}
 	if (_cluster_controler.cache_id != cluster_id / (FS_CLUSTER_SIZE * 8))
 	{
-		bitmap_flush(_cluster_controler.cache_id, _cluster_controler.bitmap);
 		_cluster_controler.cache_id = cluster_id / (FS_CLUSTER_SIZE * 8);
-		bitmap_load(_cluster_controler.cache_id, _cluster_controler.bitmap);
+		_cluster_controler.bitmap = bitmap_load(_cluster_controler.cache_id);
 	}
 	cluster_id %= (FS_CLUSTER_SIZE * 8);
 	i = cluster_id >> 3;
@@ -228,7 +255,7 @@ void cluster_read(uint32 cluster_id, uint8 *data)
 		uint32 i;
 		for (i = 0; i < _cluster_controler.divisor; i++)
 		{
-			while (os_disk_read(_cluster_controler.dinfo.first_page_id + cluster_id * _cluster_controler.divisor + i, data) != 0);
+			for (; os_disk_read(_cluster_controler.dinfo.first_page_id + cluster_id * _cluster_controler.divisor + i, data) != 0; );
 			data += FS_CLUSTER_SIZE / _cluster_controler.divisor;
 		}
 	}
@@ -237,7 +264,7 @@ void cluster_read(uint32 cluster_id, uint8 *data)
 		uint32 page_id = _cluster_controler.dinfo.first_page_id + cluster_id / _cluster_controler.divisor;
 		uint32 i = cluster_id % _cluster_controler.divisor;
 		uint8 *buff = (uint8 *)malloc(_cluster_controler.dinfo.page_size);
-		while (os_disk_read(page_id, buff) != 0);
+		for (; os_disk_read(page_id, buff) != 0; );
 		os_mem_cpy(data, &buff[i * FS_CLUSTER_SIZE], FS_CLUSTER_SIZE);
 		free(buff);
 	}
@@ -250,7 +277,9 @@ uint32 cluster_read_return(uint32 cluster_id, uint8 *data)
 		uint32 i;
 		for (i = 0; i < _cluster_controler.divisor; i++)
 		{
-			if (os_disk_read(_cluster_controler.dinfo.first_page_id + cluster_id * _cluster_controler.divisor + i, data) != 0)
+			uint32 j;
+			for (j = 0; os_disk_read(_cluster_controler.dinfo.first_page_id + cluster_id * _cluster_controler.divisor + i, data) != 0 && j < 10; j++);
+			if (10 == j)
 			{
 				return 1;
 			}
@@ -259,12 +288,13 @@ uint32 cluster_read_return(uint32 cluster_id, uint8 *data)
 	}
 	else
 	{
+		uint32 j;
 		uint32 page_id = _cluster_controler.dinfo.first_page_id + cluster_id / _cluster_controler.divisor;
 		uint32 i = cluster_id % _cluster_controler.divisor;
 		uint8 *buff = (uint8 *)malloc(_cluster_controler.dinfo.page_size);
-		if (os_disk_read(page_id, buff) != 0)
+		for (j = 0; os_disk_read(page_id, buff) != 0 && j < 10; j++);
+		if (10 == j)
 		{
-			free(buff);
 			return 1;
 		}
 		os_mem_cpy(data, &buff[i * FS_CLUSTER_SIZE], FS_CLUSTER_SIZE);
@@ -280,7 +310,7 @@ void cluster_write(uint32 cluster_id, uint8 *data)
 		uint32 i;
 		for (i = 0; i < _cluster_controler.divisor; i++)
 		{
-			while (os_disk_write(_cluster_controler.dinfo.first_page_id + cluster_id * _cluster_controler.divisor + i, data) != 0);
+			for (; os_disk_write(_cluster_controler.dinfo.first_page_id + cluster_id * _cluster_controler.divisor + i, data) != 0; );
 			data += FS_CLUSTER_SIZE / _cluster_controler.divisor;
 		}
 	}
@@ -289,9 +319,9 @@ void cluster_write(uint32 cluster_id, uint8 *data)
 		uint32 page_id = _cluster_controler.dinfo.first_page_id + cluster_id / _cluster_controler.divisor;
 		uint32 i = cluster_id % _cluster_controler.divisor;
 		uint8 *buff = (uint8 *)malloc(_cluster_controler.dinfo.page_size);
-		while (os_disk_read(page_id, buff) != 0);
+		for (; os_disk_read(page_id, buff) != 0; );
 		os_mem_cpy(&buff[i * FS_CLUSTER_SIZE], data, FS_CLUSTER_SIZE);
-		while (os_disk_write(page_id, buff) != 0);
+		for (; os_disk_write(page_id, buff) != 0; );
 		free(buff);
 	}
 }
@@ -303,7 +333,9 @@ uint32 cluster_write_return(uint32 cluster_id, uint8 *data)
 		uint32 i;
 		for (i = 0; i < _cluster_controler.divisor; i++)
 		{
-			if (os_disk_write(_cluster_controler.dinfo.first_page_id + cluster_id * _cluster_controler.divisor + i, data) != 0)
+			uint32 j;
+			for ( j = 0; os_disk_write(_cluster_controler.dinfo.first_page_id + cluster_id * _cluster_controler.divisor + i, data) != 0 && j < 10; j++);
+			if (10 == j)
 			{
 				return 1;
 			}
@@ -312,18 +344,19 @@ uint32 cluster_write_return(uint32 cluster_id, uint8 *data)
 	}
 	else
 	{
+		uint32 j;
 		uint32 page_id = _cluster_controler.dinfo.first_page_id + cluster_id / _cluster_controler.divisor;
 		uint32 i = cluster_id % _cluster_controler.divisor;
 		uint8 *buff = (uint8 *)malloc(_cluster_controler.dinfo.page_size);
-		if (os_disk_read(page_id, buff) != 0)
+		for (j = 0; os_disk_read(page_id, buff) != 0 && j < 10; j++);
+		if (10 == j)
 		{
-			free(buff);
 			return 1;
 		}
 		os_mem_cpy(&buff[i * FS_CLUSTER_SIZE], data, FS_CLUSTER_SIZE);
-		if (os_disk_write(page_id, buff) != 0)
+		for (j = 0; os_disk_write(page_id, buff) != 0 && j < 10; j++);
+		if (10 == j)
 		{
-			free(buff);
 			return 1;
 		}
 		free(buff);
@@ -334,8 +367,7 @@ uint32 cluster_write_return(uint32 cluster_id, uint8 *data)
 void flush()
 {
 	cluster_manager_flush();
-	if (_cluster_controler.bitmap != NULL)
-		bitmap_flush(_cluster_controler.cache_id, _cluster_controler.bitmap);
+	bitmaps_flush();
 }
 
 void uninit()

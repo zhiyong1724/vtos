@@ -1,6 +1,7 @@
 #ifndef __OS_CLUSTER_H__
 #define __OS_CLUSTER_H__
 #include "fs/os_fs_def.h"
+#include "base/os_map.h"
 #define FIRST_CLUSTER_MANAGER_ID (SUPER_CLUSTER_ID + 3)
 #pragma pack(1)
 struct cluster_manager
@@ -19,6 +20,7 @@ struct cluster_controler
 	uint32 divisor;
 	uint32 bitmap_size;
 	uint32 total_cluster_count;
+	os_map bitmaps;
 };
 /*********************************************************************************************************************
 * 把缓存数据写入磁盘
