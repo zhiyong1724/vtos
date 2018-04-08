@@ -271,36 +271,24 @@ static file_info *file_info_load_return(uint32 id)
 	return finfo;
 }
 
+static int32 cluster_id_compare2(void *key1, void *key2, void *arg)
+{
+	uint32 *key = (uint32 *)key1;
+	finfo_node *node2 = (finfo_node *)key2;
+	if (*key < node2->finfo.cluster_id)
+	{
+		return -1;
+	}
+	else if (*key > node2->finfo.cluster_id)
+	{
+		return 1;
+	}
+	return 0;
+}
+
 static finfo_node *find_finfo_node(finfo_node *finfo_tree, uint32 key)
 {
-	finfo_node *cur = finfo_tree;
-	if (cur != NULL)
-	{
-		for (;;)
-		{
-			if (cur->key == key)
-			{
-				return cur;
-			}
-			else if (key < cur->key)
-			{
-				if (cur->tree_node_structrue.left_tree == &_leaf_node)
-				{
-					break;
-				}
-				cur = (finfo_node *)cur->tree_node_structrue.left_tree;
-			}
-			else
-			{
-				if (cur->tree_node_structrue.right_tree == &_leaf_node)
-				{
-					break;
-				}
-				cur = (finfo_node *)cur->tree_node_structrue.right_tree;
-			}
-		}
-	}
-	return NULL;
+	return (finfo_node *)find_node(&finfo_tree->tree_node_structrue, &key, cluster_id_compare2, NULL);
 }
 
 static void on_move(uint32 id, uint32 index, uint32 key)
@@ -1026,43 +1014,24 @@ uint32 move_file(const char *dest, const char *src)
 	return ret;
 }
 
+static int32 cluster_id_compare(void *key1, void *key2, void *arg)
+{
+	finfo_node *node1 = (finfo_node *)key1;
+	finfo_node *node2 = (finfo_node *)key2;
+	if (node1->finfo.cluster_id < node2->finfo.cluster_id)
+	{
+		return -1;
+	}
+	else if (node1->finfo.cluster_id > node2->finfo.cluster_id)
+	{
+		return 1;
+	}
+	return 0;
+}
+
 static void insert_to_open_file_tree(tree_node_type_def **handle, finfo_node *node)
 {
-	finfo_node *cur_node = (finfo_node *)*handle;
-	os_init_node(&(node->tree_node_structrue));
-	if (NULL == *handle)
-	{
-		node->tree_node_structrue.color = BLACK;
-		*handle = &(node->tree_node_structrue);
-	}
-	else
-	{
-		for (;;)
-		{
-			if (node->key <= cur_node->key)
-			{
-				if (cur_node->tree_node_structrue.left_tree == &_leaf_node)
-				{
-					break;
-				}
-				cur_node = (finfo_node *)cur_node->tree_node_structrue.left_tree;
-			}
-			else
-			{
-				if (cur_node->tree_node_structrue.right_tree == &_leaf_node)
-				{
-					break;
-				}
-				cur_node = (finfo_node *)cur_node->tree_node_structrue.right_tree;
-			}
-		}
-		node->tree_node_structrue.parent = &cur_node->tree_node_structrue;
-		if (node->key <= cur_node->key)
-			cur_node->tree_node_structrue.left_tree = &(node->tree_node_structrue);
-		else
-			cur_node->tree_node_structrue.right_tree = &(node->tree_node_structrue);
-		os_insert_case(handle, &(node->tree_node_structrue));
-	}
+	os_insert_node(handle, &node->tree_node_structrue, cluster_id_compare, NULL);
 }
 
 file_obj *open_file(const char *path, uint32 flags)
@@ -1102,7 +1071,6 @@ file_obj *open_file(const char *path, uint32 flags)
 			{
 				f_node = (finfo_node *)malloc(sizeof(finfo_node));
 				f_node->count = 1;
-				f_node->key = node->finfo[index].cluster_id;
 				f_node->cluster_id = node->head.node_id;
 				f_node->index = index;
 				os_mem_cpy(&f_node->finfo, &node->finfo[index], sizeof(file_info));

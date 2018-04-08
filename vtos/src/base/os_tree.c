@@ -426,32 +426,31 @@ uint32 os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_
 	return 0;
 }
 
-tree_node_type_def *find_node(tree_node_type_def **handle, void *key, on_compare callback, void *arg)
+tree_node_type_def *find_node(tree_node_type_def *tree, void *key, on_compare callback, void *arg)
 {
-	tree_node_type_def *cur = *handle;
-	if (cur != NULL)
+	if (tree != NULL)
 	{
 		for (;;)
 		{
-			if (callback(key, cur, arg) == 0)
+			if (callback(key, tree, arg) == 0)
 			{
-				return cur;
+				return tree;
 			}
-			else if (callback(key, cur, arg) < 0)
+			else if (callback(key, tree, arg) < 0)
 			{
-				if (cur->left_tree == &_leaf_node)
+				if (tree->left_tree == &_leaf_node)
 				{
 					break;
 				}
-				cur = cur->left_tree;
+				tree = tree->left_tree;
 			}
 			else
 			{
-				if (cur->right_tree == &_leaf_node)
+				if (tree->right_tree == &_leaf_node)
 				{
 					break;
 				}
-				cur = cur->right_tree;
+				tree = tree->right_tree;
 			}
 		}
 	}

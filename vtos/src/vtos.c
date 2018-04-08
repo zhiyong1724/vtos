@@ -246,7 +246,7 @@ int main()
 						printf("%lld%%\r", cur * 100 / size);
 					}
 					printf("\n%s to %s\n", arg1, arg2);
-					close_file(file2);
+					//close_file(file2);
 				}
 				fclose(file1);
 			}

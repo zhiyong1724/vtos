@@ -93,7 +93,7 @@ os_map_iterator *os_map_find(os_map *obj, void *key)
 {
 	if (obj->size > 0)
 	{
-		os_map_iterator *itr = (os_map_iterator *)find_node(&obj->tree, key, os_map_find_compare, &obj->key_size);
+		os_map_iterator *itr = (os_map_iterator *)find_node(obj->tree, key, os_map_find_compare, &obj->key_size);
 		return itr;
 	}
 	return NULL;

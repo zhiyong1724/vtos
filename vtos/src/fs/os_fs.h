@@ -24,7 +24,6 @@ typedef struct dir_obj
 typedef struct finfo_node
 {
 	tree_node_type_def tree_node_structrue;
-	uint32 key;
 	uint32 count;
 	uint32 cluster_id;
 	uint32 index;

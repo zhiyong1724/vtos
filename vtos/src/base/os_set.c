@@ -88,7 +88,7 @@ os_set_iterator *os_set_find(os_set *obj, void *data)
 {
 	if (obj->size > 0)
 	{
-		os_set_iterator *itr = (os_set_iterator *)find_node(&obj->tree, data, os_set_find_compare, &obj->unit_size);
+		os_set_iterator *itr = (os_set_iterator *)find_node(obj->tree, data, os_set_find_compare, &obj->unit_size);
 		return itr;
 	}
 	return NULL;
