@@ -624,7 +624,6 @@ static uint32 do_create_file(const char *path, file_info *finfo)
 			else
 			{
 				insert_to_parent(&node->finfo[index], finfo);
-				fnode_flush(node);
 			}
 
 			ret = 0;
@@ -652,7 +651,7 @@ uint32 create_dir(const char *path)
 	free(finfo);
 	if (0 == ret)
 	{
-		flush();
+		cluster_flush();
 	}
 	return ret;
 }
@@ -669,7 +668,7 @@ uint32 create_file(const char *path)
 	free(finfo);
 	if (0 == ret)
 	{
-		flush();
+		cluster_flush();
 	}
 	return ret;
 }
@@ -830,7 +829,6 @@ static uint32 do_delete_dir(fnode *parent, uint32 i1, fnode **parent_root, fnode
 		if (0 == child->finfo[i2].file_count && child->finfo[i2].property & 0x00000400 && (child->finfo[i2].property & 0x00000200) == 0)
 		{
 			*parent_root = remove_from_parent(&parent->finfo[i1], *parent_root, child->finfo[i2].name);
-			fnode_flush(parent);
 			return 0;
 		}
 	}
@@ -843,7 +841,7 @@ uint32 delete_dir(const char *path)
 	ret = handle_file(path, do_delete_dir);
 	if (0 == ret)
 	{
-		flush();
+		cluster_flush();
 	}
 	return ret;
 }
@@ -865,7 +863,6 @@ static uint32 sys_do_delete_file(fnode *parent, uint32 i1, fnode **parent_root, 
 		{
 			file_data_remove(child->finfo[i2].cluster_id, child->finfo[i2].cluster_count);
 			*parent_root = remove_from_parent(&parent->finfo[i1], *parent_root, child->finfo[i2].name);
-			fnode_flush(parent);
 			return 0;
 		}
 	}
@@ -887,7 +884,7 @@ static uint32 delete_sys_file(const char *path)
 	ret = handle_file(path, sys_do_delete_file);
 	if (0 == ret)
 	{
-		flush();
+		cluster_flush();
 	}
 	return ret;
 }
@@ -898,7 +895,7 @@ uint32 delete_file(const char *path)
 	ret = handle_file(path, do_delete_file);
 	if (0 == ret)
 	{
-		flush();
+		cluster_flush();
 	}
 	return ret;
 }
@@ -918,7 +915,6 @@ static uint32 sys_do_unlink_file(fnode *parent, uint32 i1, fnode **parent_root, 
 		if (find_finfo_node(_open_file_tree, child->finfo[i2].cluster_id) == NULL)
 		{
 			*parent_root = remove_from_parent(&parent->finfo[i1], *parent_root, child->finfo[i2].name);
-			fnode_flush(parent);
 			return 0;
 		}
 	}
@@ -967,7 +963,7 @@ static uint32 move_sys_file(const char *dest, const char *src)
 				if (sys_unlink_file(src) == 0)
 				{
 					ret = 0;
-					flush();
+					cluster_flush();
 				}
 				else
 				{
@@ -1002,7 +998,7 @@ uint32 move_file(const char *dest, const char *src)
 				if (unlink_file(src) == 0)
 				{
 					ret = 0;
-					flush();
+					cluster_flush();
 				}
 				else
 				{
@@ -1172,7 +1168,7 @@ static uint32 sys_write_file(file_obj *file, void *data, uint32 len)
 			}
 			file->index += len;
 			file->node->finfo.modif_time = os_get_time();
-			flush();
+			cluster_flush();
 			return len;
 		}
 	}
@@ -1201,7 +1197,7 @@ static uint32 create_sys_file(const char *path)
 	free(finfo);
 	if (0 == ret)
 	{
-		flush();
+		cluster_flush();
 	}
 	return ret;
 }
@@ -1210,7 +1206,9 @@ uint32 fs_loading()
 {
 	file_info *finfo = NULL;
 	while (sizeof(fnode) != FS_CLUSTER_SIZE);
-	cluster_controler_init();
+	os_cluster_init();
+	os_dentry_init();
+	register_on_move_info(on_move);
 	cluster_manager_load();
 	_super = (super_cluster *)malloc(FS_CLUSTER_SIZE);
 	super_cluster_load();
@@ -1230,8 +1228,7 @@ uint32 fs_loading()
 			_root = NULL;
 		}
 		free(finfo);
-		register_on_move_info(on_move);
-		register_callback(create_sys_file, delete_sys_file, sys_write_file, move_sys_file);
+		//register_callback(create_sys_file, delete_sys_file, sys_write_file, move_sys_file);
 		return 0;
 	}
 	fs_unloading();
@@ -1243,7 +1240,9 @@ void fs_formatting()
 	file_info *finfo = NULL;
 	file_obj *file = NULL;
 	while (sizeof(fnode) != FS_CLUSTER_SIZE);
-	cluster_controler_init();
+	os_cluster_init();
+	os_dentry_init();
+	register_on_move_info(on_move);
 	cluster_manager_init();
 	_super = (super_cluster *)malloc(FS_CLUSTER_SIZE);
 	super_cluster_init(_super);
@@ -1256,8 +1255,8 @@ void fs_formatting()
 	file_info_flush(ROOT_CLUSTER_ID + 1, finfo);
 	free(finfo);
 	super_cluster_flush();
-	register_callback(create_sys_file, delete_sys_file, sys_write_file, move_sys_file);
-	journal_init();
+	//register_callback(create_sys_file, delete_sys_file, sys_write_file, move_sys_file);
+	//journal_init();
 }
 
 uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)

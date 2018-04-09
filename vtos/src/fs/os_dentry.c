@@ -3,7 +3,13 @@
 #include "fs/os_cluster.h"
 #include "vtos.h"
 #include <stdlib.h>
-static on_move_info _on_move_info = NULL;
+static struct os_dentry _os_dentry;
+void os_dentry_init()
+{
+	_os_dentry.move_callback = NULL;
+	os_map_init(&_os_dentry.fnodes, sizeof(uint32), sizeof(void *));
+}
+
 void fnode_flush(fnode *node)
 {
 	if (is_little_endian())
@@ -41,35 +47,62 @@ void fnode_flush(fnode *node)
 	}
 }
 
+void fnodes_flush()
+{
+	os_map_iterator *itr = os_map_begin(&_os_dentry.fnodes);
+	for (; itr != NULL; (itr = os_map_next(&_os_dentry.fnodes, itr)))
+	{
+		fnode **pp = (fnode **)os_map_second(&_os_dentry.fnodes, itr);
+		fnode_flush(*pp);
+		free(*pp);
+	}
+	os_map_clear(&_os_dentry.fnodes);
+}
+
 fnode *fnode_load(uint32 id)
 {
-	fnode *node = (fnode *)malloc(sizeof(fnode));
-	cluster_read(id, (uint8 *)node);
-	if (!is_little_endian())
+	fnode *node = NULL;
+	os_map_iterator *itr = os_map_find(&_os_dentry.fnodes, &id);
+	if (itr != NULL)
 	{
-		uint32 i = 0;
-		node->head.node_id = convert_endian(node->head.node_id);
-		node->head.num = convert_endian(node->head.num);
-		node->head.leaf = convert_endian(node->head.leaf);
-		node->head.next = convert_endian(node->head.next);
-		for (i = 0; i < node->head.num + 1; i++)
+		fnode **pp = (fnode **)os_map_second(&_os_dentry.fnodes, itr);
+		node = *pp;
+	}
+	else
+	{
+		node = (fnode *)malloc(sizeof(fnode));
+		cluster_read(id, (uint8 *)node);
+		if (!is_little_endian())
 		{
-			node->head.pointers[i] = convert_endian(node->head.pointers[i]);
-		}
-		for (i = 0; i < node->head.num; i++)
-		{
-			node->finfo[i].cluster_id = convert_endian(node->finfo[i].cluster_id);
-			node->finfo[i].cluster_count = convert_endian(node->finfo[i].cluster_count);
-			node->finfo[i].creator = convert_endian(node->finfo[i].creator);
-			node->finfo[i].modifier = convert_endian(node->finfo[i].modifier);
-			node->finfo[i].property = convert_endian(node->finfo[i].property);
-			node->finfo[i].file_count = convert_endian(node->finfo[i].file_count);
-			node->finfo[i].size = convert_endian64(node->finfo[i].size);
-			node->finfo[i].create_time = convert_endian64(node->finfo[i].create_time);
-			node->finfo[i].modif_time = convert_endian64(node->finfo[i].modif_time);
+			uint32 i = 0;
+			node->head.node_id = convert_endian(node->head.node_id);
+			node->head.num = convert_endian(node->head.num);
+			node->head.leaf = convert_endian(node->head.leaf);
+			node->head.next = convert_endian(node->head.next);
+			for (i = 0; i < node->head.num + 1; i++)
+			{
+				node->head.pointers[i] = convert_endian(node->head.pointers[i]);
+			}
+			for (i = 0; i < node->head.num; i++)
+			{
+				node->finfo[i].cluster_id = convert_endian(node->finfo[i].cluster_id);
+				node->finfo[i].cluster_count = convert_endian(node->finfo[i].cluster_count);
+				node->finfo[i].creator = convert_endian(node->finfo[i].creator);
+				node->finfo[i].modifier = convert_endian(node->finfo[i].modifier);
+				node->finfo[i].property = convert_endian(node->finfo[i].property);
+				node->finfo[i].file_count = convert_endian(node->finfo[i].file_count);
+				node->finfo[i].size = convert_endian64(node->finfo[i].size);
+				node->finfo[i].create_time = convert_endian64(node->finfo[i].create_time);
+				node->finfo[i].modif_time = convert_endian64(node->finfo[i].modif_time);
+			}
 		}
 	}
 	return node;
+}
+
+void insert_to_fnodes(fnode *node)
+{
+	os_map_insert(&_os_dentry.fnodes, &node->head.node_id, &node);
 }
 
 //初始化node
@@ -138,7 +171,7 @@ static fnode *split_child(fnode *root, uint32 i, fnode *child)
 	for (j = 0; j < FS_MAX_KEY_NUM / 2; j++)
 	{
 		os_mem_cpy(&new_node->finfo[j], &child->finfo[j + FS_MAX_KEY_NUM / 2], sizeof(file_info));
-		_on_move_info(new_node->head.node_id, j, child->finfo[j + FS_MAX_KEY_NUM / 2].cluster_id);
+		_os_dentry.move_callback(new_node->head.node_id, j, child->finfo[j + FS_MAX_KEY_NUM / 2].cluster_id);
 	}
 
 	//复制child最后的FS_MAX_KEY_NUM / 2 + 1的孩子到新节点
@@ -157,12 +190,12 @@ static fnode *split_child(fnode *root, uint32 i, fnode *child)
 	for (j = root->head.num; j > i; j--)
 	{
 		os_mem_cpy(&root->finfo[j], &root->finfo[j - 1], sizeof(file_info));
-		_on_move_info(root->head.node_id, j, root->finfo[j - 1].cluster_id);
+		_os_dentry.move_callback(root->head.node_id, j, root->finfo[j - 1].cluster_id);
 	}
 
 	//复制child的中间key到root
 	os_mem_cpy(&root->finfo[i], &child->finfo[FS_MAX_KEY_NUM / 2 - 1], sizeof(file_info));
-	_on_move_info(root->head.node_id, i, child->finfo[FS_MAX_KEY_NUM / 2 - 1].cluster_id);
+	_os_dentry.move_callback(root->head.node_id, i, child->finfo[FS_MAX_KEY_NUM / 2 - 1].cluster_id);
 
 	//增加root计数
 	root->head.num++;
@@ -179,20 +212,21 @@ static void insert_non_full(fnode *root, file_info *finfo)
 		for (; i > 0 && os_str_cmp(root->finfo[i - 1].name, finfo->name) > 0; i--)
 		{
 			os_mem_cpy(&root->finfo[i], &root->finfo[i - 1], sizeof(file_info));
-			_on_move_info(root->head.node_id, i, root->finfo[i - 1].cluster_id);
+			_os_dentry.move_callback(root->head.node_id, i, root->finfo[i - 1].cluster_id);
 		}
 		os_mem_cpy(&root->finfo[i], finfo, sizeof(file_info));
 		root->head.num++; 
 	}
 	else
 	{
-		fnode *new_node;
-		fnode *split_node;
+		fnode *new_node = NULL;
+		fnode *split_node = NULL;
 		//找到插入的位置
 		while (i > 0 && os_str_cmp(root->finfo[i - 1].name, finfo->name) > 0)
 			i--;
 
 		new_node = fnode_load(root->head.pointers[i]);
+		insert_to_fnodes(new_node);
 		if (new_node->head.num == FS_MAX_KEY_NUM)
 		{
 			//如果孩子满  
@@ -203,24 +237,15 @@ static void insert_non_full(fnode *root, file_info *finfo)
 
 			if (os_str_cmp(root->finfo[i].name, finfo->name) < 0)
 			{
-				fnode_flush(new_node);
-				free(new_node);
-				i++;
-				if (root->head.pointers[i] == split_node->head.node_id)
-					new_node = split_node;
-				else
-					new_node = fnode_load(root->head.pointers[i]);
-			}
-			if (split_node != new_node)
-			{
-				fnode_flush(split_node);
-				free(split_node);
-				split_node = NULL;
+				new_node = split_node;
 			}
 		}
 		insert_non_full(new_node, finfo);
-		fnode_flush(new_node);
-		free(new_node);
+		if (split_node != NULL)
+		{
+			fnode_flush(split_node);
+			free(split_node);
+		}
 	}
 }
 
@@ -233,6 +258,7 @@ fnode *insert_to_btree(fnode *root, file_info *finfo)
 		root = make_leaf();
 		root->head.num = 1;
 		os_mem_cpy(root->finfo, finfo, sizeof(file_info));
+		fnode_flush(root);
 	}
 	else // 如果树不为空  
 	{
@@ -261,10 +287,8 @@ fnode *insert_to_btree(fnode *root, file_info *finfo)
 			{
 				insert_non_full(root, finfo);
 			}
-			fnode_flush(root);
 			fnode_flush(split_node);
 			free(split_node);
-			free(root);
 			//改变root
 			root = new_node;
 		}
@@ -274,7 +298,6 @@ fnode *insert_to_btree(fnode *root, file_info *finfo)
 		}
 
 	}
-	fnode_flush(root);
 	return root;
 }
 
@@ -285,11 +308,11 @@ static void merge(fnode *root, fnode *child, fnode *sibling, uint32 idx)
 
 	//拷贝内容
 	os_mem_cpy(&child->finfo[FS_MAX_KEY_NUM / 2 - 1], &root->finfo[idx], sizeof(file_info));
-	_on_move_info(child->head.node_id, FS_MAX_KEY_NUM / 2 - 1, root->finfo[idx].cluster_id);
+	_os_dentry.move_callback(child->head.node_id, FS_MAX_KEY_NUM / 2 - 1, root->finfo[idx].cluster_id);
 	for (i = 0; i < sibling->head.num; ++i)
 	{
 		os_mem_cpy(&child->finfo[i + FS_MAX_KEY_NUM / 2], &sibling->finfo[i], sizeof(file_info));
-		_on_move_info(child->head.node_id, i + FS_MAX_KEY_NUM / 2, sibling->finfo[i].cluster_id);
+		_os_dentry.move_callback(child->head.node_id, i + FS_MAX_KEY_NUM / 2, sibling->finfo[i].cluster_id);
 	}
 
 	//拷贝指针
@@ -303,7 +326,7 @@ static void merge(fnode *root, fnode *child, fnode *sibling, uint32 idx)
 	for (i = idx + 1; i < root->head.num; ++i)
 	{
 		os_mem_cpy(&root->finfo[i - 1], &root->finfo[i], sizeof(file_info));
-		_on_move_info(root->head.node_id, i - 1, root->finfo[i].cluster_id);
+		_os_dentry.move_callback(root->head.node_id, i - 1, root->finfo[i].cluster_id);
 	}
 
 	//移动父节点的指针
@@ -313,7 +336,6 @@ static void merge(fnode *root, fnode *child, fnode *sibling, uint32 idx)
 	//更新父节点和孩子节点计数  
 	child->head.num += sibling->head.num + 1;
 	root->head.num--;
-	fnode_flush(child);
 	child->head.next = sibling->head.next;
 	//释放簇 
 	cluster_free(sibling->head.node_id);
@@ -512,7 +534,7 @@ static void remove_from_leaf(fnode *root, uint32 idx)
 	for (i = idx + 1; i < root->head.num; ++i)
 	{
 		os_mem_cpy(&root->finfo[i - 1], &root->finfo[i], sizeof(file_info));
-		_on_move_info(root->head.node_id, i - 1, root->finfo[i].cluster_id);
+		_os_dentry.move_callback(root->head.node_id, i - 1, root->finfo[i].cluster_id);
 	}
 	root->head.num--;
 	return;
@@ -531,7 +553,7 @@ static void remove_from_non_leaf(fnode *root, uint32 idx)
 		file_info *pred = (file_info *)malloc(sizeof(file_info));
 		get_pred(pred, node);
 		os_mem_cpy(&root->finfo[idx], pred, sizeof(file_info));
-		_on_move_info(root->head.node_id, idx, pred->cluster_id);
+		_os_dentry.move_callback(root->head.node_id, idx, pred->cluster_id);
 		remove_from_btree(node, pred->name);
 		free(pred);
 	}
@@ -543,7 +565,7 @@ static void remove_from_non_leaf(fnode *root, uint32 idx)
 			file_info *succ = (file_info *)malloc(sizeof(file_info));
 			get_succ(succ, nnode);
 			os_mem_cpy(&root->finfo[idx], succ, sizeof(file_info));
-			_on_move_info(root->head.node_id, idx, succ->cluster_id);
+			_os_dentry.move_callback(root->head.node_id, idx, succ->cluster_id);
 			remove_from_btree(nnode, succ->name);
 			free(succ);
 		}
@@ -566,7 +588,7 @@ static void borrow_from_prev(fnode *root, fnode *child, fnode *sibling, uint32 i
 	for (i = child->head.num; i > 0; --i)
 	{
 		os_mem_cpy(&child->finfo[i], &child->finfo[i - 1], sizeof(file_info));
-		_on_move_info(child->head.node_id, i, child->finfo[i - 1].cluster_id);
+		_os_dentry.move_callback(child->head.node_id, i, child->finfo[i - 1].cluster_id);
 	}
 
 	//移动指针
@@ -577,17 +599,15 @@ static void borrow_from_prev(fnode *root, fnode *child, fnode *sibling, uint32 i
 	}
 
 	os_mem_cpy(&child->finfo[0], &root->finfo[idx - 1], sizeof(file_info));
-	_on_move_info(child->head.node_id, 0, root->finfo[idx - 1].cluster_id);
+	_os_dentry.move_callback(child->head.node_id, 0, root->finfo[idx - 1].cluster_id);
 	if (!root->head.leaf)
 		child->head.pointers[0] = sibling->head.pointers[sibling->head.num];
 
 	os_mem_cpy(&root->finfo[idx - 1], &sibling->finfo[sibling->head.num - 1], sizeof(file_info));
-	_on_move_info(root->head.node_id, idx - 1, sibling->finfo[sibling->head.num - 1].cluster_id);
+	_os_dentry.move_callback(root->head.node_id, idx - 1, sibling->finfo[sibling->head.num - 1].cluster_id);
 
 	child->head.num += 1;
 	sibling->head.num -= 1;
-	fnode_flush(child);
-	fnode_flush(sibling);
 }
 
 //从后面的兄弟借值
@@ -595,18 +615,18 @@ static void borrow_from_next(fnode *root, fnode *child, fnode *sibling, uint32 i
 {
 	uint32 i;
 	os_mem_cpy(&child->finfo[child->head.num], &root->finfo[idx], sizeof(file_info));
-	_on_move_info(child->head.node_id, child->head.num, root->finfo[idx].cluster_id);
+	_os_dentry.move_callback(child->head.node_id, child->head.num, root->finfo[idx].cluster_id);
 
 	if (!child->head.leaf)
 		child->head.pointers[child->head.num + 1] = sibling->head.pointers[0];
 
 	os_mem_cpy(&root->finfo[idx], &sibling->finfo[0], sizeof(file_info));
-	_on_move_info(root->head.node_id, idx, sibling->finfo[0].cluster_id);
+	_os_dentry.move_callback(root->head.node_id, idx, sibling->finfo[0].cluster_id);
 
 	for (i = 1; i < sibling->head.num; ++i)
 	{
 		os_mem_cpy(&sibling->finfo[i - 1], &sibling->finfo[i], sizeof(file_info));
-		_on_move_info(sibling->head.node_id, i - 1, sibling->finfo[i].cluster_id);
+		_os_dentry.move_callback(sibling->head.node_id, i - 1, sibling->finfo[i].cluster_id);
 	}
 
 	if (!sibling->head.leaf)
@@ -617,8 +637,6 @@ static void borrow_from_next(fnode *root, fnode *child, fnode *sibling, uint32 i
 
 	child->head.num += 1;
 	sibling->head.num -= 1;
-	fnode_flush(child);
-	fnode_flush(sibling);
 }
 //值不足要填充足够的值
 static void fill(fnode *root, fnode *child, uint32 idx)
@@ -726,14 +744,10 @@ fnode *remove_from_btree(fnode *root, const char *name)
 		free(tmp);
 
 	}
-	else
-	{
-		fnode_flush(root);
-	}
 	return root;
 }
 
 void register_on_move_info(on_move_info call_back)
 {
-	_on_move_info = call_back;
+	_os_dentry.move_callback = call_back;
 }
