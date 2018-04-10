@@ -207,13 +207,13 @@ static void flush()
 	}
 	os_set_clear(&_os_fs.files);
 	cluster_flush();
-	fnodes_flush();
+	fnodes_flush(_os_fs.root);
+	fnode_flush(_os_fs.root);
 	if (_os_fs.is_update_super)
 	{
 		_os_fs.is_update_super = 0;
 		super_cluster_flush();
 	}
-	fnode_flush(_os_fs.root);
 	journal_end();
 }
 
@@ -470,9 +470,9 @@ static void insert_to_parent(file_info *parent, file_info *child)
 	if (parent->cluster_id > 0)
 	{
 		root = fnode_load(parent->cluster_id);
+		insert_to_fnodes(root);
 	}
 	fnode *new_root = insert_to_btree(root, child);
-	insert_to_fnodes(root);
 	parent->file_count++;
 	if (new_root != root)
 	{
@@ -502,11 +502,9 @@ static fnode *remove_from_parent(file_info *parent_info, fnode *parent, const ch
 
 static uint32 do_create_file(const char *path, file_info *finfo)
 {
-	uint32 ret = 1;
 	uint32 flag = 0;
 	uint32 index = 0;
 	fnode *node = NULL;
-	fnode *temp = _os_fs.root;
 	char *pre_path = pretreat_path(path);
 	if (pre_path != NULL)
 	{
@@ -551,10 +549,10 @@ static uint32 do_create_file(const char *path, file_info *finfo)
 				insert_to_fnodes(node);
 			}
 
-			ret = 0;
+			return 0;
 		}
 	}
-	return ret;
+	return 1;
 }
 
 uint32 create_dir(const char *path)
@@ -658,7 +656,7 @@ uint32 read_dir(file_info *finfo, dir_obj *dir)
 	return 1;
 }
 
-static uint32 handle_file(const char *path, uint32 (*handle)(fnode *parent, uint32 i1, fnode **parent_root, fnode *child, uint32 i2))
+static uint32 handle_file(const char *path, uint32 (*handle)(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2))
 {
 	uint32 ret = 1;
 	if (_os_fs.root != NULL)
@@ -674,51 +672,32 @@ static uint32 handle_file(const char *path, uint32 (*handle)(fnode *parent, uint
 			pre_path = NULL;
 			if (node != NULL)
 			{
-				fnode *temp = _os_fs.root;
 				if (FS_MAX_KEY_NUM == index && is_exist)                //父母是根目录
 				{
 					uint32 i;
 					fnode *finfo = find_from_tree(_os_fs.root, &i, name);
 					if (finfo != NULL)
 					{
-						if (handle(node, index, NULL, finfo, i) == 0)
+						if (handle(node, index, _os_fs.root, finfo, i) == 0)
 						{
 							ret = 0;
-						}
-						if (finfo != temp)
-						{
-							free(finfo);
 						}
 					}
 				}
 				else if (index < FS_MAX_KEY_NUM && is_exist)
 				{
 					fnode *parent = NULL;
-					fnode *parent_temp = NULL;
 					uint32 i;
 					fnode *finfo = NULL;
 					parent = fnode_load(node->finfo[index].cluster_id);
-					parent_temp = parent;
 					finfo = find_from_tree(parent, &i, name);
 					if (finfo != NULL)
 					{
-						if (handle(node, index, &parent, finfo, i) == 0)
+						if (handle(node, index, parent, finfo, i) == 0)
 						{
 							ret = 0;
 						}
-						if (finfo != temp && finfo != parent_temp)
-						{
-							free(finfo);
-						}
 					}
-					if (parent != NULL)
-					{
-						free(parent);
-					}
-				}
-				if (node != NULL && node != temp)
-				{
-					free(node);
 				}
 			}
 		}
@@ -726,25 +705,41 @@ static uint32 handle_file(const char *path, uint32 (*handle)(fnode *parent, uint
 	return ret;
 }
 
-static uint32 do_delete_dir(fnode *parent, uint32 i1, fnode **parent_root, fnode *child, uint32 i2)
+static uint32 do_delete_dir(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2)
 {
+	uint32 ret = 1;
 	if (FS_MAX_KEY_NUM == i1)
 	{
 		if (0 == child->finfo[i2].file_count && child->finfo[i2].property & 0x00000400 && (child->finfo[i2].property & 0x00000200) == 0)
 		{
 			remove_from_root(child->finfo[i2].name);
-			return 0;
+			ret = 0;
 		}
 	}
 	else
 	{
 		if (0 == child->finfo[i2].file_count && child->finfo[i2].property & 0x00000400 && (child->finfo[i2].property & 0x00000200) == 0)
 		{
-			*parent_root = remove_from_parent(&parent->finfo[i1], *parent_root, child->finfo[i2].name);
+			fnode *new_root = remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
+			if (new_root != NULL && new_root != parent_root)
+			{
+				free(new_root);
+			}
+			free(child);
+			insert_to_fnodes(parent);
 			return 0;
 		}
+		if (parent != _os_fs.root)
+		{
+			free(parent);
+		}
+		free(parent_root);
 	}
-	return 1;
+	if (child != parent_root)
+	{
+		free(child);
+	}
+	return ret;
 }
 
 uint32 delete_dir(const char *path)
@@ -753,20 +748,21 @@ uint32 delete_dir(const char *path)
 	ret = handle_file(path, do_delete_dir);
 	if (0 == ret)
 	{
-		cluster_flush();
+		flush();
 	}
 	return ret;
 }
 
-static uint32 sys_do_delete_file(fnode *parent, uint32 i1, fnode **parent_root, fnode *child, uint32 i2)
+static uint32 sys_do_delete_file(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2)
 {
+	uint32 ret = 1;
 	if (FS_MAX_KEY_NUM == i1)
 	{
 		if ((child->finfo[i2].property & 0x00000400) == 0 && find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
 		{
 			file_data_remove(child->finfo[i2].cluster_id, child->finfo[i2].cluster_count);
 			remove_from_root(child->finfo[i2].name);
-			return 0;
+			ret = 0;
 		}
 	}
 	else
@@ -774,18 +770,45 @@ static uint32 sys_do_delete_file(fnode *parent, uint32 i1, fnode **parent_root, 
 		if ((child->finfo[i2].property & 0x00000400) == 0 && find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
 		{
 			file_data_remove(child->finfo[i2].cluster_id, child->finfo[i2].cluster_count);
-			*parent_root = remove_from_parent(&parent->finfo[i1], *parent_root, child->finfo[i2].name);
+			fnode *new_root = remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
+			if (new_root != NULL && new_root != parent_root)
+			{
+				free(new_root);
+			}
+			free(child);
+			insert_to_fnodes(parent);
 			return 0;
 		}
+		if (parent != _os_fs.root)
+		{
+			free(parent);
+		}
+		free(parent_root);
 	}
-	return 1;
+	if (child != parent_root)
+	{
+		free(child);
+	}
+	return ret;
 }
 
-static uint32 do_delete_file(fnode *parent, uint32 i1, fnode **parent_root, fnode *child, uint32 i2)
+static uint32 do_delete_file(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2)
 {
 	if ((child->finfo[i2].property & 0x00000200) == 0)
 	{
 		return sys_do_delete_file(parent, i1, parent_root, child, i2);
+	}
+	if (i1 < FS_MAX_KEY_NUM)
+	{
+		if (parent != _os_fs.root)
+		{
+			free(parent);
+		}
+		free(parent_root);
+	}
+	if (child != parent_root)
+	{
+		free(child);
 	}
 	return 1;
 }
@@ -796,7 +819,7 @@ static uint32 delete_sys_file(const char *path)
 	ret = handle_file(path, sys_do_delete_file);
 	if (0 == ret)
 	{
-		cluster_flush();
+		flush();
 	}
 	return ret;
 }
@@ -807,13 +830,14 @@ uint32 delete_file(const char *path)
 	ret = handle_file(path, do_delete_file);
 	if (0 == ret)
 	{
-		cluster_flush();
+		flush();
 	}
 	return ret;
 }
 
-static uint32 sys_do_unlink_file(fnode *parent, uint32 i1, fnode **parent_root, fnode *child, uint32 i2)
+static uint32 sys_do_unlink_file(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2)
 {
+	uint32 ret = 1;
 	if (FS_MAX_KEY_NUM == i1)
 	{
 		if (find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
@@ -826,18 +850,45 @@ static uint32 sys_do_unlink_file(fnode *parent, uint32 i1, fnode **parent_root, 
 	{
 		if (find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
 		{
-			*parent_root = remove_from_parent(&parent->finfo[i1], *parent_root, child->finfo[i2].name);
+			fnode *new_root = remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
+			if (new_root != NULL && new_root != parent_root)
+			{
+				free(new_root);
+			}
+			free(child);
+			insert_to_fnodes(parent);
 			return 0;
 		}
+		if (parent != _os_fs.root)
+		{
+			free(parent);
+		}
+		free(parent_root);
 	}
-	return 1;
+	if (child != parent_root)
+	{
+		free(child);
+	}
+	return ret;
 }
 
-static uint32 do_unlink_file(fnode *parent, uint32 i1, fnode **parent_root, fnode *child, uint32 i2)
+static uint32 do_unlink_file(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2)
 {
 	if ((child->finfo[i2].property & 0x00000200) == 0)
 	{
 		return sys_do_unlink_file(parent, i1, parent_root, child, i2);
+	}
+	if (i1 < FS_MAX_KEY_NUM)
+	{
+		if (parent != _os_fs.root)
+		{
+			free(parent);
+		}
+		free(parent_root);
+	}
+	if (child != parent_root)
+	{
+		free(child);
 	}
 	return 1;
 }
@@ -850,41 +901,6 @@ static uint32 unlink_file(const char *path)
 static uint32 sys_unlink_file(const char *path)
 {
 	return handle_file(path, sys_do_unlink_file);
-}
-
-static uint32 move_sys_file(const char *dest, const char *src)
-{
-	uint32 ret = 1;
-	char *pre_src = pretreat_path(src);
-	if (pre_src != NULL)
-	{
-		uint32 index;
-		fnode *node = get_file_info(pre_src, &index);
-		free(pre_src);
-		if (node != NULL)
-		{
-			file_info *finfo = (file_info *)malloc(sizeof(file_info));
-			os_mem_cpy(finfo, &node->finfo[index], sizeof(file_info));
-			if (node != _os_fs.root)
-			{
-				free(node);
-			}
-			if (do_create_file(dest, finfo) == 0)
-			{
-				free(finfo);
-				if (sys_unlink_file(src) == 0)
-				{
-					ret = 0;
-					cluster_flush();
-				}
-				else
-				{
-					sys_unlink_file(dest);
-				}
-			}
-		}
-	}
-	return ret;
 }
 
 uint32 move_file(const char *dest, const char *src)
@@ -910,7 +926,7 @@ uint32 move_file(const char *dest, const char *src)
 				if (unlink_file(src) == 0)
 				{
 					ret = 0;
-					cluster_flush();
+					flush();
 				}
 				else
 				{

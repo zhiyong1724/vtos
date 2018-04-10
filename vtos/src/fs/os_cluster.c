@@ -137,6 +137,7 @@ void os_cluster_init()
 	}
 	_os_cluster.bitmap_size = _os_cluster.total_cluster_count / 8 + 1;
 	os_map_init(&_os_cluster.bitmaps, sizeof(uint32), sizeof(void *));
+	_os_cluster.is_update = 0;
 }
 
 static uint32 do_cluster_alloc()
@@ -204,6 +205,7 @@ uint32 cluster_alloc()
 	{
 		return 0;
 	}
+	_os_cluster.is_update = 1;
 	if (_os_cluster.bitmap == NULL)
 	{
 		_os_cluster.cache_id = _os_cluster.pcluster_manager->cur_index / (FS_CLUSTER_SIZE * 8);
@@ -226,6 +228,7 @@ void cluster_free(uint32 cluster_id)
 	{
 		return;
 	}
+	_os_cluster.is_update = 1;
 	if (_os_cluster.bitmap == NULL)
 	{
 		_os_cluster.cache_id = cluster_id / (FS_CLUSTER_SIZE * 8);
@@ -296,8 +299,12 @@ void cluster_write(uint32 cluster_id, uint8 *data)
 
 void cluster_flush()
 {
-	cluster_manager_flush();
-	bitmaps_flush();
+	if (_os_cluster.is_update)
+	{
+		_os_cluster.is_update = 0;
+		cluster_manager_flush();
+		bitmaps_flush();
+	}
 }
 
 void uninit()

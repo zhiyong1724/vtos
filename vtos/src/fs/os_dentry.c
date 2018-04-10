@@ -47,14 +47,17 @@ void fnode_flush(fnode *node)
 	}
 }
 
-void fnodes_flush()
+void fnodes_flush(fnode *root)
 {
 	os_map_iterator *itr = os_map_begin(&_os_dentry.fnodes);
 	for (; itr != NULL; (itr = os_map_next(&_os_dentry.fnodes, itr)))
 	{
 		fnode **pp = (fnode **)os_map_second(&_os_dentry.fnodes, itr);
 		fnode_flush(*pp);
-		free(*pp);
+		if (*pp != root)
+		{
+			free(*pp);
+		}
 	}
 	os_map_clear(&_os_dentry.fnodes);
 }
@@ -552,6 +555,7 @@ static void remove_from_non_leaf(fnode *root, uint32 idx)
 	os_mem_cpy(temp, &root->finfo[idx], sizeof(file_info));
 
 	node = fnode_load(root->head.pointers[idx]);
+	insert_to_fnodes(node);
 	if (node->head.num >= FS_MAX_KEY_NUM / 2)
 	{
 		file_info *pred = (file_info *)malloc(sizeof(file_info));
@@ -564,6 +568,7 @@ static void remove_from_non_leaf(fnode *root, uint32 idx)
 	else
 	{
 		fnode *nnode = fnode_load(root->head.pointers[idx + 1]);
+		insert_to_fnodes(nnode);
 		if (nnode->head.num >= FS_MAX_KEY_NUM / 2)
 		{
 			file_info *succ = (file_info *)malloc(sizeof(file_info));
@@ -649,6 +654,7 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 	if (idx != 0)
 	{
 		left = fnode_load(root->head.pointers[idx - 1]);
+		insert_to_fnodes(left);
 		if (left->head.num >= FS_MAX_KEY_NUM / 2)
 		{
 			borrow_from_prev(root, child, left, idx);
@@ -666,6 +672,7 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 			free(left);
 		}
 		right = fnode_load(root->head.pointers[idx + 1]);
+		insert_to_fnodes(right);
 		if (right->head.num >= FS_MAX_KEY_NUM / 2)
 		{
 			borrow_from_next(root, child, right, idx);
@@ -681,6 +688,7 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 		if (NULL == left)
 		{
 			left = fnode_load(root->head.pointers[idx - 1]);
+			insert_to_fnodes(left);
 		}
 		merge(root, left, child, idx - 1);
 		free(left);
@@ -718,6 +726,7 @@ fnode *remove_from_btree(fnode *root, const char *name)
 			flag = ((idx == root->head.num) ? 1 : 0);
 
 			child = fnode_load(root->head.pointers[idx]);
+			insert_to_fnodes(child);
 			if (child->head.num < FS_MAX_KEY_NUM / 2)
 			{
 				fill(root, child, idx);
@@ -726,6 +735,7 @@ fnode *remove_from_btree(fnode *root, const char *name)
 			if (flag && idx > root->head.num)
 			{
 				fnode *sibling = fnode_load(root->head.pointers[idx - 1]);
+				insert_to_fnodes(sibling);
 				remove_from_btree(sibling, name);
 
 				free(sibling);
@@ -745,7 +755,6 @@ fnode *remove_from_btree(fnode *root, const char *name)
 		else
 			root = fnode_load(root->head.pointers[0]);
 		cluster_free(tmp->head.node_id);
-		free(tmp);
 
 	}
 	return root;

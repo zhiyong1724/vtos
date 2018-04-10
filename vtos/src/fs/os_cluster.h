@@ -21,6 +21,7 @@ struct os_cluster
 	uint32 bitmap_size;
 	uint32 total_cluster_count;
 	os_map bitmaps;
+	uint32 is_update;
 };
 /*********************************************************************************************************************
 * 把缓存数据写入磁盘
