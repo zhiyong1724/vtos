@@ -8,6 +8,7 @@ typedef uint32 (*write_file_callback)(void *file, void *data, uint32 len);
 typedef uint32(*read_file_callback)(void *file, void *data, uint32 len);
 struct os_journal
 {
+	uint32 enable;
 	uint32 file_index;
 	create_file_callback create_file;
 	delete_file_callback delete_file;
@@ -15,5 +16,8 @@ struct os_journal
 	read_file_callback read_file;
 };
 void journal_init();
+void journal_start();
+void journal_end();
+void journal_write(uint32 id);
 void register_callback(create_file_callback arg1, delete_file_callback arg2, write_file_callback arg3, read_file_callback arg4);
 #endif

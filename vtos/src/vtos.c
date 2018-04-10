@@ -11,7 +11,6 @@
 
 #include "base/os_string.h"
 #include "fs/os_fs.h"
-#include "base/os_multimap.h"
 const char *VERSION = "0.0.2";
 
 const char *os_version(void)
@@ -108,7 +107,7 @@ int main()
 	char arg1[256] = "";
 	char arg2[256] = "";
 	char ln;
-	//_CrtSetBreakAlloc(86);
+	//_CrtSetBreakAlloc(187);
 	//if (0 == os_sys_init())
 	//{
 		/*os_kthread_create(task, NULL, "task_a");
@@ -246,7 +245,7 @@ int main()
 						printf("%lld%%\r", cur * 100 / size);
 					}
 					printf("\n%s to %s\n", arg1, arg2);
-					//close_file(file2);
+					close_file(file2);
 				}
 				fclose(file1);
 			}
@@ -282,50 +281,14 @@ int main()
 		}
 		else if (os_str_cmp(command, "test") == 0)
 		{
-			os_multimap map;
-			os_size_t *k;
-			os_size_t *v;
-			os_size_t i;
-			os_multimap_iterator *itr;
-			os_multimap_init(&map, sizeof(os_size_t), sizeof(os_size_t));
-			i = 1;
-			os_multimap_insert(&map, &i, &i);
-			for (i = 1; i <= 10; i++)
-			{
-				os_multimap_insert(&map, &i, &i);
-			}
-			itr = os_multimap_begin(&map);
-			for (; itr != NULL; itr = os_multimap_next(&map, itr))
-			{
-				k = (os_size_t *)os_multimap_first(itr);
-				v = (os_size_t *)os_multimap_second(&map, itr);
-				printf("(%d, %d) ", *k, *v);
-			}
-			printf("\n");
-			i = 11;
-			os_multimap_find(&map, &i);
-			for (i = 1; i <= 10; i++)
-			{
-				itr = os_multimap_find(&map, &i);
-				if (itr != NULL)
-				{
-					k = (os_size_t *)os_multimap_first(itr);
-					v = (os_size_t *)os_multimap_second(&map, itr);
-					printf("(%d, %d) ", *k, *v);
-					os_multimap_erase(&map, itr);
-				}
-			}
-			printf("\n");
-			os_multimap_clear(&map);
-			os_multimap_free(&map);
-			/*int i;
+			int i;
 			char n[16];
 			for (i = 0; i < 10000; i++)
 			{
-				sprintf_s(n, 16, "/%d", i);
+				sprintf_s(n, 16, "/1/1/%d", i);
 				create_dir(n);
 			}
-			printf("ok\n");*/
+			printf("ok\n");
 		}
 		else if (os_str_cmp(command, "quit") != 0)
 		{

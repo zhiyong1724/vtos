@@ -102,7 +102,10 @@ fnode *fnode_load(uint32 id)
 
 void insert_to_fnodes(fnode *node)
 {
-	os_map_insert(&_os_dentry.fnodes, &node->head.node_id, &node);
+	if (node != NULL)
+	{
+		os_map_insert(&_os_dentry.fnodes, &node->head.node_id, &node);
+	}
 }
 
 //初始化node
@@ -288,6 +291,7 @@ fnode *insert_to_btree(fnode *root, file_info *finfo)
 				insert_non_full(root, finfo);
 			}
 			fnode_flush(split_node);
+			fnode_flush(new_node);
 			free(split_node);
 			//改变root
 			root = new_node;

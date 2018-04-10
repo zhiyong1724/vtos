@@ -1,6 +1,7 @@
 #include "fs/os_cluster.h"
 #include "base/os_string.h"
 #include "base/os_bitmap_index.h"
+#include "os_journal.h"
 #include "vtos.h"
 #include <stdlib.h>
 static struct os_cluster _os_cluster;
@@ -64,6 +65,7 @@ static void bitmaps_flush()
 	{
 		uint32 *key = (uint32 *)os_map_first(itr);
 		uint8 **pp = (uint8 **)os_map_second(&_os_cluster.bitmaps, itr);
+		journal_write(*key);
 		bitmap_flush(*key, *pp);
 		if (*key != _os_cluster.cache_id)
 		{
@@ -75,6 +77,7 @@ static void bitmaps_flush()
 
 static void cluster_manager_flush()
 {
+	journal_write(FIRST_CLUSTER_MANAGER_ID);
 	if (is_little_endian())
 	{
 		cluster_write(FIRST_CLUSTER_MANAGER_ID, (uint8 *)_os_cluster.pcluster_manager);
@@ -82,7 +85,6 @@ static void cluster_manager_flush()
 	else
 	{
 		struct cluster_manager *temp = (struct cluster_manager *)malloc(FS_CLUSTER_SIZE);
-
 		temp->cur_index = convert_endian(_os_cluster.pcluster_manager->cur_index);
 		temp->used_cluster_count = convert_endian(_os_cluster.pcluster_manager->used_cluster_count);
 		cluster_write(FIRST_CLUSTER_MANAGER_ID, (uint8 *)temp);
@@ -187,11 +189,12 @@ void cluster_manager_init()
 	_os_cluster.cache_id = 0;
 	_os_cluster.bitmap = bitmap_load(0);
 
-	for (i = 0; i < SUPER_CLUSTER_ID + 3 + 1 + bitmap_cluster; i++)
+	for (i = 0; i < 1 + 1 + bitmap_cluster; i++)
 	{
 		//前面簇分配出来预留
 		do_cluster_alloc();
 	}
+	cluster_manager_flush();
 }
 
 uint32 cluster_alloc()
@@ -203,7 +206,6 @@ uint32 cluster_alloc()
 	}
 	if (_os_cluster.bitmap == NULL)
 	{
-		_os_cluster.bitmap = (uint8 *)malloc(FS_CLUSTER_SIZE);
 		_os_cluster.cache_id = _os_cluster.pcluster_manager->cur_index / (FS_CLUSTER_SIZE * 8);
 		_os_cluster.bitmap = bitmap_load(_os_cluster.cache_id);
 	}
@@ -226,7 +228,6 @@ void cluster_free(uint32 cluster_id)
 	}
 	if (_os_cluster.bitmap == NULL)
 	{
-		_os_cluster.bitmap = (uint8 *)malloc(FS_CLUSTER_SIZE);
 		_os_cluster.cache_id = cluster_id / (FS_CLUSTER_SIZE * 8);
 		_os_cluster.bitmap = bitmap_load(_os_cluster.cache_id);
 	}
@@ -270,39 +271,6 @@ void cluster_read(uint32 cluster_id, uint8 *data)
 	}
 }
 
-uint32 cluster_read_return(uint32 cluster_id, uint8 *data)
-{
-	if (_os_cluster.dinfo.page_size <= FS_CLUSTER_SIZE)
-	{
-		uint32 i;
-		for (i = 0; i < _os_cluster.divisor; i++)
-		{
-			uint32 j;
-			for (j = 0; os_disk_read(_os_cluster.dinfo.first_page_id + cluster_id * _os_cluster.divisor + i, data) != 0 && j < 10; j++);
-			if (10 == j)
-			{
-				return 1;
-			}
-			data += FS_CLUSTER_SIZE / _os_cluster.divisor;
-		}
-	}
-	else
-	{
-		uint32 j;
-		uint32 page_id = _os_cluster.dinfo.first_page_id + cluster_id / _os_cluster.divisor;
-		uint32 i = cluster_id % _os_cluster.divisor;
-		uint8 *buff = (uint8 *)malloc(_os_cluster.dinfo.page_size);
-		for (j = 0; os_disk_read(page_id, buff) != 0 && j < 10; j++);
-		if (10 == j)
-		{
-			return 1;
-		}
-		os_mem_cpy(data, &buff[i * FS_CLUSTER_SIZE], FS_CLUSTER_SIZE);
-		free(buff);
-	}
-	return 0;
-}
-
 void cluster_write(uint32 cluster_id, uint8 *data)
 {
 	if (_os_cluster.dinfo.page_size <= FS_CLUSTER_SIZE)
@@ -326,44 +294,6 @@ void cluster_write(uint32 cluster_id, uint8 *data)
 	}
 }
 
-uint32 cluster_write_return(uint32 cluster_id, uint8 *data)
-{
-	if (_os_cluster.dinfo.page_size <= FS_CLUSTER_SIZE)
-	{
-		uint32 i;
-		for (i = 0; i < _os_cluster.divisor; i++)
-		{
-			uint32 j;
-			for ( j = 0; os_disk_write(_os_cluster.dinfo.first_page_id + cluster_id * _os_cluster.divisor + i, data) != 0 && j < 10; j++);
-			if (10 == j)
-			{
-				return 1;
-			}
-			data += FS_CLUSTER_SIZE / _os_cluster.divisor;
-		}
-	}
-	else
-	{
-		uint32 j;
-		uint32 page_id = _os_cluster.dinfo.first_page_id + cluster_id / _os_cluster.divisor;
-		uint32 i = cluster_id % _os_cluster.divisor;
-		uint8 *buff = (uint8 *)malloc(_os_cluster.dinfo.page_size);
-		for (j = 0; os_disk_read(page_id, buff) != 0 && j < 10; j++);
-		if (10 == j)
-		{
-			return 1;
-		}
-		os_mem_cpy(&buff[i * FS_CLUSTER_SIZE], data, FS_CLUSTER_SIZE);
-		for (j = 0; os_disk_write(page_id, buff) != 0 && j < 10; j++);
-		if (10 == j)
-		{
-			return 1;
-		}
-		free(buff);
-	}
-	return 0;
-}
-
 void cluster_flush()
 {
 	cluster_manager_flush();
@@ -374,7 +304,6 @@ void uninit()
 {
 	if (_os_cluster.pcluster_manager != NULL)
 	{
-		cluster_flush();
 		free(_os_cluster.pcluster_manager);
 		_os_cluster.pcluster_manager = NULL;
 		if (_os_cluster.bitmap != NULL)

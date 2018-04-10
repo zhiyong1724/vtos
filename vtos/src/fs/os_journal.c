@@ -38,9 +38,23 @@ static void update_journal_file(uint32 index)
 
 void journal_init()
 {
-	_os_journal.file_index = 0;
 	create_journal(FILES_PATH[0]);
 	create_journal(FILES_PATH[1]);
+}
+
+void journal_start()
+{
+	_os_journal.enable = 1;
+}
+
+void journal_end()
+{
+	_os_journal.enable = 0;
+}
+
+void journal_write(uint32 id)
+{
+
 }
 
 void register_callback(create_file_callback arg1, delete_file_callback arg2, write_file_callback arg3, read_file_callback arg4)
@@ -49,4 +63,6 @@ void register_callback(create_file_callback arg1, delete_file_callback arg2, wri
 	_os_journal.delete_file = arg2;
 	_os_journal.write_file = arg3;
 	_os_journal.read_file = arg4;
+	_os_journal.enable = 0;
+	_os_journal.file_index = 0;
 }
