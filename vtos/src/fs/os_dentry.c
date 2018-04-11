@@ -103,6 +103,20 @@ fnode *fnode_load(uint32 id)
 	return node;
 }
 
+uint32 fnode_free(fnode *node)
+{
+	if (node != NULL)
+	{
+		os_map_iterator *itr = os_map_find(&_os_dentry.fnodes, &node->head.node_id);
+		if (NULL == itr)
+		{
+			free(node);
+			return 0;
+		}
+	}
+	return 1;
+}
+
 void insert_to_fnodes(fnode *node)
 {
 	if (node != NULL)
@@ -381,7 +395,7 @@ fnode *find_from_tree(fnode *root, uint32 *index, const char *name)
 			uint32 id = cur->head.pointers[*index];
 			if (cur != root)
 			{
-				free(cur);
+				fnode_free(cur);
 			}
 			cur = fnode_load(id);
 		}
@@ -391,9 +405,9 @@ fnode *find_from_tree(fnode *root, uint32 *index, const char *name)
 		}
 
 	}
-	if (cur != NULL && cur != root)
+	if (cur != root)
 	{
-		free(cur);
+		fnode_free(cur);
 	}
 	return NULL;
 }
@@ -412,7 +426,7 @@ uint32 finfo_is_exist(fnode *root, const char *name)
 			{
 				if (cur != root)
 				{
-					free(cur);
+					fnode_free(cur);
 				}
 				return 1;
 			}
@@ -427,7 +441,7 @@ uint32 finfo_is_exist(fnode *root, const char *name)
 			uint32 id = cur->head.pointers[index];
 			if (cur != root)
 			{
-				free(cur);
+				fnode_free(cur);
 			}
 			cur = fnode_load(id);
 		}
@@ -439,7 +453,7 @@ uint32 finfo_is_exist(fnode *root, const char *name)
 	}
 	if (cur != NULL && cur != root)
 	{
-		free(cur);
+		fnode_free(cur);
 	}
 	return 0;
 }
@@ -460,7 +474,7 @@ uint32 query_finfo(file_info *finfo, uint32 *id, fnode **parent, fnode **cur, ui
 			*id = (*cur)->head.next;
 			if (*id != 0)
 			{
-				free(*cur);
+				fnode_free(*cur);
 				*cur = fnode_load(*id);
 			}
 			else
@@ -468,15 +482,15 @@ uint32 query_finfo(file_info *finfo, uint32 *id, fnode **parent, fnode **cur, ui
 				*id = (*parent)->head.pointers[0];
 				if (*id != 0)
 				{
-					free(*parent);
-					free(*cur);
+					fnode_free(*parent);
+					fnode_free(*cur);
 					*parent = fnode_load(*id);
 					*cur = fnode_load(*id);
 				}
 				else
 				{
-					free(*parent);
-					free(*cur);
+					fnode_free(*parent);
+					fnode_free(*cur);
 					*parent = NULL;
 					*cur = NULL;
 					return 1;
@@ -502,7 +516,7 @@ static void get_pred(file_info *finfo, fnode *root)
 	{
 		if (cur != root)
 		{
-			free(cur);
+			fnode_free(cur);
 		}
 		cur = fnode_load(id);
 		id = cur->head.pointers[cur->head.num];
@@ -510,7 +524,7 @@ static void get_pred(file_info *finfo, fnode *root)
 	os_mem_cpy(finfo, &cur->finfo[cur->head.num - 1], sizeof(file_info));
 	if (cur != root)
 	{
-		free(cur);
+		fnode_free(cur);
 	}
 }
 //找到右边最小的key
@@ -522,7 +536,7 @@ static void get_succ(file_info *finfo, fnode *root)
 	{
 		if (cur != root)
 		{
-			free(cur);
+			fnode_free(cur);
 		}
 		cur = fnode_load(id);
 		id = cur->head.pointers[0];
@@ -530,7 +544,7 @@ static void get_succ(file_info *finfo, fnode *root)
 	os_mem_cpy(finfo, &cur->finfo[0], sizeof(file_info));
 	if (cur != root)
 	{
-		free(cur);
+		fnode_free(cur);
 	}
 }
 
@@ -583,9 +597,7 @@ static void remove_from_non_leaf(fnode *root, uint32 idx)
 			merge(root, node, nnode, idx);
 			remove_from_btree(node, temp->name);
 		}
-		free(nnode);
 	}
-	free(node);
 	free(temp);
 }
 
@@ -658,7 +670,6 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 		if (left->head.num >= FS_MAX_KEY_NUM / 2)
 		{
 			borrow_from_prev(root, child, left, idx);
-			free(left);
 			return;
 		}
 
@@ -667,10 +678,6 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 	if (idx != root->head.num)
 	{
 		fnode *right;
-		if (left != NULL)
-		{
-			free(left);
-		}
 		right = fnode_load(root->head.pointers[idx + 1]);
 		insert_to_fnodes(right);
 		if (right->head.num >= FS_MAX_KEY_NUM / 2)
@@ -681,7 +688,6 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 		{
 			merge(root, child, right, idx);
 		}
-		free(right);
 	}	
 	else
 	{
@@ -691,7 +697,6 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 			insert_to_fnodes(left);
 		}
 		merge(root, left, child, idx - 1);
-		free(left);
 	}
 }
 
@@ -737,12 +742,9 @@ fnode *remove_from_btree(fnode *root, const char *name)
 				fnode *sibling = fnode_load(root->head.pointers[idx - 1]);
 				insert_to_fnodes(sibling);
 				remove_from_btree(sibling, name);
-
-				free(sibling);
 			}
 			else
 				remove_from_btree(child, name);
-			free(child);
 
 		}
 	}
