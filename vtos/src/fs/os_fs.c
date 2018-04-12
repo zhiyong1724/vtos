@@ -208,7 +208,6 @@ static void flush()
 	os_set_clear(&_os_fs.files);
 	cluster_flush();
 	fnodes_flush(_os_fs.root);
-	fnode_flush(_os_fs.root);
 	if (_os_fs.is_update_super)
 	{
 		_os_fs.is_update_super = 0;
@@ -445,7 +444,6 @@ static void insert_to_root(file_info *child)
 	if (root != _os_fs.root)
 	{
 		_os_fs.is_update_super = 1;
-		insert_to_fnodes(_os_fs.root);
 		_os_fs.root = root;
 		_os_fs.super->root_id = _os_fs.root->head.node_id;
 	}
@@ -457,7 +455,6 @@ static void remove_from_root(const char *name)
 	if (root != _os_fs.root)
 	{
 		_os_fs.is_update_super = 1;
-		insert_to_fnodes(_os_fs.root);
 		_os_fs.root = root;
 		_os_fs.super->root_id = _os_fs.root->head.node_id;
 	}
@@ -470,7 +467,6 @@ static void insert_to_parent(file_info *parent, file_info *child)
 	if (parent->cluster_id > 0)
 	{
 		root = fnode_load(parent->cluster_id);
-		insert_to_fnodes(root);
 	}
 	fnode *new_root = insert_to_btree(root, child);
 	parent->file_count++;
@@ -481,10 +477,9 @@ static void insert_to_parent(file_info *parent, file_info *child)
 	}
 }
 
-static fnode *remove_from_parent(file_info *parent_info, fnode *parent, const char *name)
+static void remove_from_parent(file_info *parent_info, fnode *parent, const char *name)
 {
 	fnode *new_parent = remove_from_btree(parent, name);
-	insert_to_fnodes(parent);
 	parent_info->file_count--;
 	if (new_parent != parent)
 	{
@@ -497,7 +492,10 @@ static fnode *remove_from_parent(file_info *parent_info, fnode *parent, const ch
 			parent_info->cluster_id = 0;
 		}
 	}
-	return new_parent;
+	if (new_parent != _os_fs.root)
+	{
+		fnode_free(new_parent);
+	}
 }
 
 static uint32 do_create_file(const char *path, file_info *finfo)
@@ -546,7 +544,6 @@ static uint32 do_create_file(const char *path, file_info *finfo)
 			else
 			{
 				insert_to_parent(&node->finfo[index], finfo);
-				insert_to_fnodes(node);
 			}
 
 			return 0;
@@ -733,12 +730,7 @@ static uint32 do_delete_dir(fnode *parent, uint32 i1, fnode *parent_root, fnode 
 	{
 		if (0 == child->finfo[i2].file_count && child->finfo[i2].property & 0x00000400 && (child->finfo[i2].property & 0x00000200) == 0)
 		{
-			fnode *new_root = remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
-			insert_to_fnodes(parent);
-			if (new_root != _os_fs.root)
-			{
-				fnode_free(new_root);
-			}
+			remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
 			return 0;
 		}
 	}
@@ -773,12 +765,7 @@ static uint32 sys_do_delete_file(fnode *parent, uint32 i1, fnode *parent_root, f
 		if ((child->finfo[i2].property & 0x00000400) == 0 && find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
 		{
 			file_data_remove(child->finfo[i2].cluster_id, child->finfo[i2].cluster_count);
-			fnode *new_root = remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
-			insert_to_fnodes(parent);
-			if (new_root != _os_fs.root)
-			{
-				fnode_free(new_root);
-			}
+			remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
 			return 0;
 		}
 	}
@@ -831,12 +818,7 @@ static uint32 sys_do_unlink_file(fnode *parent, uint32 i1, fnode *parent_root, f
 	{
 		if (find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
 		{
-			fnode *new_root = remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
-			insert_to_fnodes(parent);
-			if (new_root != _os_fs.root)
-			{
-				fnode_free(new_root);
-			}
+			remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
 			return 0;
 		}
 	}

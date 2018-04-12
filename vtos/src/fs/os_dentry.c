@@ -7,7 +7,7 @@ static struct os_dentry _os_dentry;
 void os_dentry_init()
 {
 	_os_dentry.move_callback = NULL;
-	os_map_init(&_os_dentry.fnodes, sizeof(uint32), sizeof(void *));
+	os_map_init(&_os_dentry.fnodes, sizeof(uint32), sizeof(fnode_h));
 }
 
 void fnode_flush(fnode *node)
@@ -52,14 +52,25 @@ void fnodes_flush(fnode *root)
 	os_map_iterator *itr = os_map_begin(&_os_dentry.fnodes);
 	for (; itr != NULL; (itr = os_map_next(&_os_dentry.fnodes, itr)))
 	{
-		fnode **pp = (fnode **)os_map_second(&_os_dentry.fnodes, itr);
-		fnode_flush(*pp);
-		if (*pp != root)
+		fnode_h *handle = (fnode_h *)os_map_second(&_os_dentry.fnodes, itr);
+		fnode_flush(handle->node);
+		if (handle->node != root)
 		{
-			free(*pp);
+			free(handle->node);
 		}
 	}
 	os_map_clear(&_os_dentry.fnodes);
+}
+
+static void insert_to_fnodes(fnode *node)
+{
+	if (node != NULL)
+	{
+		fnode_h handle;
+		handle.count = 1;
+		handle.node = node;
+		os_map_insert(&_os_dentry.fnodes, &node->head.node_id, &handle);
+	}
 }
 
 fnode *fnode_load(uint32 id)
@@ -68,8 +79,9 @@ fnode *fnode_load(uint32 id)
 	os_map_iterator *itr = os_map_find(&_os_dentry.fnodes, &id);
 	if (itr != NULL)
 	{
-		fnode **pp = (fnode **)os_map_second(&_os_dentry.fnodes, itr);
-		node = *pp;
+		fnode_h *handle = (fnode_h *)os_map_second(&_os_dentry.fnodes, itr);
+		handle->count++;
+		node = handle->node;
 	}
 	else
 	{
@@ -99,6 +111,7 @@ fnode *fnode_load(uint32 id)
 				node->finfo[i].modif_time = convert_endian64(node->finfo[i].modif_time);
 			}
 		}
+		insert_to_fnodes(node);
 	}
 	return node;
 }
@@ -108,21 +121,19 @@ uint32 fnode_free(fnode *node)
 	if (node != NULL)
 	{
 		os_map_iterator *itr = os_map_find(&_os_dentry.fnodes, &node->head.node_id);
-		if (NULL == itr)
+		if (itr != NULL)
 		{
-			free(node);
-			return 0;
+			fnode_h *handle = (fnode_h *)os_map_second(&_os_dentry.fnodes, itr);
+			handle->count--;
+			if (0 == handle->count)
+			{
+				os_map_erase(&_os_dentry.fnodes, itr);
+				free(node);
+				return 0;
+			}
 		}
 	}
 	return 1;
-}
-
-void insert_to_fnodes(fnode *node)
-{
-	if (node != NULL)
-	{
-		os_map_insert(&_os_dentry.fnodes, &node->head.node_id, &node);
-	}
 }
 
 //初始化node
@@ -182,6 +193,7 @@ static fnode *split_child(fnode *root, uint32 i, fnode *child)
 {
 	fnode *new_node;
 	uint32 j;
+	insert_to_fnodes(root);
 	//创建一个新的节点
 	new_node = make_node();
 	new_node->head.num = FS_MAX_KEY_NUM / 2;
@@ -228,6 +240,7 @@ static void insert_non_full(fnode *root, file_info *finfo)
 	//如果是叶子节点 
 	if (root->head.leaf == 1)
 	{
+		insert_to_fnodes(root);
 		//找到插入的位置
 		for (; i > 0 && os_str_cmp(root->finfo[i - 1].name, finfo->name) > 0; i--)
 		{
@@ -246,7 +259,6 @@ static void insert_non_full(fnode *root, file_info *finfo)
 			i--;
 
 		new_node = fnode_load(root->head.pointers[i]);
-		insert_to_fnodes(new_node);
 		if (new_node->head.num == FS_MAX_KEY_NUM)
 		{
 			//如果孩子满  
@@ -282,6 +294,7 @@ fnode *insert_to_btree(fnode *root, file_info *finfo)
 	}
 	else // 如果树不为空  
 	{
+		insert_to_fnodes(root);
 		//如果当前节点满，则分裂
 		if (root->head.num == FS_MAX_KEY_NUM)
 		{
@@ -326,7 +339,7 @@ fnode *insert_to_btree(fnode *root, file_info *finfo)
 static void merge(fnode *root, fnode *child, fnode *sibling, uint32 idx)
 {
 	uint32 i = 0;
-
+	insert_to_fnodes(root);
 	//拷贝内容
 	os_mem_cpy(&child->finfo[FS_MAX_KEY_NUM / 2 - 1], &root->finfo[idx], sizeof(file_info));
 	_os_dentry.move_callback(child->head.node_id, FS_MAX_KEY_NUM / 2 - 1, root->finfo[idx].cluster_id);
@@ -552,6 +565,7 @@ static void get_succ(file_info *finfo, fnode *root)
 static void remove_from_leaf(fnode *root, uint32 idx)
 { 
 	uint32 i;
+	insert_to_fnodes(root);
 	for (i = idx + 1; i < root->head.num; ++i)
 	{
 		os_mem_cpy(&root->finfo[i - 1], &root->finfo[i], sizeof(file_info));
@@ -566,10 +580,10 @@ static void remove_from_non_leaf(fnode *root, uint32 idx)
 {
 	fnode *node;
 	file_info *temp = (file_info *)malloc(sizeof(file_info));
+	insert_to_fnodes(root);
 	os_mem_cpy(temp, &root->finfo[idx], sizeof(file_info));
 
 	node = fnode_load(root->head.pointers[idx]);
-	insert_to_fnodes(node);
 	if (node->head.num >= FS_MAX_KEY_NUM / 2)
 	{
 		file_info *pred = (file_info *)malloc(sizeof(file_info));
@@ -582,7 +596,6 @@ static void remove_from_non_leaf(fnode *root, uint32 idx)
 	else
 	{
 		fnode *nnode = fnode_load(root->head.pointers[idx + 1]);
-		insert_to_fnodes(nnode);
 		if (nnode->head.num >= FS_MAX_KEY_NUM / 2)
 		{
 			file_info *succ = (file_info *)malloc(sizeof(file_info));
@@ -605,6 +618,7 @@ static void remove_from_non_leaf(fnode *root, uint32 idx)
 static void borrow_from_prev(fnode *root, fnode *child, fnode *sibling, uint32 idx)
 {
 	uint32 i;
+	insert_to_fnodes(root);
 	//移动内容
 	for (i = child->head.num; i > 0; --i)
 	{
@@ -635,6 +649,7 @@ static void borrow_from_prev(fnode *root, fnode *child, fnode *sibling, uint32 i
 static void borrow_from_next(fnode *root, fnode *child, fnode *sibling, uint32 idx)
 {
 	uint32 i;
+	insert_to_fnodes(root);
 	os_mem_cpy(&child->finfo[child->head.num], &root->finfo[idx], sizeof(file_info));
 	_os_dentry.move_callback(child->head.node_id, child->head.num, root->finfo[idx].cluster_id);
 
@@ -666,7 +681,6 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 	if (idx != 0)
 	{
 		left = fnode_load(root->head.pointers[idx - 1]);
-		insert_to_fnodes(left);
 		if (left->head.num >= FS_MAX_KEY_NUM / 2)
 		{
 			borrow_from_prev(root, child, left, idx);
@@ -679,7 +693,6 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 	{
 		fnode *right;
 		right = fnode_load(root->head.pointers[idx + 1]);
-		insert_to_fnodes(right);
 		if (right->head.num >= FS_MAX_KEY_NUM / 2)
 		{
 			borrow_from_next(root, child, right, idx);
@@ -694,7 +707,6 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 		if (NULL == left)
 		{
 			left = fnode_load(root->head.pointers[idx - 1]);
-			insert_to_fnodes(left);
 		}
 		merge(root, left, child, idx - 1);
 	}
@@ -706,7 +718,6 @@ fnode *remove_from_btree(fnode *root, const char *name)
 	{
 		return root;
 	}
-
 	{
 		uint32 idx = find_key(root, name);
 
@@ -731,7 +742,6 @@ fnode *remove_from_btree(fnode *root, const char *name)
 			flag = ((idx == root->head.num) ? 1 : 0);
 
 			child = fnode_load(root->head.pointers[idx]);
-			insert_to_fnodes(child);
 			if (child->head.num < FS_MAX_KEY_NUM / 2)
 			{
 				fill(root, child, idx);
@@ -740,7 +750,6 @@ fnode *remove_from_btree(fnode *root, const char *name)
 			if (flag && idx > root->head.num)
 			{
 				fnode *sibling = fnode_load(root->head.pointers[idx - 1]);
-				insert_to_fnodes(sibling);
 				remove_from_btree(sibling, name);
 			}
 			else
@@ -757,7 +766,7 @@ fnode *remove_from_btree(fnode *root, const char *name)
 		else
 			root = fnode_load(root->head.pointers[0]);
 		cluster_free(tmp->head.node_id);
-
+		free(tmp);
 	}
 	return root;
 }
