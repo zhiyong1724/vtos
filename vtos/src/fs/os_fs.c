@@ -203,6 +203,10 @@ static void flush()
 			}
 			os_mem_cpy(&n->finfo[node->index], &node->finfo, sizeof(file_info));
 			fnode_flush(n);
+			if (n != _os_fs.root)
+			{
+				fnode_free(n);
+			}
 		}
 	}
 	os_set_clear(&_os_fs.files);
@@ -264,7 +268,7 @@ void fs_unloading()
 		fnode_flush(n);
 		if (_os_fs.root != n)
 		{
-			free(n);
+			fnode_free(n);
 		}
 		remove_from_open_file_tree((tree_node_type_def **)(&_os_fs.open_file_tree), temp);
 		free(temp);
@@ -473,8 +477,9 @@ static void insert_to_parent(file_info *parent, file_info *child)
 	if (new_root != root)
 	{
 		parent->cluster_id = new_root->head.node_id;
-		fnode_free(new_root);
+		free(new_root);
 	}
+	fnode_free(root);
 }
 
 static void remove_from_parent(file_info *parent_info, fnode *parent, const char *name)
@@ -544,8 +549,12 @@ static uint32 do_create_file(const char *path, file_info *finfo)
 			else
 			{
 				insert_to_parent(&node->finfo[index], finfo);
+				add_flush(node);
 			}
-
+			if (_os_fs.root != node)
+			{
+				fnode_free(node);
+			}
 			return 0;
 		}
 	}
@@ -731,6 +740,7 @@ static uint32 do_delete_dir(fnode *parent, uint32 i1, fnode *parent_root, fnode 
 		if (0 == child->finfo[i2].file_count && child->finfo[i2].property & 0x00000400 && (child->finfo[i2].property & 0x00000200) == 0)
 		{
 			remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
+			add_flush(parent);
 			return 0;
 		}
 	}
@@ -766,6 +776,7 @@ static uint32 sys_do_delete_file(fnode *parent, uint32 i1, fnode *parent_root, f
 		{
 			file_data_remove(child->finfo[i2].cluster_id, child->finfo[i2].cluster_count);
 			remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
+			add_flush(parent);
 			return 0;
 		}
 	}
@@ -819,6 +830,7 @@ static uint32 sys_do_unlink_file(fnode *parent, uint32 i1, fnode *parent_root, f
 		if (find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
 		{
 			remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
+			add_flush(parent);
 			return 0;
 		}
 	}
@@ -1126,7 +1138,7 @@ void fs_formatting()
 	super_cluster_init(_os_fs.super);
 	super_cluster_flush();
 	register_callback(create_sys_file, delete_sys_file, sys_write_file, read_file);
-	journal_init();
+	//journal_init();
 }
 
 uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)

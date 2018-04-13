@@ -53,24 +53,16 @@ void fnodes_flush(fnode *root)
 	for (; itr != NULL; (itr = os_map_next(&_os_dentry.fnodes, itr)))
 	{
 		fnode_h *handle = (fnode_h *)os_map_second(&_os_dentry.fnodes, itr);
-		fnode_flush(handle->node);
+		if (1 == handle->flag)
+		{
+			fnode_flush(handle->node);
+		}
 		if (handle->node != root)
 		{
 			free(handle->node);
 		}
 	}
 	os_map_clear(&_os_dentry.fnodes);
-}
-
-static void insert_to_fnodes(fnode *node)
-{
-	if (node != NULL)
-	{
-		fnode_h handle;
-		handle.count = 1;
-		handle.node = node;
-		os_map_insert(&_os_dentry.fnodes, &node->head.node_id, &handle);
-	}
 }
 
 fnode *fnode_load(uint32 id)
@@ -80,7 +72,6 @@ fnode *fnode_load(uint32 id)
 	if (itr != NULL)
 	{
 		fnode_h *handle = (fnode_h *)os_map_second(&_os_dentry.fnodes, itr);
-		handle->count++;
 		node = handle->node;
 	}
 	else
@@ -124,13 +115,28 @@ uint32 fnode_free(fnode *node)
 		if (itr != NULL)
 		{
 			fnode_h *handle = (fnode_h *)os_map_second(&_os_dentry.fnodes, itr);
-			handle->count--;
-			if (0 == handle->count)
+			if (0 == handle->flag)
 			{
 				os_map_erase(&_os_dentry.fnodes, itr);
 				free(node);
 				return 0;
 			}
+		}
+	}
+	return 1;
+}
+
+uint32 fnode_free_f(fnode *node)
+{
+	if (node != NULL)
+	{
+		os_map_iterator *itr = os_map_find(&_os_dentry.fnodes, &node->head.node_id);
+		if (itr != NULL)
+		{
+			fnode_h *handle = (fnode_h *)os_map_second(&_os_dentry.fnodes, itr);
+			os_map_erase(&_os_dentry.fnodes, itr);
+			free(node);
+			return 0;
 		}
 	}
 	return 1;
@@ -193,7 +199,6 @@ static fnode *split_child(fnode *root, uint32 i, fnode *child)
 {
 	fnode *new_node;
 	uint32 j;
-	insert_to_fnodes(root);
 	//创建一个新的节点
 	new_node = make_node();
 	new_node->head.num = FS_MAX_KEY_NUM / 2;
@@ -231,6 +236,7 @@ static fnode *split_child(fnode *root, uint32 i, fnode *child)
 
 	//增加root计数
 	root->head.num++;
+	add_flush(root);
 	return new_node;
 }
 
@@ -240,7 +246,6 @@ static void insert_non_full(fnode *root, file_info *finfo)
 	//如果是叶子节点 
 	if (root->head.leaf == 1)
 	{
-		insert_to_fnodes(root);
 		//找到插入的位置
 		for (; i > 0 && os_str_cmp(root->finfo[i - 1].name, finfo->name) > 0; i--)
 		{
@@ -249,6 +254,7 @@ static void insert_non_full(fnode *root, file_info *finfo)
 		}
 		os_mem_cpy(&root->finfo[i], finfo, sizeof(file_info));
 		root->head.num++; 
+		add_flush(root);
 	}
 	else
 	{
@@ -266,7 +272,7 @@ static void insert_non_full(fnode *root, file_info *finfo)
 
 			split_node->head.next = new_node->head.next;
 			new_node->head.next = split_node->head.node_id;
-
+			add_flush(new_node);
 			if (os_str_cmp(root->finfo[i].name, finfo->name) < 0)
 			{
 				new_node = split_node;
@@ -277,6 +283,10 @@ static void insert_non_full(fnode *root, file_info *finfo)
 		{
 			fnode_flush(split_node);
 			free(split_node);
+		}
+		if (new_node != split_node)
+		{
+			fnode_free(new_node);
 		}
 	}
 }
@@ -323,6 +333,7 @@ fnode *insert_to_btree(fnode *root, file_info *finfo)
 			fnode_flush(split_node);
 			fnode_flush(new_node);
 			free(split_node);
+			add_flush(root);
 			//改变root
 			root = new_node;
 		}
@@ -339,7 +350,6 @@ fnode *insert_to_btree(fnode *root, file_info *finfo)
 static void merge(fnode *root, fnode *child, fnode *sibling, uint32 idx)
 {
 	uint32 i = 0;
-	insert_to_fnodes(root);
 	//拷贝内容
 	os_mem_cpy(&child->finfo[FS_MAX_KEY_NUM / 2 - 1], &root->finfo[idx], sizeof(file_info));
 	_os_dentry.move_callback(child->head.node_id, FS_MAX_KEY_NUM / 2 - 1, root->finfo[idx].cluster_id);
@@ -565,13 +575,13 @@ static void get_succ(file_info *finfo, fnode *root)
 static void remove_from_leaf(fnode *root, uint32 idx)
 { 
 	uint32 i;
-	insert_to_fnodes(root);
 	for (i = idx + 1; i < root->head.num; ++i)
 	{
 		os_mem_cpy(&root->finfo[i - 1], &root->finfo[i], sizeof(file_info));
 		_os_dentry.move_callback(root->head.node_id, i - 1, root->finfo[i].cluster_id);
 	}
 	root->head.num--;
+	add_flush(root);
 	return;
 }
 
@@ -580,7 +590,6 @@ static void remove_from_non_leaf(fnode *root, uint32 idx)
 {
 	fnode *node;
 	file_info *temp = (file_info *)malloc(sizeof(file_info));
-	insert_to_fnodes(root);
 	os_mem_cpy(temp, &root->finfo[idx], sizeof(file_info));
 
 	node = fnode_load(root->head.pointers[idx]);
@@ -610,15 +619,17 @@ static void remove_from_non_leaf(fnode *root, uint32 idx)
 			merge(root, node, nnode, idx);
 			remove_from_btree(node, temp->name);
 		}
+		fnode_free(nnode);
 	}
+	fnode_free(node);
 	free(temp);
+	add_flush(root);
 }
 
 //从前面的兄弟借值
 static void borrow_from_prev(fnode *root, fnode *child, fnode *sibling, uint32 idx)
 {
 	uint32 i;
-	insert_to_fnodes(root);
 	//移动内容
 	for (i = child->head.num; i > 0; --i)
 	{
@@ -643,13 +654,13 @@ static void borrow_from_prev(fnode *root, fnode *child, fnode *sibling, uint32 i
 
 	child->head.num += 1;
 	sibling->head.num -= 1;
+	add_flush(root);
 }
 
 //从后面的兄弟借值
 static void borrow_from_next(fnode *root, fnode *child, fnode *sibling, uint32 idx)
 {
 	uint32 i;
-	insert_to_fnodes(root);
 	os_mem_cpy(&child->finfo[child->head.num], &root->finfo[idx], sizeof(file_info));
 	_os_dentry.move_callback(child->head.node_id, child->head.num, root->finfo[idx].cluster_id);
 
@@ -673,6 +684,7 @@ static void borrow_from_next(fnode *root, fnode *child, fnode *sibling, uint32 i
 
 	child->head.num += 1;
 	sibling->head.num -= 1;
+	add_flush(root);
 }
 //值不足要填充足够的值
 static void fill(fnode *root, fnode *child, uint32 idx)
@@ -684,6 +696,7 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 		if (left->head.num >= FS_MAX_KEY_NUM / 2)
 		{
 			borrow_from_prev(root, child, left, idx);
+			fnode_free(left);
 			return;
 		}
 
@@ -701,6 +714,7 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 		{
 			merge(root, child, right, idx);
 		}
+		fnode_free(right);
 	}	
 	else
 	{
@@ -709,6 +723,7 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 			left = fnode_load(root->head.pointers[idx - 1]);
 		}
 		merge(root, left, child, idx - 1);
+		fnode_free(left);
 	}
 }
 
@@ -718,6 +733,7 @@ fnode *remove_from_btree(fnode *root, const char *name)
 	{
 		return root;
 	}
+	insert_to_fnodes(root);
 	{
 		uint32 idx = find_key(root, name);
 
@@ -751,10 +767,11 @@ fnode *remove_from_btree(fnode *root, const char *name)
 			{
 				fnode *sibling = fnode_load(root->head.pointers[idx - 1]);
 				remove_from_btree(sibling, name);
+				fnode_free(sibling);
 			}
 			else
 				remove_from_btree(child, name);
-
+			fnode_free(child);
 		}
 	}
 	//如果root没有值，删除根节点，他的孩子作为根节点
@@ -766,7 +783,7 @@ fnode *remove_from_btree(fnode *root, const char *name)
 		else
 			root = fnode_load(root->head.pointers[0]);
 		cluster_free(tmp->head.node_id);
-		free(tmp);
+		fnode_free_f(tmp);
 	}
 	return root;
 }
@@ -774,4 +791,28 @@ fnode *remove_from_btree(fnode *root, const char *name)
 void register_on_move_info(on_move_info call_back)
 {
 	_os_dentry.move_callback = call_back;
+}
+
+void insert_to_fnodes(fnode *node)
+{
+	if (node != NULL)
+	{
+		fnode_h handle;
+		handle.flag = 0;
+		handle.node = node;
+		os_map_insert(&_os_dentry.fnodes, &node->head.node_id, &handle);
+	}
+}
+
+void add_flush(fnode *node)
+{
+	if (node != NULL)
+	{
+		os_map_iterator *itr = os_map_find(&_os_dentry.fnodes, &node->head.node_id);
+		if (itr != NULL)
+		{
+			fnode_h *handle = (fnode_h *)os_map_second(&_os_dentry.fnodes, itr);
+			handle->flag = 1;
+		}
+	}
 }
