@@ -8,7 +8,7 @@ typedef void(*on_move_info)(uint32 id, uint32 index, uint32 key);
 typedef struct tnode
 {
 	uint32 node_id;
-	uint32 pointers[16 + 1];
+	uint32 pointers[FS_MAX_KEY_NUM + 1];
 	uint32 num;
 	uint32 leaf;
 	uint32 next;
@@ -20,7 +20,7 @@ typedef struct tnode
 typedef struct fnode
 {
 	tnode head;
-	file_info finfo[16];
+	file_info finfo[FS_MAX_KEY_NUM];
 
 } fnode;
 #pragma pack()
@@ -34,6 +34,7 @@ struct os_dentry
 typedef struct fnode_h
 {
 	fnode *node;
+	uint32 count;
 	uint32 flag;
 } fnode_h;
 /*********************************************************************************************************************

@@ -283,7 +283,7 @@ int main()
 		{
 			int i;
 			char n[16];
-			for (i = 1; i <= 13; i++)
+			for (i = 1; i <= 10000; i++)
 			{
 				sprintf_s(n, 16, "/%d", i);
 				if (create_dir(n) != 0)
@@ -291,14 +291,14 @@ int main()
 					i = 1;
 				}
 			}
-			/*for (i = 1000; i > 0; i--)
+			for (i = 10000; i > 0; i--)
 			{
 				sprintf_s(n, 16, "/%d", i);
 				if (delete_dir(n) != 0)
 				{
 					i = 1;
 				}
-			}*/
+			}
 			printf("ok\n");
 		}
 		else if (os_str_cmp(command, "quit") != 0)

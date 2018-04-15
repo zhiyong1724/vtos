@@ -72,6 +72,7 @@ fnode *fnode_load(uint32 id)
 	if (itr != NULL)
 	{
 		fnode_h *handle = (fnode_h *)os_map_second(&_os_dentry.fnodes, itr);
+		handle->count++;
 		node = handle->node;
 	}
 	else
@@ -115,7 +116,8 @@ uint32 fnode_free(fnode *node)
 		if (itr != NULL)
 		{
 			fnode_h *handle = (fnode_h *)os_map_second(&_os_dentry.fnodes, itr);
-			if (0 == handle->flag)
+			handle->count--;
+			if (0 == handle->count && 0 == handle->flag)
 			{
 				os_map_erase(&_os_dentry.fnodes, itr);
 				free(node);
@@ -383,6 +385,8 @@ static void merge(fnode *root, fnode *child, fnode *sibling, uint32 idx)
 	child->head.next = sibling->head.next;
 	//释放簇 
 	cluster_free(sibling->head.node_id);
+	add_flush(root);
+	add_flush(child);
 }
 
 //在节点中找到key的位置
@@ -502,7 +506,7 @@ uint32 query_finfo(file_info *finfo, uint32 *id, fnode **parent, fnode **cur, ui
 			}
 			else
 			{
-				*id = (*parent)->head.pointers[0];
+;				*id = (*parent)->head.pointers[0];
 				if (*id != 0)
 				{
 					fnode_free(*parent);
@@ -655,6 +659,8 @@ static void borrow_from_prev(fnode *root, fnode *child, fnode *sibling, uint32 i
 	child->head.num += 1;
 	sibling->head.num -= 1;
 	add_flush(root);
+	add_flush(child);
+	add_flush(sibling);
 }
 
 //从后面的兄弟借值
@@ -685,6 +691,8 @@ static void borrow_from_next(fnode *root, fnode *child, fnode *sibling, uint32 i
 	child->head.num += 1;
 	sibling->head.num -= 1;
 	add_flush(root);
+	add_flush(child);
+	add_flush(sibling);
 }
 //值不足要填充足够的值
 static void fill(fnode *root, fnode *child, uint32 idx)
@@ -799,6 +807,7 @@ void insert_to_fnodes(fnode *node)
 	{
 		fnode_h handle;
 		handle.flag = 0;
+		handle.count = 1;
 		handle.node = node;
 		os_map_insert(&_os_dentry.fnodes, &node->head.node_id, &handle);
 	}

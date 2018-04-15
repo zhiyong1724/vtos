@@ -727,11 +727,13 @@ static uint32 handle_file(const char *path, uint32 (*handle)(fnode *parent, uint
 static uint32 do_delete_dir(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2)
 {
 	uint32 ret = 1;
+	char name[FS_MAX_NAME_SIZE];
 	if (FS_MAX_KEY_NUM == i1)
 	{
 		if (0 == child->finfo[i2].file_count && child->finfo[i2].property & 0x00000400 && (child->finfo[i2].property & 0x00000200) == 0)
 		{
-			remove_from_root(child->finfo[i2].name);
+			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
+			remove_from_root(name);
 			ret = 0;
 		}
 	}
@@ -739,7 +741,8 @@ static uint32 do_delete_dir(fnode *parent, uint32 i1, fnode *parent_root, fnode 
 	{
 		if (0 == child->finfo[i2].file_count && child->finfo[i2].property & 0x00000400 && (child->finfo[i2].property & 0x00000200) == 0)
 		{
-			remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
+			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
+			remove_from_parent(&parent->finfo[i1], parent_root, name);
 			add_flush(parent);
 			return 0;
 		}
@@ -761,12 +764,14 @@ uint32 delete_dir(const char *path)
 static uint32 sys_do_delete_file(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2)
 {
 	uint32 ret = 1;
+	char name[FS_MAX_NAME_SIZE];
 	if (FS_MAX_KEY_NUM == i1)
 	{
 		if ((child->finfo[i2].property & 0x00000400) == 0 && find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
 		{
 			file_data_remove(child->finfo[i2].cluster_id, child->finfo[i2].cluster_count);
-			remove_from_root(child->finfo[i2].name);
+			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
+			remove_from_root(name);
 			ret = 0;
 		}
 	}
@@ -775,7 +780,8 @@ static uint32 sys_do_delete_file(fnode *parent, uint32 i1, fnode *parent_root, f
 		if ((child->finfo[i2].property & 0x00000400) == 0 && find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
 		{
 			file_data_remove(child->finfo[i2].cluster_id, child->finfo[i2].cluster_count);
-			remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
+			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
+			remove_from_parent(&parent->finfo[i1], parent_root, name);
 			add_flush(parent);
 			return 0;
 		}
@@ -817,11 +823,13 @@ uint32 delete_file(const char *path)
 static uint32 sys_do_unlink_file(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2)
 {
 	uint32 ret = 1;
+	char name[FS_MAX_NAME_SIZE];
 	if (FS_MAX_KEY_NUM == i1)
 	{
 		if (find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
 		{
-			remove_from_root(child->finfo[i2].name);
+			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
+			remove_from_root(name);
 			return 0;
 		}
 	}
@@ -829,7 +837,8 @@ static uint32 sys_do_unlink_file(fnode *parent, uint32 i1, fnode *parent_root, f
 	{
 		if (find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
 		{
-			remove_from_parent(&parent->finfo[i1], parent_root, child->finfo[i2].name);
+			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
+			remove_from_parent(&parent->finfo[i1], parent_root, name);
 			add_flush(parent);
 			return 0;
 		}
@@ -1138,7 +1147,7 @@ void fs_formatting()
 	super_cluster_init(_os_fs.super);
 	super_cluster_flush();
 	register_callback(create_sys_file, delete_sys_file, sys_write_file, read_file);
-	//journal_init();
+	journal_init();
 }
 
 uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)
