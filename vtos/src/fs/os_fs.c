@@ -275,6 +275,7 @@ void fs_unloading()
 	}
 	flush();
 	uninit();
+	os_dentry_uninit();
 	if (_os_fs.super != NULL)
 	{
 		free(_os_fs.super);
@@ -545,15 +546,15 @@ static uint32 do_create_file(const char *path, file_info *finfo)
 			if (1 == flag)
 			{
 				insert_to_root(finfo);
+				if (_os_fs.root != node)
+				{
+					fnode_free(node);
+				}
 			}
 			else
 			{
 				insert_to_parent(&node->finfo[index], finfo);
 				add_flush(node);
-			}
-			if (_os_fs.root != node)
-			{
-				fnode_free(node);
 			}
 			return 0;
 		}
@@ -822,33 +823,26 @@ uint32 delete_file(const char *path)
 
 static uint32 sys_do_unlink_file(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2)
 {
-	uint32 ret = 1;
 	char name[FS_MAX_NAME_SIZE];
 	if (FS_MAX_KEY_NUM == i1)
 	{
-		if (find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
-		{
-			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
-			remove_from_root(name);
-			return 0;
-		}
+		os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
+		remove_from_root(name);
+		return 0;
 	}
 	else
 	{
-		if (find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
-		{
-			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
-			remove_from_parent(&parent->finfo[i1], parent_root, name);
-			add_flush(parent);
-			return 0;
-		}
+		os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
+		remove_from_parent(&parent->finfo[i1], parent_root, name);
+		add_flush(parent);
+		return 0;
 	}
-	return ret;
+	return 1;
 }
 
 static uint32 do_unlink_file(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2)
 {
-	if ((child->finfo[i2].property & 0x00000200) == 0)
+	if ((child->finfo[i2].property & 0x00000200) == 0 && find_finfo_node(_os_fs.open_file_tree, child->finfo[i2].cluster_id) == NULL)
 	{
 		return sys_do_unlink_file(parent, i1, parent_root, child, i2);
 	}
@@ -1102,21 +1096,14 @@ uint32 fs_loading()
 	while (sizeof(fnode) != FS_CLUSTER_SIZE);
 	os_fs_init();
 	os_cluster_init();
-	os_dentry_init();
-	register_on_move_info(on_move);
+	os_dentry_init(on_move);
 	cluster_manager_load();
 	_os_fs.super = (super_cluster *)malloc(FS_CLUSTER_SIZE);
 	super_cluster_load();
 	if (os_str_cmp(_os_fs.super->name, "emfs") == 0)
 	{
-		if (_os_fs.super->root_id > 0)
-		{
-			_os_fs.root = fnode_load(_os_fs.super->root_id);
-		}
-		else
-		{
-			_os_fs.root = NULL;
-		}
+		_os_fs.root = fnode_load(_os_fs.super->root_id);
+		insert_to_fnodes(_os_fs.root);
 		register_callback(create_sys_file, delete_sys_file, sys_write_file, read_file);
 		return 0;
 	}
@@ -1140,8 +1127,7 @@ void fs_formatting()
 	while (sizeof(fnode) != FS_CLUSTER_SIZE);
 	os_fs_init();
 	os_cluster_init();
-	os_dentry_init();
-	register_on_move_info(on_move);
+	os_dentry_init(on_move);
 	cluster_manager_init();
 	_os_fs.super = (super_cluster *)malloc(FS_CLUSTER_SIZE);
 	super_cluster_init(_os_fs.super);

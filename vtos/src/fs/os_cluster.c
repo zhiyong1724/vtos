@@ -73,6 +73,7 @@ static void bitmaps_flush()
 		}
 	}
 	os_map_clear(&_os_cluster.bitmaps);
+	bitmap_flush(_os_cluster.cache_id, _os_cluster.bitmap);
 }
 
 static void cluster_manager_flush()

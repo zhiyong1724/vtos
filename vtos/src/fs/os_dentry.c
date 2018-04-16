@@ -4,10 +4,16 @@
 #include "vtos.h"
 #include <stdlib.h>
 static struct os_dentry _os_dentry;
-void os_dentry_init()
+void os_dentry_init(on_move_info call_back)
+{
+	_os_dentry.move_callback = call_back;
+	os_map_init(&_os_dentry.fnodes, sizeof(uint32), sizeof(fnode_h));
+}
+
+void os_dentry_uninit()
 {
 	_os_dentry.move_callback = NULL;
-	os_map_init(&_os_dentry.fnodes, sizeof(uint32), sizeof(fnode_h));
+	os_map_clear(&_os_dentry.fnodes);
 }
 
 void fnode_flush(fnode *node)
@@ -63,6 +69,7 @@ void fnodes_flush(fnode *root)
 		}
 	}
 	os_map_clear(&_os_dentry.fnodes);
+	insert_to_fnodes(root);
 }
 
 fnode *fnode_load(uint32 id)
@@ -306,7 +313,6 @@ fnode *insert_to_btree(fnode *root, file_info *finfo)
 	}
 	else // 如果树不为空  
 	{
-		insert_to_fnodes(root);
 		//如果当前节点满，则分裂
 		if (root->head.num == FS_MAX_KEY_NUM)
 		{
@@ -704,7 +710,6 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 		if (left->head.num >= FS_MAX_KEY_NUM / 2)
 		{
 			borrow_from_prev(root, child, left, idx);
-			fnode_free(left);
 			return;
 		}
 
@@ -722,7 +727,6 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 		{
 			merge(root, child, right, idx);
 		}
-		fnode_free(right);
 	}	
 	else
 	{
@@ -731,7 +735,6 @@ static void fill(fnode *root, fnode *child, uint32 idx)
 			left = fnode_load(root->head.pointers[idx - 1]);
 		}
 		merge(root, left, child, idx - 1);
-		fnode_free(left);
 	}
 }
 
@@ -741,7 +744,6 @@ fnode *remove_from_btree(fnode *root, const char *name)
 	{
 		return root;
 	}
-	insert_to_fnodes(root);
 	{
 		uint32 idx = find_key(root, name);
 
@@ -794,11 +796,6 @@ fnode *remove_from_btree(fnode *root, const char *name)
 		fnode_free_f(tmp);
 	}
 	return root;
-}
-
-void register_on_move_info(on_move_info call_back)
-{
-	_os_dentry.move_callback = call_back;
 }
 
 void insert_to_fnodes(fnode *node)

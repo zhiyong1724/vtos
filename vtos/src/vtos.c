@@ -107,7 +107,7 @@ int main()
 	char arg1[256] = "";
 	char arg2[256] = "";
 	char ln;
-	//_CrtSetBreakAlloc(162);
+	//_CrtSetBreakAlloc(119);
 	//if (0 == os_sys_init())
 	//{
 		/*os_kthread_create(task, NULL, "task_a");
@@ -282,18 +282,18 @@ int main()
 		else if (os_str_cmp(command, "test") == 0)
 		{
 			int i;
-			char n[16];
-			for (i = 1; i <= 10000; i++)
+			char n[256];
+			/*for (i = 1; i <= 10000; i++)
 			{
-				sprintf_s(n, 16, "/%d", i);
-				if (create_dir(n) != 0)
+				sprintf_s(n, 256, "/9999/9999/9999/%d", i);
+				if (create_file(n) != 0)
 				{
-					i = 1;
+					i = i;
 				}
-			}
+			}*/
 			for (i = 10000; i > 0; i--)
 			{
-				sprintf_s(n, 16, "/%d", i);
+				sprintf_s(n, 256, "/%d", i);
 				if (delete_dir(n) != 0)
 				{
 					i = 1;
