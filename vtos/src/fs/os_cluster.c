@@ -275,6 +275,7 @@ void cluster_read(uint32 cluster_id, uint8 *data)
 
 void cluster_write(uint32 cluster_id, uint8 *data)
 {
+	journal_write(cluster_id);
 	if (_os_cluster.dinfo.page_size <= FS_CLUSTER_SIZE)
 	{
 		uint32 i;

@@ -183,7 +183,10 @@ static void super_cluster_flush()
 
 static void flush()
 {
-	journal_start();
+	if (_os_fs.super->property & 0x00000001)
+	{
+		journal_start();
+	}
 	cluster_flush();
 	fnodes_flush(_os_fs.root);
 	if (_os_fs.is_update_super)
@@ -191,7 +194,10 @@ static void flush()
 		_os_fs.is_update_super = 0;
 		super_cluster_flush();
 	}
-	journal_end();
+	if (_os_fs.super->property & 0x00000001)
+	{
+		journal_end();
+	}
 }
 
 static void super_cluster_load()
@@ -229,20 +235,23 @@ void fs_unloading()
 	while(_os_fs.open_file_tree != NULL)
 	{
 		finfo_node *temp = _os_fs.open_file_tree;
-		fnode *n = NULL;
-		if (temp->cluster_id == _os_fs.root->head.node_id)
+		if (temp->flag > 0)
 		{
-			n = _os_fs.root;
-		}
-		else
-		{
-			n = fnode_load(temp->cluster_id);
-		}
-		os_mem_cpy(&n->finfo[temp->index], &temp->finfo, sizeof(file_info));
-		fnode_flush(n);
-		if (_os_fs.root != n)
-		{
-			fnode_free(n);
+			fnode *n = NULL;
+			if (temp->cluster_id == _os_fs.root->head.node_id)
+			{
+				n = _os_fs.root;
+			}
+			else
+			{
+				n = fnode_load(temp->cluster_id);
+			}
+			os_mem_cpy(&n->finfo[temp->index], &temp->finfo, sizeof(file_info));
+			fnode_flush(n);
+			if (_os_fs.root != n)
+			{
+				fnode_free(n);
+			}
 		}
 		remove_from_open_file_tree((tree_node_type_def **)(&_os_fs.open_file_tree), temp);
 		free(temp);
@@ -928,6 +937,7 @@ file_obj *open_file(const char *path, uint32 flags)
 				f_node->count = 1;
 				f_node->cluster_id = node->head.node_id;
 				f_node->index = index;
+				f_node->flag = 0;
 				os_mem_cpy(&f_node->finfo, &node->finfo[index], sizeof(file_info));
 				insert_to_open_file_tree((tree_node_type_def **)(&_os_fs.open_file_tree), f_node);
 			}
@@ -954,20 +964,25 @@ file_obj *open_file(const char *path, uint32 flags)
 
 void close_file(file_obj *file)
 {
-	fnode *n = NULL;
-	if (file->node->cluster_id == _os_fs.root->head.node_id)
+	if (file->node->flag > 0)
 	{
-		n = _os_fs.root;
-	}
-	else
-	{
-		n = fnode_load(file->node->cluster_id);
-	}
-	os_mem_cpy(&n->finfo[file->node->index], &file->node->finfo, sizeof(file_info));
-	fnode_flush(n);
-	if (_os_fs.root != n)
-	{
-		fnode_free(n);
+		fnode *n = NULL;
+		flush();
+		if (file->node->cluster_id == _os_fs.root->head.node_id)
+		{
+			n = _os_fs.root;
+		}
+		else
+		{
+			n = fnode_load(file->node->cluster_id);
+		}
+		os_mem_cpy(&n->finfo[file->node->index], &file->node->finfo, sizeof(file_info));
+		fnode_flush(n);
+		if (_os_fs.root != n)
+		{
+			fnode_free(n);
+		}
+		file->node->flag = 0;
 	}
 	file->node->count--;
 	if (0 == file->node->count)
@@ -976,7 +991,6 @@ void close_file(file_obj *file)
 		free(file->node);
 	}
 	free(file);
-	flush();
 }
 
 uint32 read_file(file_obj *file, void *data, uint32 len)
@@ -1025,6 +1039,7 @@ static uint32 sys_write_file(file_obj *file, void *data, uint32 len)
 			if (file->index + len > file->node->finfo.size)
 			{
 				file->node->finfo.size = file->index + len;
+				file->node->flag = 1;
 			}
 			file->index += len;
 			file->node->finfo.modif_time = os_get_time();
@@ -1073,8 +1088,15 @@ uint32 fs_loading()
 	if (os_str_cmp(_os_fs.super->name, "emfs") == 0)
 	{
 		_os_fs.root = fnode_load(_os_fs.super->root_id);
-		insert_to_fnodes(_os_fs.root);
-		os_journal_init(create_sys_file, sys_write_file, read_file);
+		os_journal_init(create_sys_file, sys_write_file);
+		if (_os_fs.super->property & 0x00000001)
+		{
+			if (restore_from_journal() == 0)
+			{
+				fnode_free(_os_fs.root);
+				_os_fs.root = fnode_load(_os_fs.super->root_id);
+			}
+		}
 		return 0;
 	}
 	uninit();
@@ -1098,11 +1120,11 @@ void fs_formatting()
 	os_fs_init();
 	os_cluster_init();
 	os_dentry_init(on_move);
+	os_journal_init(create_sys_file, sys_write_file);
 	cluster_manager_init();
 	_os_fs.super = (super_cluster *)malloc(FS_CLUSTER_SIZE);
 	super_cluster_init(_os_fs.super);
 	super_cluster_flush();
-	os_journal_init(create_sys_file, sys_write_file, read_file);
 	journal_create();
 }
 
@@ -1138,6 +1160,18 @@ uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)
 uint64 tell_file(file_obj *file)
 {
 	return file->index;
+}
+
+void open_journal()
+{
+	_os_fs.super->property |= 0x00000001;
+	super_cluster_flush();
+}
+
+void close_journal()
+{
+	_os_fs.super->property &= (~0x00000001);
+	super_cluster_flush();
 }
 
 
