@@ -14,7 +14,6 @@ static void os_fs_init()
 	_os_fs.open_file_tree = NULL;
 	_os_fs.root = NULL;
 	_os_fs.super = NULL;
-	os_set_init(&_os_fs.files, sizeof(uint32));
 }
 
 static uint32 get_file_name(char *dest, const char *path, uint32 *index)
@@ -185,31 +184,6 @@ static void super_cluster_flush()
 static void flush()
 {
 	journal_start();
-	os_set_iterator *itr = os_set_begin(&_os_fs.files);
-	for (; itr != NULL; (itr = os_set_next(&_os_fs.files, itr)))
-	{
-		uint32 *key = os_set_value(itr);
-		finfo_node *node = find_finfo_node(_os_fs.open_file_tree, *key);
-		if (node != NULL)
-		{
-			fnode *n;
-			if (node->cluster_id == _os_fs.root->head.node_id)
-			{
-				n = _os_fs.root;
-			}
-			else
-			{
-				n = fnode_load(node->cluster_id);
-			}
-			os_mem_cpy(&n->finfo[node->index], &node->finfo, sizeof(file_info));
-			fnode_flush(n);
-			if (n != _os_fs.root)
-			{
-				fnode_free(n);
-			}
-		}
-	}
-	os_set_clear(&_os_fs.files);
 	cluster_flush();
 	fnodes_flush(_os_fs.root);
 	if (_os_fs.is_update_super)
@@ -276,6 +250,7 @@ void fs_unloading()
 	flush();
 	uninit();
 	os_dentry_uninit();
+	os_journal_uninit();
 	if (_os_fs.super != NULL)
 	{
 		free(_os_fs.super);
@@ -1035,7 +1010,6 @@ static uint32 sys_write_file(file_obj *file, void *data, uint32 len)
 	{
 		if (len > 0)
 		{
-			uint32 temp = file->node->finfo.cluster_count;
 			if (file->index + len <= FS_CLUSTER_SIZE && 1 == file->node->finfo.cluster_count)  //按照小文件方式写入
 			{
 				if (data != NULL)
@@ -1048,16 +1022,12 @@ static uint32 sys_write_file(file_obj *file, void *data, uint32 len)
 				file->node->finfo.cluster_id = file_data_write(file->node->finfo.cluster_id, &file->node->finfo.cluster_count, file->index, data, len);
 			}
 
-			if (data != NULL && file->index + len > file->node->finfo.size)
+			if (file->index + len > file->node->finfo.size)
 			{
 				file->node->finfo.size = file->index + len;
 			}
 			file->index += len;
 			file->node->finfo.modif_time = os_get_time();
-			if (temp != file->node->finfo.cluster_count)
-			{
-				os_set_insert(&_os_fs.files, &file->node->finfo.cluster_id);
-			}
 			return len;
 		}
 	}
@@ -1104,7 +1074,7 @@ uint32 fs_loading()
 	{
 		_os_fs.root = fnode_load(_os_fs.super->root_id);
 		insert_to_fnodes(_os_fs.root);
-		register_callback(create_sys_file, delete_sys_file, sys_write_file, read_file);
+		os_journal_init(create_sys_file, sys_write_file, read_file);
 		return 0;
 	}
 	uninit();
@@ -1132,8 +1102,8 @@ void fs_formatting()
 	_os_fs.super = (super_cluster *)malloc(FS_CLUSTER_SIZE);
 	super_cluster_init(_os_fs.super);
 	super_cluster_flush();
-	register_callback(create_sys_file, delete_sys_file, sys_write_file, read_file);
-	journal_init();
+	os_journal_init(create_sys_file, sys_write_file, read_file);
+	journal_create();
 }
 
 uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)

@@ -65,7 +65,6 @@ static void bitmaps_flush()
 	{
 		uint32 *key = (uint32 *)os_map_first(itr);
 		uint8 **pp = (uint8 **)os_map_second(&_os_cluster.bitmaps, itr);
-		journal_write(*key);
 		bitmap_flush(*key, *pp);
 		if (*key != _os_cluster.cache_id)
 		{
@@ -78,7 +77,6 @@ static void bitmaps_flush()
 
 static void cluster_manager_flush()
 {
-	journal_write(FIRST_CLUSTER_MANAGER_ID);
 	if (is_little_endian())
 	{
 		cluster_write(FIRST_CLUSTER_MANAGER_ID, (uint8 *)_os_cluster.pcluster_manager);

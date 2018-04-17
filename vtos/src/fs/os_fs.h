@@ -3,7 +3,6 @@
 #include "fs/os_fs_def.h"
 #include "fs/os_dentry.h"
 #include "base/os_tree.h"
-#include "base/os_set.h"
 #define FS_READ 1
 #define FS_WRITE 2
 #define FS_APPEND 4
@@ -44,7 +43,6 @@ struct os_fs
 	super_cluster *super;
 	fnode *root;
 	finfo_node *open_file_tree;
-	os_set files;
 };
 /*********************************************************************************************************************
 * 格式化文件系统
