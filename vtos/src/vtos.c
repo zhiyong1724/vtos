@@ -38,7 +38,7 @@ uint32 is_little_endian()
 			endian = 0;
 		}
 	}
-	return !endian;
+	return endian;
 }
 
 os_size_t os_sys_init(void)
@@ -281,25 +281,24 @@ int main()
 		}
 		else if (os_str_cmp(command, "test") == 0)
 		{
-			close_journal();
 			int i;
 			char n[256];
 			for (i = 1; i <= 10000; i++)
 			{
 				sprintf_s(n, 256, "/%d", i);
-				if (create_file(n) != 0)
+				if (create_dir(n) != 0)
 				{
 					i = i;
 				}
 			}
-			/*for (i = 10000; i > 0; i--)
+			for (i = 10000; i > 0; i--)
 			{
 				sprintf_s(n, 256, "/%d", i);
 				if (delete_dir(n) != 0)
 				{
 					i = 1;
 				}
-			}*/
+			}
 			printf("ok\n");
 		}
 		else if (os_str_cmp(command, "quit") != 0)

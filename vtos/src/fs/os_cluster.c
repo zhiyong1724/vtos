@@ -101,6 +101,10 @@ void cluster_manager_load()
 	{
 		cluster_read(FIRST_CLUSTER_MANAGER_ID, (uint8 *)_os_cluster.pcluster_manager);
 		_os_cluster.pcluster_manager->cur_index = convert_endian(_os_cluster.pcluster_manager->cur_index);
+		if (_os_cluster.pcluster_manager->cur_index >= _os_cluster.total_cluster_count)
+		{
+			_os_cluster.pcluster_manager->cur_index = 0;
+		}
 		_os_cluster.pcluster_manager->used_cluster_count = convert_endian(_os_cluster.pcluster_manager->used_cluster_count);
 	}
 }

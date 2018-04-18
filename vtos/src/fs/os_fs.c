@@ -232,6 +232,7 @@ static void remove_from_open_file_tree(tree_node_type_def **handle, finfo_node *
 
 void fs_unloading()
 {
+	flush();
 	while(_os_fs.open_file_tree != NULL)
 	{
 		finfo_node *temp = _os_fs.open_file_tree;
@@ -256,7 +257,6 @@ void fs_unloading()
 		remove_from_open_file_tree((tree_node_type_def **)(&_os_fs.open_file_tree), temp);
 		free(temp);
 	}
-	flush();
 	uninit();
 	os_dentry_uninit();
 	os_journal_uninit();
