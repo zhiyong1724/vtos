@@ -176,11 +176,9 @@ static void delete_mem_block(os_size_t group, struct buddy_block *block)
 
 static void *get_block(os_size_t group)
 {
-	os_cpu_sr cpu_sr;
 	void *ret = NULL;
 	while (1)
 	{
-		cpu_sr = os_cpu_sr_off();
 		if (group <= _os_buddy.max_group)
 		{
 			if (_os_buddy.index_array[group] != NULL)
@@ -229,7 +227,6 @@ static void *get_block(os_size_t group)
 		}
 		break;
 	}
-	os_cpu_sr_restore(cpu_sr);
 	return ret;
 }
 
@@ -296,10 +293,10 @@ void *os_buddy_alloc(os_size_t size)
 			{
 				os_size_t j = ((uint8 *)ret - (uint8 *)_start_addr) / _os_buddy.size_array[i];
 				_os_buddy.block_group[j] = 0;
+				break;
 			}
 		}
 	}
-	os_error_msg("Memory allocation failure.", 0);
 	return ret;
 }
 

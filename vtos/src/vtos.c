@@ -11,6 +11,7 @@
 
 #include "base/os_string.h"
 #include "fs/os_fs.h"
+#include "mem/os_buddy.h"
 const char *VERSION = "0.0.2";
 
 const char *os_version(void)
@@ -102,6 +103,35 @@ static void get_command(const char *src, char *command, char *arg1, char *arg2)
 
 int main()
 {
+	os_buddy_init();
+	int i;
+	static void *p[1024 * 1024];
+	i = 0;
+	p[i] = os_buddy_alloc(512);
+	for (; p[i] != NULL;)
+	{
+		printf("i = %d, p = %d\n", i, (int)p[i]);
+		i++;
+		p[i] = os_buddy_alloc(512);
+	}
+	for (i = 0; i <= 1046270; i++)
+	{
+		os_buddy_free(p[i]);
+	}
+	i = 0;
+	p[i] = os_buddy_alloc(512);
+	for (; p[i] != NULL;)
+	{
+		printf("i = %d, p = %d\n", i, (int)p[i]);
+		i++;
+		p[i] = os_buddy_alloc(512);
+	}
+	for (i = 1046270; i >= 0; i--)
+	{
+		os_buddy_free(p[i]);
+	}
+	i = 0;
+	p[0] = os_buddy_alloc(256 * 1024 * 1024);
 	char buff[256] = "";
 	char command[16] = "";
 	char arg1[256] = "";
