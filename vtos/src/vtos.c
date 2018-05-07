@@ -11,7 +11,7 @@
 
 #include "base/os_string.h"
 #include "fs/os_fs.h"
-#include "mem/os_buddy.h"
+#include "base/os_mem_pool.h"
 const char *VERSION = "0.0.2";
 
 const char *os_version(void)
@@ -103,35 +103,40 @@ static void get_command(const char *src, char *command, char *arg1, char *arg2)
 
 int main()
 {
-	os_buddy_init();
 	int i;
 	static void *p[1024 * 1024];
-	i = 0;
-	p[i] = os_buddy_alloc(512);
-	for (; p[i] != NULL;)
+	static int addr[1024];
+	os_mem_pool pool;
+	os_mem_pool_init(&pool, addr, 4096, sizeof(int));
+	for (i = 0; ; i++)
 	{
-		printf("i = %d, p = %d\n", i, (int)p[i]);
-		i++;
-		p[i] = os_buddy_alloc(512);
+		p[i] = os_mem_block_get(&pool);
+		if (p[i] != NULL)
+		{
+			printf("i = %d, p = %d\n", i, (int)p[i]);
+		}
+		else
+		{
+			break;
+		}
 	}
-	for (i = 0; i <= 1046270; i++)
+	for (i = 1023; i >= 0; i--)
 	{
-		os_buddy_free(p[i]);
+		os_mem_block_put(&pool, &p[i]);
+		printf("p = %d\n", (int)p[i]);
 	}
-	i = 0;
-	p[i] = os_buddy_alloc(512);
-	for (; p[i] != NULL;)
+	for (i = 0; ; i++)
 	{
-		printf("i = %d, p = %d\n", i, (int)p[i]);
-		i++;
-		p[i] = os_buddy_alloc(512);
+		p[i] = os_mem_block_get(&pool);
+		if (p[i] != NULL)
+		{
+			printf("i = %d, p = %d\n", i, (int)p[i]);
+		}
+		else
+		{
+			break;
+		}
 	}
-	for (i = 1046270; i >= 0; i--)
-	{
-		os_buddy_free(p[i]);
-	}
-	i = 0;
-	p[0] = os_buddy_alloc(256 * 1024 * 1024);
 	char buff[256] = "";
 	char command[16] = "";
 	char arg1[256] = "";

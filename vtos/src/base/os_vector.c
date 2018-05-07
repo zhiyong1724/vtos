@@ -9,6 +9,14 @@ void os_vector_init(os_vector *obj, os_size_t unit_size)
 	obj->buff = (uint8 *)malloc(obj->max_size * obj->unit_size);
 }
 
+void os_vector_init_ext(os_vector *obj, os_size_t unit_size, os_size_t mem_size)
+{
+	obj->unit_size = unit_size;
+	obj->size = 0;
+	obj->max_size = mem_size / unit_size;
+	obj->buff = (uint8 *)malloc(mem_size);
+}
+
 void os_vector_free(os_vector *obj)
 {
 	free(obj->buff);

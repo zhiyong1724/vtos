@@ -10,7 +10,7 @@
 #pragma pack(1)
 typedef struct super_cluster
 {
-	uint32 flag;
+	uint32 magic;
 	uint8 name[FS_MAX_FSNAME_SIZE];
 	uint32 root_id;
 	uint32 property;

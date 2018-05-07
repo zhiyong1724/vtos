@@ -103,7 +103,7 @@ static void do_buddy_init(uint8 *index, os_size_t page_count)
 
 static os_size_t create_os_buddy(os_size_t group)
 {
-	os_size_t ret = 1;
+	os_size_t size = 0;
 	uint8 *start_addr = (uint8 *)_start_addr;
 	uint8 *end_addr = (uint8 *)_end_addr;
 	os_size_t block_size = PAGE_SIZE * pow2x(group);
@@ -127,29 +127,29 @@ static os_size_t create_os_buddy(os_size_t group)
 			addr_space -= total_size;
 			do_buddy_init(end_addr - total_size, page_count);
 			format_mem(start_addr, group, addr_space);
-			ret = 0;
+			size = addr_space;
 		}
 	}
-	return ret;
+	return addr_space;
 }
 
 os_size_t os_buddy_init(void)
 {
-	os_size_t ret = 1;
+	os_size_t size = 0;
 	os_size_t i = GROUP_COUNT - 1;
 	os_get_start_addr();
 	if (_start_addr != NULL && _end_addr > _start_addr)
 	{
 		for (;; i--)
 		{
-			ret = create_os_buddy(i);
-			if (0 == ret)
+			size = create_os_buddy(i);
+			if (size > 0)
 			{
 				break;
 			}
 		}
 	}
-	return ret;
+	return size;
 }
 
 static void delete_mem_block(os_size_t group, struct buddy_block *block)
@@ -300,8 +300,9 @@ void *os_buddy_alloc(os_size_t size)
 	return ret;
 }
 
-void os_buddy_free(void *addr)
+os_size_t os_buddy_free(void *addr)
 {
+	os_size_t size = 0;
 	if (addr >= (void *)_start_addr)
 	{
 		os_size_t addr_offset = (uint8 *)addr - (uint8 *)_start_addr;
@@ -310,7 +311,9 @@ void os_buddy_free(void *addr)
 			//有效的地址
 			os_size_t i = addr_offset / _os_buddy.size_array[0];
 			free_block(_os_buddy.block_group[i], addr);
+			size = _os_buddy.size_array[_os_buddy.block_group[i]];
 			_os_buddy.block_group[i] = GROUP_COUNT;
 		}
 	}
+	return size;
 }

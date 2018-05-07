@@ -122,7 +122,7 @@ static char *pretreat_path(const char *path)
 
 static void super_cluster_init(super_cluster *super)
 {
-	super->flag = 0xaa55a55a;
+	super->magic = 0xaa55a55a;
 	os_str_cpy(super->name, "emfs", FS_MAX_FSNAME_SIZE);
 	super->root_id = 0;
 	super->property = 1;        //.0 whether open journal
@@ -142,7 +142,7 @@ static void file_info_init(file_info *info)
 	info->name[0] = '\0';
 }
 
-static int32 cluster_id_compare2(void *key1, void *key2, void *arg)
+static os_size_t cluster_id_compare2(void *key1, void *key2, void *arg)
 {
 	uint32 *key = (uint32 *)key1;
 	finfo_node *node2 = (finfo_node *)key2;
@@ -173,7 +173,7 @@ static void super_cluster_flush()
 		super_cluster *temp = (super_cluster *)malloc(FS_CLUSTER_SIZE);
 		os_mem_cpy(temp, _os_fs.super, FS_CLUSTER_SIZE);
 
-		temp->flag = convert_endian(_os_fs.super->flag);
+		temp->magic = convert_endian(_os_fs.super->magic);
 		temp->root_id = convert_endian(_os_fs.super->root_id);
 		temp->property = convert_endian(_os_fs.super->property);
 		cluster_write(SUPER_CLUSTER_ID, (uint8 *)temp);
@@ -209,7 +209,7 @@ static void super_cluster_load()
 	else
 	{
 		cluster_read(SUPER_CLUSTER_ID, (uint8 *)_os_fs.super);
-		_os_fs.super->flag = convert_endian(_os_fs.super->flag);
+		_os_fs.super->magic = convert_endian(_os_fs.super->magic);
 		_os_fs.super->root_id = convert_endian(_os_fs.super->root_id);
 		_os_fs.super->property = convert_endian(_os_fs.super->property);
 	}
@@ -878,7 +878,7 @@ uint32 move_file(const char *dest, const char *src)
 	return ret;
 }
 
-static int32 cluster_id_compare(void *key1, void *key2, void *arg)
+static os_size_t cluster_id_compare(void *key1, void *key2, void *arg)
 {
 	finfo_node *node1 = (finfo_node *)key1;
 	finfo_node *node2 = (finfo_node *)key2;

@@ -18,7 +18,7 @@ typedef struct tree_node_type_def
 } tree_node_type_def;
 #pragma pack()
 
-typedef int32 (*on_compare)(void *key1, void *key2, void *arg);
+typedef os_size_t (*on_compare)(void *key1, void *key2, void *arg);
 
 extern tree_node_type_def _leaf_node;
 
@@ -32,7 +32,7 @@ void os_insert_case(tree_node_type_def **handle, tree_node_type_def *node);
 * arg：传递到回调函数的参数
 * return：0：插入成功
 *********************************************************************************************************************/
-uint32 os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_compare callback, void *arg);
+os_size_t os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_compare callback, void *arg);
 /*********************************************************************************************************************
 * 删除节点
 * handle 树根

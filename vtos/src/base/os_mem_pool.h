@@ -1,29 +1,22 @@
 #ifndef __OS_MEM_POOL_H__
 #define __OS_MEM_POOL_H__
 #include "os_cpu.h"
-#include "os_vector.h"
-#pragma pack()
 typedef struct os_mem_pool
 {
 	void *head;
-	os_vector segments;
 	os_size_t total_count;
 	os_size_t idle_count;
 	os_size_t block_size;
 } os_mem_pool;
-#pragma pack()
 /*********************************************************************************************************************
-* 创建一个内存池
+* 初始化一个内存池
+* pool：要初始化的内存池
+* mem：连续块空间
+* mem_size：内存大小
 * blk_size：内存池中块的大小,这个块的大小必须要保证能放下一个地址
-* return os_mem_pool
+* return NULL：初始化失败
 *********************************************************************************************************************/
-os_mem_pool *os_mem_pool_create(os_size_t blk_size);
-/*********************************************************************************************************************
-* 释放一个内存池，必须要释放所有块才能成功
-* mem_pool：要释放的内存池
-* return 0 成功
-*********************************************************************************************************************/
-uint32 os_mem_pool_free(os_mem_pool *mem_pool);
+os_mem_pool *os_mem_pool_init(os_mem_pool *pool, void *mem, os_size_t mem_size, os_size_t blk_size);
 /*********************************************************************************************************************
 * 从内存池中获取一个内存块
 * mem_pool：指向被格式化的内存池
