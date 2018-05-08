@@ -103,34 +103,40 @@ static void get_command(const char *src, char *command, char *arg1, char *arg2)
 
 int main()
 {
-	int i;
-	static void *p[1024 * 1024];
-	static int addr[1024];
-	os_mem_pool pool;
-	os_mem_pool_init(&pool, addr, 4096, sizeof(int));
+	static int i;
+	static void *ps[1024 * 1024];
+	os_mem_init();
+	printf("total = %d, free = %d\n", os_get_total_size(), os_get_free_size());
 	for (i = 0; ; i++)
 	{
-		p[i] = os_mem_block_get(&pool);
-		if (p[i] != NULL)
+		ps[i] = os_kmalloc(128);
+		if (ps[i] != NULL)
 		{
-			printf("i = %d, p = %d\n", i, (int)p[i]);
+			printf("i = %d, p = %d, free = %d\n", i, (int)ps[i], os_get_free_size());
 		}
 		else
 		{
 			break;
 		}
 	}
-	for (i = 1023; i >= 0; i--)
+	for (i = 0; i < 130783; i++)
 	{
-		os_mem_block_put(&pool, &p[i]);
-		printf("p = %d\n", (int)p[i]);
+		os_kfree(ps[i]);
+		if (ps[i] != NULL)
+		{
+			printf("i = %d, p = %d, free = %d\n", i, (int)ps[i], os_get_free_size());
+		}
+		else
+		{
+			break;
+		}
 	}
 	for (i = 0; ; i++)
 	{
-		p[i] = os_mem_block_get(&pool);
-		if (p[i] != NULL)
+		ps[i] = os_kmalloc(1024 * 1024);
+		if (ps[i] != NULL)
 		{
-			printf("i = %d, p = %d\n", i, (int)p[i]);
+			printf("i = %d, p = %d, free = %d\n", i, (int)ps[i], os_get_free_size());
 		}
 		else
 		{

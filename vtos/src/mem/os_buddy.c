@@ -130,6 +130,10 @@ static os_size_t create_os_buddy(os_size_t group)
 			size = addr_space;
 		}
 	}
+	else
+	{
+		addr_space = 0;
+	}
 	return addr_space;
 }
 
@@ -291,8 +295,8 @@ void *os_buddy_alloc(os_size_t size)
 			ret = get_block(i);
 			if (ret != NULL)
 			{
-				os_size_t j = ((uint8 *)ret - (uint8 *)_start_addr) / _os_buddy.size_array[i];
-				_os_buddy.block_group[j] = 0;
+				os_size_t j = ((uint8 *)ret - (uint8 *)_start_addr) / _os_buddy.size_array[0];
+				_os_buddy.block_group[j] = i;
 				break;
 			}
 		}
@@ -310,9 +314,12 @@ os_size_t os_buddy_free(void *addr)
 		{
 			//有效的地址
 			os_size_t i = addr_offset / _os_buddy.size_array[0];
-			free_block(_os_buddy.block_group[i], addr);
-			size = _os_buddy.size_array[_os_buddy.block_group[i]];
-			_os_buddy.block_group[i] = GROUP_COUNT;
+			if (_os_buddy.block_group[i] != GROUP_COUNT)
+			{
+				free_block(_os_buddy.block_group[i], addr);
+				size = _os_buddy.size_array[_os_buddy.block_group[i]];
+				_os_buddy.block_group[i] = GROUP_COUNT;
+			}
 		}
 	}
 	return size;

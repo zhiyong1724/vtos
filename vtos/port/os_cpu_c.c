@@ -9,8 +9,8 @@ extern uint32 _heap_start;
 void os_get_start_addr(void)
 {
 #ifdef __WINDOWS__
-	_start_addr = malloc(0x20000000);
-	_end_addr = (uint8 *)_start_addr + 0x20000000;
+	_start_addr = malloc(0x4000000);
+	_end_addr = (uint8 *)_start_addr + 0x4000000;
 #else
 	_start_addr = (void *)_heap_start;
 	_end_addr = (void *)0x33fffc00;

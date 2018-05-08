@@ -5,14 +5,14 @@
 #define MIN_BLOCK_SIZE 32
 typedef struct mem_pool_node
 {
-	tree_node_type_def *node;
+	tree_node_type_def node;
 	os_mem_pool pool;
 	uint16 magic;
 } mem_pool_node;
 
 struct os_mem
 {
-	mem_pool_node *root;
+	tree_node_type_def *root;
 	os_size_t total_size;
 	os_size_t free_size;
 };
