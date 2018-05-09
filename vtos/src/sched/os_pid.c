@@ -1,45 +1,56 @@
 #include "sched/os_pid.h"
 #include "base/os_string.h"
 #include "base/os_bitmap_index.h"
-static uint8 _pid_bitmap[PID_BITMAP_SIZE];
+static struct os_pid _os_pid;
 void init_pid(void)
 {
-	os_mem_set(_pid_bitmap, 0, sizeof(_pid_bitmap));
+	os_vector_init(&_os_pid.pid_bitmap, 1);
 }
 
-uint32 pid_get(void)
+static void expand_bitmap()
 {
-	uint32 ret = 0;
-	uint32 i;
-	for (i = 0; i < PID_BITMAP_SIZE; i++)
+	uint8 v = 0;
+	os_vector_push_back(&_os_pid.pid_bitmap, &v);
+}
+
+os_size_t pid_get(void)
+{
+	os_size_t ret = 0;
+	os_size_t i;
+	os_size_t max_size = os_vector_size(&_os_pid.pid_bitmap);
+
+	for (i = 0; i <= max_size; i++)
 	{
-		ret = _bitmap_index[_pid_bitmap[i]];
+		if (i == max_size)
+		{
+			expand_bitmap();
+		}
+		uint8 *v = os_vector_at(&_os_pid.pid_bitmap, i);
+		ret = _bitmap_index[*v];
 		if (ret != 8)
 		{
 			uint8 mark = 0x80;
 			mark >>= ret;
-			_pid_bitmap[i] |= mark;
+			*v |= mark;
 			ret = 8 * i + ret;
 			break;
 		}
 	}
-	if(PID_BITMAP_SIZE == i)
-	{
-		ret = MAX_PID_COUNT;
-	}
 	return ret;
 }
 
-void pid_put(uint32 pid)
+void pid_put(os_size_t pid)
 {
-	if (pid < MAX_PID_COUNT)
+	os_size_t max_size = os_vector_size(&_os_pid.pid_bitmap);
+	if (pid < max_size * 8)
 	{
-		uint32 i = pid >> 3;
-		uint32 j = pid % 8;
+		os_size_t i = pid >> 3;
+		os_size_t j = pid % 8;
 		uint8 mark = 0x80;
 		mark >>= j;
 		mark = ~mark;
-		_pid_bitmap[i] &= mark;
+		uint8 *v = os_vector_at(&_os_pid.pid_bitmap, i);
+		*v &= mark;
 	}
 }
 

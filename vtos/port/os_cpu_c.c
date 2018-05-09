@@ -2,6 +2,7 @@
 #include "sched/os_sched.h"
 #ifdef __WINDOWS__
 #include <stdlib.h>
+#include <windows.h>
 #else
 extern uint32 _heap_start;
 #endif
@@ -99,10 +100,6 @@ void os_time_tick_hook (void)
 }
 #endif
 
-/*void OS_CPU_SysTickHandler (void)
- {
- }*/
-
 #ifdef __WINDOWS__
 os_cpu_sr os_cpu_sr_off(void)               //关中断
 {
@@ -120,15 +117,22 @@ void os_cpu_sr_restore(os_cpu_sr cpu_sr)     //回复状态寄存器函数
 }
 void os_ctx_sw(void)                         //任务切换函数
 {
+	HANDLE stop = _running_task->handle;
 	_running_task = _next_task;
+	ResumeThread(_running_task->handle);
+	SuspendThread(stop);
+	
 }
 void os_int_ctx_sw(void)                     //中断级任务切换函数
 {
+	HANDLE stop = _running_task->handle;
 	_running_task = _next_task;
+	ResumeThread(_running_task->handle);
+	SuspendThread(stop);
 }
 void os_task_start(void)                     //任务开始前准备
 {
-	_running_task = _next_task;
+	ResumeThread(_running_task->handle);
 }
 void os_cpu_pend_sv_handler(void)            //软中断入口
 {

@@ -4,6 +4,7 @@
 #include "sched/os_timer.h"
 #ifdef __WINDOWS__
 #define _CRTDBG_MAP_ALLOC
+#include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <crtdbg.h>
@@ -11,7 +12,6 @@
 
 #include "base/os_string.h"
 #include "fs/os_fs.h"
-#include "base/os_mem_pool.h"
 const char *VERSION = "0.0.2";
 
 const char *os_version(void)
@@ -50,7 +50,7 @@ os_size_t os_sys_init(void)
 	os_mem_init_end_hook(ret);
 
 	os_scheduler_init_begin_hook();
-	ret = os_init_scheduler();
+	os_init_scheduler();
 	os_scheduler_init_end_hook(ret);
 	os_init_timer();
 	return ret;
@@ -59,6 +59,13 @@ os_size_t os_sys_init(void)
 void os_sys_start(void)
 {
 	os_task_start();
+#ifdef __WINDOWS__
+	for (;;)
+	{
+		os_sys_tick();
+		Sleep(TICK_TIME / 1000);
+	}
+#endif // __WINDOWS__
 }
 
 #ifdef __WINDOWS__
@@ -66,7 +73,8 @@ static void task(void *p_arg)
 {
 	for (;;)
 	{
-
+		printf("cpu = %d\n", os_cpu_percent());
+		os_sleep(1000);
 	}
 }
 
@@ -103,62 +111,17 @@ static void get_command(const char *src, char *command, char *arg1, char *arg2)
 
 int main()
 {
-	static int i;
-	static void *ps[1024 * 1024];
-	os_mem_init();
-	printf("total = %d, free = %d\n", os_get_total_size(), os_get_free_size());
-	for (i = 0; ; i++)
-	{
-		ps[i] = os_kmalloc(128);
-		if (ps[i] != NULL)
-		{
-			printf("i = %d, p = %d, free = %d\n", i, (int)ps[i], os_get_free_size());
-		}
-		else
-		{
-			break;
-		}
-	}
-	for (i = 0; i < 130783; i++)
-	{
-		os_kfree(ps[i]);
-		if (ps[i] != NULL)
-		{
-			printf("i = %d, p = %d, free = %d\n", i, (int)ps[i], os_get_free_size());
-		}
-		else
-		{
-			break;
-		}
-	}
-	for (i = 0; ; i++)
-	{
-		ps[i] = os_kmalloc(1024 * 1024);
-		if (ps[i] != NULL)
-		{
-			printf("i = %d, p = %d, free = %d\n", i, (int)ps[i], os_get_free_size());
-		}
-		else
-		{
-			break;
-		}
-	}
 	char buff[256] = "";
 	char command[16] = "";
 	char arg1[256] = "";
 	char arg2[256] = "";
 	char ln;
 	//_CrtSetBreakAlloc(84);
-	//if (0 == os_sys_init())
-	//{
-		/*os_kthread_create(task, NULL, "task_a");
+	if (0 == os_sys_init())
+	{
+		os_kthread_create(task, NULL, "task_a");
 		os_sys_start();
-		while(1)
-		{
-			os_sys_tick();
-		}*/
-
-	//}
+	}
 	if (fs_loading() != 0)
 	{
 		printf("磁盘可能没有格式化，是否要进行格式化？y/n\n");
@@ -195,14 +158,14 @@ int main()
 			dir_obj *dir = open_dir(arg1);
 			if (dir != NULL)
 			{
-				file_info *finfo = (file_info *)malloc(sizeof(file_info));
+				file_info *finfo = (file_info *)os_kmalloc(sizeof(file_info));
 				printf("名字    大小    占用簇    文件数    创建时间    修改时间    创建者    修改者\n");
 				while (read_dir(finfo, dir) == 0)
 				{
 					printf("%s %lld %d %d %lld %lld %d %d\n", finfo->name, finfo->size, finfo->cluster_count, finfo->file_count, finfo->create_time, finfo->modif_time, finfo->creator, finfo->modifier);
 				}
 				close_dir(dir);
-				free(finfo);
+				os_kfree(finfo);
 			}
 			else
 			{

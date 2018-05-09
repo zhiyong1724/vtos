@@ -1,7 +1,6 @@
 #include "fs/os_file.h"
 #include "base/os_string.h"
 #include "vtos.h"
-#include <stdlib.h>
 
 uint32 little_file_data_write(uint32 id, uint64 index, void *data, uint32 size)
 {
@@ -11,21 +10,21 @@ uint32 little_file_data_write(uint32 id, uint64 index, void *data, uint32 size)
 	}
 	else
 	{
-		uint8 *buff = (uint8 *)malloc(FS_CLUSTER_SIZE);
+		uint8 *buff = (uint8 *)os_kmalloc(FS_CLUSTER_SIZE);
 		cluster_read(id, buff);
 		os_mem_cpy(&buff[index], data, size);
 		cluster_write(id, buff);
-		free(buff);
+		os_kfree(buff);
 	}
 	return size;
 }
 
 uint32 little_file_data_read(uint32 id, uint64 index, void *data, uint32 size)
 {
-	uint8 *buff = (uint8 *)malloc(FS_CLUSTER_SIZE);
+	uint8 *buff = (uint8 *)os_kmalloc(FS_CLUSTER_SIZE);
 	cluster_read(id, buff);
 	os_mem_cpy(data, &buff[index], size);
-	free(buff);
+	os_kfree(buff);
 	return size;
 }
 
@@ -56,13 +55,13 @@ static void cluster_list_write(uint32 cluster_id, uint32 *data)
 	else
 	{
 		uint32 i;
-		uint32 *p = (uint32 *)malloc(FS_CLUSTER_SIZE);
+		uint32 *p = (uint32 *)os_kmalloc(FS_CLUSTER_SIZE);
 		for (i = 0; i < FS_MAX_INDEX_NUM; i++)
 		{
 			p[i] = convert_endian(data[i]);
 		}
 		cluster_write(cluster_id, (uint8 *)p);
-		free(p);
+		os_kfree(p);
 	}
 }
 
@@ -97,7 +96,7 @@ static uint32 calculate_tree_height(uint32 node_num)
 static uint32 grow(uint32 id, uint32 is_list)
 {
 	uint32 new_id;
-	uint32 *buff = (uint32 *)malloc(FS_CLUSTER_SIZE);
+	uint32 *buff = (uint32 *)os_kmalloc(FS_CLUSTER_SIZE);
 	if (is_list)
 	{
 		cluster_list_read(id, buff);
@@ -119,7 +118,7 @@ static uint32 grow(uint32 id, uint32 is_list)
 	init_index_node(buff);
 	*buff = new_id;
 	cluster_list_write(id, buff);
-	free(buff);
+	os_kfree(buff);
 	return id;
 }
 
@@ -151,23 +150,23 @@ static uint32 write_to_tree(uint32 tree, uint32 tree_height, uint32 *count, uint
 			i = i / FS_MAX_INDEX_NUM;
 		}
 		i = i % FS_MAX_INDEX_NUM;
-		list = (uint32 *)malloc(FS_CLUSTER_SIZE);
+		list = (uint32 *)os_kmalloc(FS_CLUSTER_SIZE);
 		cluster_list_read(tree, list);
 		for (; *size > 0 && i < FS_MAX_INDEX_NUM; i++)
 		{
 			if (0 == list[i])
 			{
-				uint32 *empty = (uint32 *)malloc(FS_CLUSTER_SIZE);
+				uint32 *empty = (uint32 *)os_kmalloc(FS_CLUSTER_SIZE);
 				init_index_node(empty);
 				list[i] = cluster_alloc();
 				(*count)++;
 				cluster_list_write(list[i], empty);
-				free(empty);
+				os_kfree(empty);
 			}
 			write_to_tree(list[i], tree_height - 1, count, index, data, size);
 		}
 		cluster_list_write(tree, list);
-		free(list);
+		os_kfree(list);
 	}
 	return tree;
 }
@@ -232,13 +231,13 @@ static uint32 read_from_tree(uint32 tree, uint32 tree_height, uint64 *index, uin
 			i = i / FS_MAX_INDEX_NUM;
 		}
 		i = i % FS_MAX_INDEX_NUM;
-		list = (uint32 *)malloc(FS_CLUSTER_SIZE);
+		list = (uint32 *)os_kmalloc(FS_CLUSTER_SIZE);
 		cluster_list_read(tree, list);
 		for (; *size > 0 && i < FS_MAX_INDEX_NUM; i++)
 		{
 			read_from_tree(list[i], tree_height - 1, index, data, size);
 		}
-		free(list);
+		os_kfree(list);
 	}
 	return tree;
 }
@@ -258,7 +257,7 @@ static void do_file_data_remove(uint32 id, uint32 height)
 	}
 	else
 	{
-		uint32 *list = (uint32 *)malloc(FS_CLUSTER_SIZE);
+		uint32 *list = (uint32 *)os_kmalloc(FS_CLUSTER_SIZE);
 		uint32 i;
 		cluster_list_read(id, list);
 		for (i = 0; i < FS_MAX_INDEX_NUM; i++)
@@ -273,7 +272,7 @@ static void do_file_data_remove(uint32 id, uint32 height)
 			}
 		}
 		cluster_free(id);
-		free(list);
+		os_kfree(list);
 	}
 }
 

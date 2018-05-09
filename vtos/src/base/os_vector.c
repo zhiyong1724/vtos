@@ -1,25 +1,17 @@
 #include "base/os_vector.h"
 #include "base/os_string.h"
-#include <stdlib.h>
+#include "mem/os_mem.h"
 void os_vector_init(os_vector *obj, os_size_t unit_size)
 {
 	obj->unit_size = unit_size;
 	obj->size = 0;
 	obj->max_size = 8;
-	obj->buff = (uint8 *)malloc(obj->max_size * obj->unit_size);
-}
-
-void os_vector_init_ext(os_vector *obj, os_size_t unit_size, os_size_t mem_size)
-{
-	obj->unit_size = unit_size;
-	obj->size = 0;
-	obj->max_size = mem_size / unit_size;
-	obj->buff = (uint8 *)malloc(mem_size);
+	obj->buff = (uint8 *)os_kmalloc(obj->max_size * obj->unit_size);
 }
 
 void os_vector_free(os_vector *obj)
 {
-	free(obj->buff);
+	os_kfree(obj->buff);
 }
 
 os_size_t os_vector_size(os_vector *obj)
@@ -46,10 +38,10 @@ os_size_t os_vector_empty(os_vector *obj)
 
 os_size_t os_vector_resize(os_vector *obj, os_size_t size)
 {
-	uint8 *new_buff = malloc(size * obj->unit_size);
+	uint8 *new_buff = os_kmalloc(size * obj->unit_size);
 	obj->max_size = size;
 	os_mem_cpy(new_buff, obj->buff, obj->unit_size * obj->size);
-	free(obj->buff);
+	os_kfree(obj->buff);
 	obj->buff = new_buff;
 	return size;
 }

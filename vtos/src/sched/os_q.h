@@ -8,6 +8,6 @@ typedef struct os_q_t
 	void **pp_pop_index;
 	uint32 total_ms_count;
 	uint32 cur_ms_count;
-	os_sem_t sem;
+	os_sem sem;
 } os_q_t;
 #endif

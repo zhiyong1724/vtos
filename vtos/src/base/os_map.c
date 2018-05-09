@@ -1,7 +1,7 @@
 #include "os_map.h"
 #include "os_string.h"
-#include <stdlib.h>
-static const os_size_t LIST_NODE_ADDR_OFFSET = (os_size_t)sizeof(tree_node_type_def);
+#include "mem/os_mem.h"
+#define LIST_NODE_ADDR_OFFSET  sizeof(tree_node_type_def);
 void os_map_init(os_map *obj, os_size_t key_size, os_size_t value_size)
 {
 	obj->tree = NULL;
@@ -18,7 +18,7 @@ void os_map_free(os_map *obj)
 	{
 		os_map_iterator *temp = itr;
 		itr = os_map_next(obj, itr);
-		free(temp);
+		os_kfree(temp);
 	}
 }
 
@@ -67,7 +67,7 @@ static os_size_t os_map_compare(void *key1, void *key2, void *arg)
 os_size_t os_map_insert(os_map *obj, void *key, void *value)
 {
 	uint8 *index;
-	os_map_iterator *itr = (os_map_iterator *)malloc(sizeof(os_map_iterator) + obj->key_size + obj->value_size);
+	os_map_iterator *itr = (os_map_iterator *)os_kmalloc(sizeof(os_map_iterator) + obj->key_size + obj->value_size);
 	index = (uint8 *)&itr[1];
 	os_mem_cpy(index, key, obj->key_size);
 	index += obj->key_size;
@@ -78,7 +78,7 @@ os_size_t os_map_insert(os_map *obj, void *key, void *value)
 		obj->size++;
 		return 0;
 	}
-	free(itr);
+	os_kfree(itr);
 	return 1;
 }
 
@@ -105,7 +105,7 @@ os_size_t os_map_erase(os_map *obj, os_map_iterator *itr)
 	{
 		os_delete_node(&obj->tree, &itr->tree_node);
 		os_remove_from_list(&obj->head, &itr->list_node);
-		free(itr);
+		os_kfree(itr);
 		obj->size--;
 		return 0;
 	}
@@ -119,7 +119,7 @@ void os_map_clear(os_map *obj)
 	{
 		os_map_iterator *temp = itr;
 		itr = os_map_next(obj, itr);
-		free(temp);
+		os_kfree(temp);
 	}
 	obj->head = NULL;
 	obj->tree = NULL;

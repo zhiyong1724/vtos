@@ -1,7 +1,7 @@
 #include "os_set.h"
 #include "os_string.h"
-#include <stdlib.h>
-static const os_size_t LIST_NODE_ADDR_OFFSET = (os_size_t)sizeof(tree_node_type_def);
+#include "mem/os_mem.h"
+#define LIST_NODE_ADDR_OFFSET sizeof(tree_node_type_def);
 void os_set_init(os_set *obj, os_size_t unit_size)
 {
 	obj->tree = NULL;
@@ -17,7 +17,7 @@ void os_set_free(os_set *obj)
 	{
 		os_set_iterator *temp = itr;
 		itr = os_set_next(obj, itr);
-		free(temp);
+		os_kfree(temp);
 	}
 }
 
@@ -65,7 +65,7 @@ static os_size_t os_set_compare(void *key1, void *key2, void *arg)
 
 os_size_t os_set_insert(os_set *obj, void *data)
 {
-	os_set_iterator *itr = (os_set_iterator *)malloc(sizeof(os_set_iterator) + obj->unit_size);
+	os_set_iterator *itr = (os_set_iterator *)os_kmalloc(sizeof(os_set_iterator) + obj->unit_size);
 	os_mem_cpy(&itr[1], data, obj->unit_size);
 	if (os_insert_node(&obj->tree, &itr->tree_node, os_set_compare, &obj->unit_size) == 0)
 	{
@@ -73,7 +73,7 @@ os_size_t os_set_insert(os_set *obj, void *data)
 		obj->size++;
 		return 0;
 	}
-	free(itr);
+	os_kfree(itr);
 	return 1;
 }
 
@@ -100,7 +100,7 @@ os_size_t os_set_erase(os_set *obj, os_set_iterator *itr)
 	{
 		os_delete_node(&obj->tree, &itr->tree_node);
 		os_remove_from_list(&obj->head, &itr->list_node);
-		free(itr);
+		os_kfree(itr);
 		obj->size--;
 		return 0;
 	}
@@ -114,7 +114,7 @@ void os_set_clear(os_set *obj)
 	{
 		os_set_iterator *temp = itr;
 		itr = os_set_next(obj, itr);
-		free(temp);
+		os_kfree(temp);
 	}
 	obj->head = NULL;
 	obj->tree = NULL;

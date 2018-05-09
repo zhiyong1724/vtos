@@ -2,7 +2,6 @@
 #include "base/os_string.h"
 #include "fs/os_cluster.h"
 #include "vtos.h"
-#include <stdlib.h>
 static struct os_dentry _os_dentry;
 void os_dentry_init(on_move_info call_back)
 {
@@ -25,7 +24,7 @@ void fnode_flush(fnode *node)
 	else
 	{
 		uint32 i = 0;
-		fnode *temp = (fnode *)malloc(sizeof(fnode));
+		fnode *temp = (fnode *)os_kmalloc(sizeof(fnode));
 		os_mem_cpy(temp, node, sizeof(fnode));
 		temp->head.node_id = convert_endian(node->head.node_id);
 		temp->head.num = convert_endian(node->head.num);
@@ -49,7 +48,7 @@ void fnode_flush(fnode *node)
 			temp->finfo[i].modif_time = convert_endian64(node->finfo[i].modif_time);
 		}
 		cluster_write(node->head.node_id, (uint8 *)temp);
-		free(temp);
+		os_kfree(temp);
 	}
 }
 
@@ -65,7 +64,7 @@ void fnodes_flush(fnode *root)
 		}
 		if (handle->node != root)
 		{
-			free(handle->node);
+			os_kfree(handle->node);
 		}
 	}
 	os_map_clear(&_os_dentry.fnodes);
@@ -84,7 +83,7 @@ fnode *fnode_load(uint32 id)
 	}
 	else
 	{
-		node = (fnode *)malloc(sizeof(fnode));
+		node = (fnode *)os_kmalloc(sizeof(fnode));
 		cluster_read(id, (uint8 *)node);
 		if (!is_little_endian())
 		{
@@ -127,7 +126,7 @@ uint32 fnode_free(fnode *node)
 			if (0 == handle->count && 0 == handle->flag)
 			{
 				os_map_erase(&_os_dentry.fnodes, itr);
-				free(node);
+				os_kfree(node);
 				return 0;
 			}
 		}
@@ -144,7 +143,7 @@ uint32 fnode_free_f(fnode *node)
 		{
 			fnode_h *handle = (fnode_h *)os_map_second(&_os_dentry.fnodes, itr);
 			os_map_erase(&_os_dentry.fnodes, itr);
-			free(node);
+			os_kfree(node);
 			return 0;
 		}
 	}
@@ -185,7 +184,7 @@ static fnode *init_leaf(fnode *node)
 static fnode *make_node()
 {
 	uint32 cluster_id;
-	fnode *node = (fnode *)malloc(sizeof(fnode));
+	fnode *node = (fnode *)os_kmalloc(sizeof(fnode));
 	init_node(node);
 	cluster_id = cluster_alloc();
 	node->head.node_id = cluster_id;
@@ -196,7 +195,7 @@ static fnode *make_node()
 static fnode *make_leaf()
 {
 	uint32 cluster_id;
-	fnode *node = (fnode *)malloc(sizeof(fnode));
+	fnode *node = (fnode *)os_kmalloc(sizeof(fnode));
 	init_leaf(node);
 	cluster_id = cluster_alloc();
 	node->head.node_id = cluster_id;
@@ -291,7 +290,7 @@ static void insert_non_full(fnode *root, file_info *finfo)
 		if (split_node != NULL)
 		{
 			fnode_flush(split_node);
-			free(split_node);
+			os_kfree(split_node);
 		}
 		if (new_node != split_node)
 		{
@@ -340,7 +339,7 @@ fnode *insert_to_btree(fnode *root, file_info *finfo)
 			}
 			fnode_flush(split_node);
 			fnode_flush(new_node);
-			free(split_node);
+			os_kfree(split_node);
 			add_flush(root);
 			//改变root
 			root = new_node;
@@ -599,30 +598,30 @@ static void remove_from_leaf(fnode *root, uint32 idx)
 static void remove_from_non_leaf(fnode *root, uint32 idx)
 {
 	fnode *node;
-	file_info *temp = (file_info *)malloc(sizeof(file_info));
+	file_info *temp = (file_info *)os_kmalloc(sizeof(file_info));
 	os_mem_cpy(temp, &root->finfo[idx], sizeof(file_info));
 
 	node = fnode_load(root->head.pointers[idx]);
 	if (node->head.num >= FS_MAX_KEY_NUM / 2)
 	{
-		file_info *pred = (file_info *)malloc(sizeof(file_info));
+		file_info *pred = (file_info *)os_kmalloc(sizeof(file_info));
 		get_pred(pred, node);
 		os_mem_cpy(&root->finfo[idx], pred, sizeof(file_info));
 		_os_dentry.move_callback(root->head.node_id, idx, pred->cluster_id);
 		remove_from_btree(node, pred->name);
-		free(pred);
+		os_kfree(pred);
 	}
 	else
 	{
 		fnode *nnode = fnode_load(root->head.pointers[idx + 1]);
 		if (nnode->head.num >= FS_MAX_KEY_NUM / 2)
 		{
-			file_info *succ = (file_info *)malloc(sizeof(file_info));
+			file_info *succ = (file_info *)os_kmalloc(sizeof(file_info));
 			get_succ(succ, nnode);
 			os_mem_cpy(&root->finfo[idx], succ, sizeof(file_info));
 			_os_dentry.move_callback(root->head.node_id, idx, succ->cluster_id);
 			remove_from_btree(nnode, succ->name);
-			free(succ);
+			os_kfree(succ);
 		}
 		else
 		{
@@ -632,7 +631,7 @@ static void remove_from_non_leaf(fnode *root, uint32 idx)
 		fnode_free(nnode);
 	}
 	fnode_free(node);
-	free(temp);
+	os_kfree(temp);
 	add_flush(root);
 }
 

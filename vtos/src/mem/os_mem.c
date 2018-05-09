@@ -158,12 +158,12 @@ void os_kfree(void *addr)
 #endif
 }
 
-os_size_t os_get_total_size()
+os_size_t os_total_mem_size()
 {
 	return _os_mem.total_size;
 }
 
-os_size_t os_get_free_size()
+os_size_t os_free_mem_size()
 {
 	return _os_mem.free_size;
 }

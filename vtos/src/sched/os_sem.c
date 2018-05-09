@@ -1,7 +1,7 @@
 #include "sched/os_sem.h"
 #include "vtos.h"
 #include "sched/os_sched.h"
-os_sem_t *os_sem_create(os_sem_t *p_sem, uint32 cnt)
+os_sem *os_sem_create(os_sem *p_sem, os_size_t cnt)
 {
 	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	p_sem->sem = cnt;
@@ -12,14 +12,14 @@ os_sem_t *os_sem_create(os_sem_t *p_sem, uint32 cnt)
 
 static void task_wakeup(void *args)
 {
-	os_sem_t *p_sem = (os_sem_t *)args;
+	os_sem *p_sem = (os_sem *)args;
 	task_info_t *task_info = (task_info_t *)((uint8 *)os_get_back_from_list(&(p_sem->wait_task_list)) - LIST_NODE_ADDR_OFFSET);
 	os_remove_from_list(&(p_sem->wait_task_list), &task_info->list_node_structrue);
 	task_info->event_status = EVENT_WAIT_TIMEOUT;
 	os_task_activity(task_info->pid);
 }
 
-void os_sem_pend(os_sem_t *p_sem, uint64 timeout, uint32 *p_status)
+void os_sem_pend(os_sem *p_sem, os_size_t timeout, os_size_t *p_status)
 {
 	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	if (p_sem->sem > 0)
@@ -42,7 +42,7 @@ void os_sem_pend(os_sem_t *p_sem, uint64 timeout, uint32 *p_status)
 	}
 }
 
-uint32 os_sem_post(os_sem_t *p_sem)
+os_size_t os_sem_post(os_sem *p_sem)
 {
 	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	if (p_sem != NULL)

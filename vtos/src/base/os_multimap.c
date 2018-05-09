@@ -1,6 +1,6 @@
 #include "os_multimap.h"
 #include "os_string.h"
-#include <stdlib.h>
+#include "mem/os_mem.h"
 void os_multimap_init(os_multimap *obj, os_size_t key_size, os_size_t value_size)
 {
 	os_map_init(&obj->map, key_size, value_size);
@@ -54,7 +54,7 @@ static os_size_t os_multimap_compare(void *key1, void *key2, void *arg)
 os_size_t os_multimap_insert(os_multimap *obj, void *key, void *value)
 {
 	uint8 *index;
-	os_multimap_iterator *itr = (os_multimap_iterator *)malloc(sizeof(os_multimap_iterator) + obj->map.key_size + obj->map.value_size);
+	os_multimap_iterator *itr = (os_multimap_iterator *)os_kmalloc(sizeof(os_multimap_iterator) + obj->map.key_size + obj->map.value_size);
 	index = (uint8 *)&itr[1];
 	os_mem_cpy(index, key, obj->map.key_size);
 	index += obj->map.key_size;
@@ -65,7 +65,7 @@ os_size_t os_multimap_insert(os_multimap *obj, void *key, void *value)
 		obj->map.size++;
 		return 0;
 	}
-	free(itr);
+	os_kfree(itr);
 	return 1;
 }
 

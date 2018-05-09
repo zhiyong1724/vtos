@@ -10,14 +10,14 @@
 #define TICK_TIME 10000                  //系统每次滴答的时间间隔，单位为us
 
 /*内存配置项*/
-#define PAGE_SIZE 512                      //内存管理的最小单位，按页管理
+#define PAGE_SIZE 4096                     //内存一页的大小
 extern void *_start_addr;                  //交给系统管理内存的起始地址
 extern void *_end_addr;                    //交给系统管理内存的结束地址
 void os_get_start_addr(void);
 
 /*要用汇编实现的函数*/
 os_cpu_sr os_cpu_sr_off(void);               //保存状态寄存器函数,关中断
-os_cpu_sr os_cpu_sr_on(void);               //保存状态寄存器函数,开中断
+os_cpu_sr os_cpu_sr_on(void);                //保存状态寄存器函数,开中断
 void os_cpu_sr_restore(os_cpu_sr cpu_sr);     //回复状态寄存器函数
 void os_ctx_sw(void);                         //任务切换函数
 void os_int_ctx_sw(void);                     //中断级任务切换函数

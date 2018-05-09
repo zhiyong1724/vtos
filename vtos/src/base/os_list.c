@@ -1,6 +1,6 @@
 #include "os_list.h"
 #include "os_string.h"
-#include <stdlib.h>
+#include "mem/os_mem.h"
 void os_insert_to_front(list_node_type_def **handle, list_node_type_def *node)
 {
 	if (NULL == *handle)
@@ -77,7 +77,7 @@ void os_list_free(os_list *obj)
 	for (; node != NULL; node = os_get_back_from_list(&obj->list))
 	{
 		os_remove_from_list(&obj->list, node);
-		free(node);
+		os_kfree(node);
 	}
 }
 
@@ -100,7 +100,7 @@ os_size_t os_list_empty(os_list *obj)
 
 os_size_t os_list_push_back(os_list *obj, void *data)
 {
-	list_node_type_def *node = (list_node_type_def *)malloc(sizeof(list_node_type_def) + obj->unit_size);
+	list_node_type_def *node = (list_node_type_def *)os_kmalloc(sizeof(list_node_type_def) + obj->unit_size);
 	os_mem_cpy(&node[1], data, obj->unit_size);
 	os_insert_to_back(&obj->list, node);
 	obj->size++;
@@ -109,7 +109,7 @@ os_size_t os_list_push_back(os_list *obj, void *data)
 
 os_size_t os_list_push_front(os_list *obj, void *data)
 {
-	list_node_type_def *node = (list_node_type_def *)malloc(sizeof(list_node_type_def) + obj->unit_size);
+	list_node_type_def *node = (list_node_type_def *)os_kmalloc(sizeof(list_node_type_def) + obj->unit_size);
 	os_mem_cpy(&node[1], data, obj->unit_size);
 	os_insert_to_front(&obj->list, node);
 	obj->size++;
@@ -141,7 +141,7 @@ os_size_t os_list_insert(os_list *obj, void *data, os_size_t n)
 				cur = cur->pre_node;
 			}
 		}
-		node = (list_node_type_def *)malloc(sizeof(list_node_type_def) + obj->unit_size);
+		node = (list_node_type_def *)os_kmalloc(sizeof(list_node_type_def) + obj->unit_size);
 		os_mem_cpy(&node[1], data, obj->unit_size);
 		os_insert_to_front(&cur, node);
 	}
@@ -241,7 +241,7 @@ os_size_t os_list_erase(os_list *obj, os_size_t n)
 			}
 			os_remove_from_list(&obj->list, cur);
 			obj->size--;
-			free(cur);
+			os_kfree(cur);
 			return 0;
 		}
 	}
@@ -261,7 +261,7 @@ os_size_t os_list_pop_back(os_list *obj)
 		list_node_type_def *node = obj->list->pre_node;
 		os_remove_from_list(&obj->list, node);
 		obj->size--;
-		free(node);
+		os_kfree(node);
 		return 0;
 	}
 	return 1;
@@ -274,7 +274,7 @@ os_size_t os_list_pop_front(os_list *obj)
 		list_node_type_def *node = obj->list;
 		os_remove_from_list(&obj->list, node);
 		obj->size--;
-		free(node);
+		os_kfree(node);
 		return 0;
 	}
 	return 1;

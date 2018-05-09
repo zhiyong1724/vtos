@@ -108,7 +108,7 @@ static os_size_t create_os_buddy(os_size_t group)
 	uint8 *end_addr = (uint8 *)_end_addr;
 	os_size_t block_size = PAGE_SIZE * pow2x(group);
 	os_size_t addr_space = (os_size_t)(end_addr - start_addr);
-	if (block_size < addr_space)
+	if (block_size > 0 && block_size < addr_space)
 	{
 		os_size_t i = 0;
 		os_size_t page_count = addr_space / PAGE_SIZE;
