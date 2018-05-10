@@ -12,7 +12,6 @@
 
 #include "base/os_string.h"
 #include "fs/os_fs.h"
-#include "base/os_deque.h"
 const char *VERSION = "0.0.2";
 
 const char *os_version(void)
@@ -118,29 +117,10 @@ int main()
 	char arg2[256] = "";
 	char ln;
 	//_CrtSetBreakAlloc(84);
-	/*if (0 == os_sys_init())
+	if (0 == os_sys_init())
 	{
 		os_kthread_create(task, NULL, "task_a");
 		os_sys_start();
-	}*/
-
-	os_deque dq;
-	os_deque_init(&dq, sizeof(os_size_t));
-	os_size_t i, a;
-	for (i = 0; i < os_deque_size(&dq); i++)
-	{
-		os_size_t *v = os_deque_at(&dq, i);
-		printf("%d, ", *v);
-	}
-	for (a = 0; a < 40; a++)
-	{
-		os_deque_push_back(&dq, &a);
-		for (i = 0; i < os_deque_size(&dq); i++)
-		{
-			os_size_t *v = os_deque_at(&dq, i);
-			printf("%d, ", *v);
-		}
-		printf("\n");
 	}
 	if (fs_loading() != 0)
 	{
@@ -153,6 +133,7 @@ int main()
 		}
 		else
 		{
+			_CrtDumpMemoryLeaks();
 			return 0;
 		}
 	}
