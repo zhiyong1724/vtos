@@ -26,13 +26,6 @@ os_ctx_sw:                //任务级切换，触发软中断即可
 	pop {lr}
 	mov pc, lr
 
-.global os_int_ctx_sw
-os_int_ctx_sw:           //中断级切换，跟任务级切换一样
-	push {lr}
-	swi
-	pop {lr}
-	mov pc, lr
-
 .global swi_handler
 swi_handler:
 	push {r0-r12, lr}

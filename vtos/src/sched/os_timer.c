@@ -27,14 +27,12 @@ static os_size_t time_compare(void *key1, void *key2, void *arg)
 static void task_wakeup(void *args)
 {
 	os_size_t pid = *(os_size_t *)args;
-	os_task_activity(pid);
+	os_resume_thread(pid);
 }
 
 void os_sleep(os_size_t t)
 {
-	os_cpu_sr cpu_sr = os_cpu_sr_off();
 	os_set_timer(&_running_task->timer, t, task_wakeup, &(_running_task->pid));
-	os_cpu_sr_restore(cpu_sr);
 	os_task_sleep();
 }
 

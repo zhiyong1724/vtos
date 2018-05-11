@@ -115,6 +115,7 @@ void os_cpu_sr_restore(os_cpu_sr cpu_sr)     //回复状态寄存器函数
 {
 	cpu_sr = 0;
 }
+
 void os_ctx_sw(void)                         //任务切换函数
 {
 	HANDLE stop = _running_task->handle;
@@ -123,17 +124,12 @@ void os_ctx_sw(void)                         //任务切换函数
 	SuspendThread(stop);
 	
 }
-void os_int_ctx_sw(void)                     //中断级任务切换函数
-{
-	HANDLE stop = _running_task->handle;
-	_running_task = _next_task;
-	ResumeThread(_running_task->handle);
-	SuspendThread(stop);
-}
+
 void os_task_start(void)                     //任务开始前准备
 {
 	ResumeThread(_running_task->handle);
 }
+
 void os_cpu_pend_sv_handler(void)            //软中断入口
 {
 }

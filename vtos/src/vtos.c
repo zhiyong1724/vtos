@@ -49,10 +49,12 @@ os_size_t os_sys_init(void)
 	ret = os_mem_init();
 	os_mem_init_end_hook(ret);
 
+	os_init_timer();
+	os_sem_init();
+
 	os_scheduler_init_begin_hook();
 	os_init_scheduler();
 	os_scheduler_init_end_hook(ret);
-	os_init_timer();
 	return ret;
 }
 
