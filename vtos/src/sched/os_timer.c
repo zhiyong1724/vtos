@@ -10,7 +10,7 @@ void os_init_timer(void)
 	_timer_controler.min_timer = NULL;
 }
 
-static os_size_t time_compare(void *key1, void *key2, void *arg)
+static int8 time_compare(void *key1, void *key2, void *arg)
 {
 	timer_info_t *info1 = (timer_info_t *)key1;
 	timer_info_t *info2 = (timer_info_t *)key2;
@@ -32,8 +32,16 @@ static void task_wakeup(void *args)
 
 void os_sleep(os_size_t t)
 {
+	os_size_t cpu_sr = os_cpu_sr_off();
 	os_set_timer(&_running_task->timer, t, task_wakeup, &(_running_task->pid));
-	os_task_sleep();
+	_running_task->task_status = TASK_SLEEP;
+	os_thread_switch();
+	os_cpu_sr_restore(cpu_sr);
+}
+
+void os_remove_task_from_timer(tree_node_type_def *node)
+{
+	os_delete_node(&_timer_controler.timer_tree, node);
 }
 
 void os_close_timer(timer_info_t *timer_info)

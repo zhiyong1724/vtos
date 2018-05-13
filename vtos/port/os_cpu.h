@@ -14,13 +14,14 @@
 extern void *_start_addr;                  //交给系统管理内存的起始地址
 extern void *_end_addr;                    //交给系统管理内存的结束地址
 void os_get_start_addr(void);
-
+#ifdef __WINDOWS__
+extern os_cpu_sr _cpu_sr;
+#endif
 /*要用汇编实现的函数*/
-//os_cpu_sr os_cpu_sr_off(void);               //保存状态寄存器函数,关中断
-//os_cpu_sr os_cpu_sr_on(void);                //保存状态寄存器函数,开中断
-//void os_cpu_sr_restore(os_cpu_sr cpu_sr);     //回复状态寄存器函数
+os_cpu_sr os_cpu_sr_off(void);               //保存状态寄存器函数,关中断
+os_cpu_sr os_cpu_sr_on(void);                //保存状态寄存器函数,开中断
+void os_cpu_sr_restore(os_cpu_sr cpu_sr);     //回复状态寄存器函数
 void os_ctx_sw(void);                         //任务切换函数
-//void os_int_ctx_sw(void);                     //中断级任务切换函数
 void os_task_start(void);                     //任务开始前准备
 
 /*这部分函数在os_cpu_c.c文件实现*/

@@ -39,7 +39,7 @@ os_size_t os_map_empty(os_map *obj)
 	}
 }
 
-static os_size_t compare(uint8 *arg1, uint8 *arg2, os_size_t size)
+static int8 compare(uint8 *arg1, uint8 *arg2, os_size_t size)
 {
 	os_size_t i;
 	for (i = 0; i < size; i++)
@@ -56,7 +56,7 @@ static os_size_t compare(uint8 *arg1, uint8 *arg2, os_size_t size)
 	return 0;
 }
 
-static os_size_t os_map_compare(void *key1, void *key2, void *arg)
+static int8 os_map_compare(void *key1, void *key2, void *arg)
 {
 	os_map_iterator *itr1 = (os_map_iterator *)key1;
 	os_map_iterator *itr2 = (os_map_iterator *)key2;
@@ -82,7 +82,7 @@ os_size_t os_map_insert(os_map *obj, void *key, void *value)
 	return 1;
 }
 
-static os_size_t os_map_find_compare(void *key1, void *key2, void *arg)
+static int8 os_map_find_compare(void *key1, void *key2, void *arg)
 {
 	os_map_iterator *itr = (os_map_iterator *)key2;
 	os_size_t *key_size = arg;

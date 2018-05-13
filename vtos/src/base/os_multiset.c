@@ -21,7 +21,7 @@ os_size_t os_multiset_empty(os_multiset *obj)
 	return os_set_empty(&obj->set);
 }
 
-static os_size_t compare(uint8 *arg1, uint8 *arg2, os_size_t size)
+static int8 compare(uint8 *arg1, uint8 *arg2, os_size_t size)
 {
 	os_size_t i;
 	for (i = 0; i < size; i++)
@@ -38,12 +38,12 @@ static os_size_t compare(uint8 *arg1, uint8 *arg2, os_size_t size)
 	return 0;
 }
 
-static os_size_t os_multiset_compare(void *key1, void *key2, void *arg)
+static int8 os_multiset_compare(void *key1, void *key2, void *arg)
 {
 	os_multiset_iterator *itr1 = (os_multiset_iterator *)key1;
 	os_multiset_iterator *itr2 = (os_multiset_iterator *)key2;
 	os_size_t *unit_size = arg;
-	os_size_t ret = compare((uint8 *)&itr1[1], (uint8 *)&itr2[1], *unit_size);
+	int8 ret = compare((uint8 *)&itr1[1], (uint8 *)&itr2[1], *unit_size);
 	if (0 == ret)
 	{
 		ret = -1;

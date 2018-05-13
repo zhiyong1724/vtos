@@ -1,5 +1,10 @@
 #ifndef __OS_CPU_DEF_H__
 #define __OS_CPU_DEF_H__
+#ifdef __WINDOWS__
+#include <stdlib.h>
+#include <windows.h>
+#include <stdio.h>
+#endif
 #ifndef NULL
 #define NULL 0
 #endif

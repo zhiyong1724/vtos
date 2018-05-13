@@ -411,7 +411,7 @@ fnode *find_from_tree(fnode *root, uint32 *index, const char *name)
 	{
 		for (*index = 0; *index < cur->head.num; (*index)++)
 		{
-			int32 cmp = os_str_cmp(cur->finfo[*index].name, name);
+			int8 cmp = os_str_cmp(cur->finfo[*index].name, name);
 			if (0 == cmp)
 			{
 				return cur;
@@ -453,7 +453,7 @@ uint32 finfo_is_exist(fnode *root, const char *name)
 	{
 		for (index = 0; index < cur->head.num; (index)++)
 		{
-			int32 cmp = os_str_cmp(cur->finfo[index].name, name);
+			int8 cmp = os_str_cmp(cur->finfo[index].name, name);
 			if (0 == cmp)
 			{
 				if (cur != root)

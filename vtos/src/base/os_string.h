@@ -50,7 +50,7 @@ os_size_t os_str_find(const char *str, const char *pattern);
 * str2：字符串2
 * return：-1：str1 < str2; 0: str1 == str2; 1: str1 > str2
 *********************************************************************************************************************/
-int32 os_str_cmp(const char *str1, const char *str2);
+int8 os_str_cmp(const char *str1, const char *str2);
 /*********************************************************************************************************************
 * 连接字符串
 * dest：字符串1，存放连接后的字符串

@@ -4,9 +4,6 @@
 #include "sched/os_timer.h"
 #ifdef __WINDOWS__
 #define _CRTDBG_MAP_ALLOC
-#include <windows.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <crtdbg.h>
 #endif
 
@@ -51,6 +48,7 @@ os_size_t os_sys_init(void)
 
 	os_init_timer();
 	os_sem_init();
+	os_q_init();
 
 	os_scheduler_init_begin_hook();
 	os_init_scheduler();
@@ -62,8 +60,10 @@ void os_sys_start(void)
 {
 	os_task_start();
 #ifdef __WINDOWS__
+	_cpu_sr = 1;
 	for (;;)
 	{
+		while (!_cpu_sr);
 		os_sys_tick();
 		Sleep(TICK_TIME / 1000);
 	}
@@ -71,12 +71,30 @@ void os_sys_start(void)
 }
 
 #ifdef __WINDOWS__
-static void task(void *p_arg)
+static void task_a(void *p_arg)
 {
+	/*os_q_t *q = os_q_find("test");
+	os_size_t status;
+	os_size_t v = 0;*/
 	for (;;)
 	{
 		printf("cpu = %d\n", os_cpu_percent());
+		//os_q_pend(q, 1000, &status, &v);
+		//os_sleep(1000);
+	}
+}
+
+static void task_b(void *p_arg)
+{
+	/*os_q_t q;
+	os_q_create(&q, sizeof(os_size_t), "test");*/
+	os_size_t pid = os_kthread_create(task_a, NULL, "task_a");
+	for (;;)
+	{
 		os_sleep(1000);
+		os_suspend_thread(pid);
+		os_sleep(1000);
+		os_resume_thread(pid);
 	}
 }
 
@@ -121,7 +139,7 @@ int main()
 	//_CrtSetBreakAlloc(84);
 	if (0 == os_sys_init())
 	{
-		os_kthread_create(task, NULL, "task_a");
+		os_kthread_create(task_b, NULL, "task_b");
 		os_sys_start();
 	}
 	if (fs_loading() != 0)

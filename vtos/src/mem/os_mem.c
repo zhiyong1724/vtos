@@ -2,9 +2,6 @@
 #include "vtos.h"
 #include "os_buddy.h"
 #include "base/os_mem_pool.h"
-#ifdef __USE_STD_MALLOC__
-#include <stdlib.h>
-#endif
 static struct os_mem _os_mem;
 
 static os_size_t get_std_size(os_size_t size, os_size_t min_size)
@@ -81,6 +78,7 @@ void *os_kmalloc(os_size_t size)
 #ifdef __USE_STD_MALLOC__
 	return malloc(size);
 #else
+	os_size_t cpu_sr = os_cpu_sr_off();
 	uint8 *addr = NULL;
 	os_size_t std_size = get_std_size(size + sizeof(void *), MIN_BLOCK_SIZE);
 	if (std_size < PAGE_SIZE / 2)
@@ -121,6 +119,7 @@ void *os_kmalloc(os_size_t size)
 			_os_mem.free_size -= std_size;
 		}
 	}
+	os_cpu_sr_restore(cpu_sr);
 	return addr;
 #endif
 }
@@ -130,6 +129,7 @@ void os_kfree(void *addr)
 #ifdef __USE_STD_MALLOC__
 	free(addr);
 #else
+	os_size_t cpu_sr = os_cpu_sr_off();
 	os_size_t size = os_buddy_free(addr);
 	if (0 == size)
 	{
@@ -155,6 +155,7 @@ void os_kfree(void *addr)
 		//属于伙伴算法
 		_os_mem.free_size += size;
 	}
+	os_cpu_sr_restore(cpu_sr);
 #endif
 }
 

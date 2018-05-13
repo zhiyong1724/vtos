@@ -141,7 +141,7 @@ static void file_info_init(file_info *info)
 	info->name[0] = '\0';
 }
 
-static os_size_t cluster_id_compare2(void *key1, void *key2, void *arg)
+static int8 cluster_id_compare2(void *key1, void *key2, void *arg)
 {
 	uint32 *key = (uint32 *)key1;
 	finfo_node *node2 = (finfo_node *)key2;
@@ -877,7 +877,7 @@ uint32 move_file(const char *dest, const char *src)
 	return ret;
 }
 
-static os_size_t cluster_id_compare(void *key1, void *key2, void *arg)
+static int8 cluster_id_compare(void *key1, void *key2, void *arg)
 {
 	finfo_node *node1 = (finfo_node *)key1;
 	finfo_node *node2 = (finfo_node *)key2;

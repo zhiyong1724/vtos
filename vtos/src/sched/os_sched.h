@@ -12,8 +12,10 @@
 enum task_status_def
 {
 	TASK_RUNNING,
+	TASK_SUSPEND,
+	TASK_WAIT,
 	TASK_SLEEP,
-	TASK_SUSPEND
+	TASK_DELETE,
 };
 
 enum event_status_def
@@ -30,7 +32,7 @@ typedef struct task_info_t
 	os_stk *stack;
 	tree_node_type_def tree_node_structrue;
 	list_node_type_def list_node_structrue;
-	os_size_t prio;
+	int8 prio;
 	os_size_t unit_vruntime;
 	os_size_t vruntime;
 	os_size_t task_status;
@@ -40,6 +42,7 @@ typedef struct task_info_t
 	char name[TASK_NAME_SIZE];
 	os_size_t event_status;
 	timer_info_t timer;
+	void *sem;
 #ifdef __WINDOWS__
 	HANDLE handle;
 #endif
@@ -50,6 +53,7 @@ struct os_sched
 {
 	tree_node_type_def *run_task_tree;
 	list_node_type_def *end_task_list;
+	list_node_type_def *suspend_task_list;
 	os_size_t total_task_count;
 	os_size_t activity_task_count;
 	os_size_t min_vruntime;
@@ -83,9 +87,9 @@ os_size_t os_kthread_create(void(*task)(void *p_arg), void *p_arg, const char *n
 os_size_t os_kthread_createEX(void(*task)(void *p_arg), void *p_arg, const char *name, os_size_t stack_size);
 /*********************************************************************************************************************
 * 改变自身的优先级，优先级越高，获得的运行时间越多，默认的优先级为0
-* prio：线程的优先级，范围为-20到19
+* prio：线程的优先级，范围为-20到19,默认优先级为0
 *********************************************************************************************************************/
-void os_set_prio(int32 prio);
+void os_set_prio(int8 prio);
 /*********************************************************************************************************************
 * return：返回系统的所有线程数
 *********************************************************************************************************************/
@@ -117,12 +121,6 @@ void os_close_scheduler();
 *********************************************************************************************************************/
 os_size_t os_delete_thread(os_size_t pid);
 /*********************************************************************************************************************
-* 删除线程
-* pid 线程id
-* return：0：删除成功
-*********************************************************************************************************************/
-os_size_t os_delete_thread(os_size_t pid);
-/*********************************************************************************************************************
 * 挂起线程
 * pid 线程id
 * return：0：挂起成功
@@ -134,8 +132,11 @@ os_size_t os_suspend_thread(os_size_t pid);
 * return：0：恢复成功
 *********************************************************************************************************************/
 os_size_t os_resume_thread(os_size_t pid);
+/*********************************************************************************************************************
+* 线程退出之前需要调用，回收资源
+*********************************************************************************************************************/
+void os_task_return(void);
 
 void os_init_scheduler(void);
-void os_task_return(void);
-void os_task_sleep();
+void os_thread_switch();
 #endif

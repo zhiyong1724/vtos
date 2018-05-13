@@ -1,11 +1,6 @@
 #include "os_cpu.h"
 #include "sched/os_sched.h"
-#ifdef __WINDOWS__
-#include <stdlib.h>
-#include <windows.h>
-#else
 extern uint32 _heap_start;
-#endif
 
 void os_get_start_addr(void)
 {
@@ -101,28 +96,35 @@ void os_time_tick_hook (void)
 #endif
 
 #ifdef __WINDOWS__
+os_cpu_sr _cpu_sr = 1;
 os_cpu_sr os_cpu_sr_off(void)               //关中断
 {
-	return 0;
+	os_size_t sr = _cpu_sr;
+	_cpu_sr = 0;
+	return sr;
 }
 
 os_cpu_sr os_cpu_sr_on(void)               //开中断
 {
-	return 0;
+	os_size_t sr = _cpu_sr;
+	_cpu_sr = 1;
+	return sr;
 }
 
 void os_cpu_sr_restore(os_cpu_sr cpu_sr)     //回复状态寄存器函数
 {
-	cpu_sr = 0;
+	_cpu_sr = cpu_sr;
 }
 
 void os_ctx_sw(void)                         //任务切换函数
 {
 	HANDLE stop = _running_task->handle;
-	_running_task = _next_task;
-	ResumeThread(_running_task->handle);
-	SuspendThread(stop);
-	
+	if (_running_task != _next_task)
+	{
+		_running_task = _next_task;
+		ResumeThread(_running_task->handle);
+		SuspendThread(stop);
+	}
 }
 
 void os_task_start(void)                     //任务开始前准备

@@ -18,7 +18,7 @@ typedef struct tree_node_type_def
 } tree_node_type_def;
 #pragma pack()
 
-typedef os_size_t (*on_compare)(void *key1, void *key2, void *arg);
+typedef int8 (*on_compare)(void *key1, void *key2, void *arg);
 
 extern tree_node_type_def _leaf_node;
 

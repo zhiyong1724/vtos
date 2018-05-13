@@ -150,7 +150,7 @@ os_size_t os_str_find(const char *str, const char *pattern)
 	return ret;
 }
 
-int32 os_str_cmp(const char *str1, const char *str2)
+int8 os_str_cmp(const char *str1, const char *str2)
 {
 	for (; *str1 != '\0' && *str2 != '\0'; str1++, str2++)
 	{

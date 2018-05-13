@@ -379,7 +379,7 @@ tree_node_type_def *os_get_leftmost_node(tree_node_type_def **handle)
 
 os_size_t os_insert_node(tree_node_type_def **handle, tree_node_type_def *node, on_compare callback, void *arg)
 {
-	os_size_t cmp;
+	int8 cmp;
 	tree_node_type_def *cur_node = *handle;
 	os_init_node(node);
 	if (NULL == *handle)
