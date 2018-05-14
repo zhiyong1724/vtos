@@ -63,9 +63,9 @@ void os_sys_start(void)
 	_cpu_sr = 1;
 	for (;;)
 	{
-		while (!_cpu_sr);
 		os_sys_tick();
 		Sleep(TICK_TIME / 1000);
+		while (!_cpu_sr);
 	}
 #endif // __WINDOWS__
 }
@@ -73,28 +73,57 @@ void os_sys_start(void)
 #ifdef __WINDOWS__
 static void task_a(void *p_arg)
 {
-	/*os_q_t *q = os_q_find("test");
+	os_q_t *q = os_q_find("test");
 	os_size_t status;
-	os_size_t v = 0;*/
+	os_size_t v = 0;
 	for (;;)
 	{
-		printf("cpu = %d\n", os_cpu_percent());
-		//os_q_pend(q, 1000, &status, &v);
-		//os_sleep(1000);
+		os_q_pend(q, 0, &status, &v);
+		printf("v = %d\n", v);
 	}
 }
 
 static void task_b(void *p_arg)
 {
-	/*os_q_t q;
-	os_q_create(&q, sizeof(os_size_t), "test");*/
-	os_size_t pid = os_kthread_create(task_a, NULL, "task_a");
+	printf("This is task b.\n");
+	os_task_return();
+}
+
+static void task_c(void *p_arg)
+{
+	os_q_t *q = os_q_create(sizeof(os_size_t), "test");
+	os_size_t pid_a = os_kthread_create(task_a, NULL, "task_a");
 	for (;;)
 	{
 		os_sleep(1000);
-		os_suspend_thread(pid);
-		os_sleep(1000);
-		os_resume_thread(pid);
+		os_size_t v = 512;
+		os_q_post(q, &v);
+		os_size_t pid_b = os_kthread_create(task_b, NULL, "task_b");
+	}
+}
+
+static void task_d(void *p_arg)
+{
+	os_size_t i = 0;
+	for (;;)
+	{
+		i++;
+		//printf("This is task d.\n");
+	}
+}
+
+static void task_e(void *p_arg)
+{
+	os_q_t *q = os_q_create(sizeof(os_size_t), "test1");
+	os_size_t pid_d = os_kthread_create(task_d, NULL, "task_d");
+	os_size_t status;
+	os_size_t v = 0;
+	for (;;)
+	{
+		os_q_pend(q, 500, &status, &v);
+		os_suspend_thread(pid_d);
+		os_q_pend(q, 5000, &status, &v);
+		os_resume_thread(pid_d);
 	}
 }
 
@@ -139,7 +168,8 @@ int main()
 	//_CrtSetBreakAlloc(84);
 	if (0 == os_sys_init())
 	{
-		os_kthread_create(task_b, NULL, "task_b");
+		os_kthread_create(task_c, NULL, "task_c");
+		os_kthread_create(task_e, NULL, "task_e");
 		os_sys_start();
 	}
 	if (fs_loading() != 0)

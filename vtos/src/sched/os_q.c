@@ -42,7 +42,7 @@ os_q_t *os_q_create(os_size_t unit_size, const char *name)
 	}
 	if (p_queue != NULL)
 	{
-		p_queue->sem = os_sem_create(0, name);
+		p_queue->sem = os_sem_create(0, NULL);
 		os_deque_init(&p_queue->queue, unit_size);
 	}
 	os_cpu_sr_restore(cpu_sr);

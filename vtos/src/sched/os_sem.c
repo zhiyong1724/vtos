@@ -51,9 +51,9 @@ static void task_wakeup(void *args)
 {
 	os_sem_t *p_sem = (os_sem_t *)args;
 	task_info_t *task_info = (task_info_t *)((uint8 *)os_get_back_from_list(&(p_sem->wait_task_list)) - LIST_NODE_ADDR_OFFSET);
-	os_remove_from_list(&(p_sem->wait_task_list), &task_info->list_node_structrue);
 	task_info->event_status = EVENT_WAIT_TIMEOUT;
-	os_resume_thread(task_info->pid);
+	task_info->task_status = TASK_RUNNING;
+	os_insert_runtree(task_info);
 }
 
 void os_sem_pend(os_sem_t *p_sem, os_size_t timeout, os_size_t *p_status)
@@ -66,12 +66,12 @@ void os_sem_pend(os_sem_t *p_sem, os_size_t timeout, os_size_t *p_status)
 	}
 	else
 	{
-		os_set_timer(&p_sem->timer, timeout, task_wakeup, p_sem);
+		os_set_timer(&_running_task->timer, timeout, task_wakeup, p_sem);
 		os_insert_to_front(&(p_sem->wait_task_list), &_running_task->list_node_structrue);
 		_running_task->sem = p_sem;
 		_running_task->task_status = TASK_WAIT;
-		os_thread_switch();
-		os_close_timer(&p_sem->timer);
+		os_sw_out();
+		os_close_timer(&_running_task->timer);
 		*p_status = _running_task->event_status;
 		_running_task->event_status = EVENT_NONE;
 	}
@@ -88,7 +88,8 @@ os_size_t os_sem_post(os_sem_t *p_sem)
 			task_info_t *task_info = (task_info_t *)((uint8 *)os_get_back_from_list(&(p_sem->wait_task_list)) - LIST_NODE_ADDR_OFFSET);
 			os_remove_from_list(&(p_sem->wait_task_list), &task_info->list_node_structrue);
 			task_info->event_status = EVENT_GET_SIGNAL;
-			os_resume_thread(task_info->pid);
+			task_info->task_status = TASK_RUNNING;
+			os_sw_in(task_info);
 		}
 		else
 		{
@@ -114,8 +115,10 @@ void os_sem_free(os_sem_t *p_sem)
 	{
 		task_info_t *task_info = (task_info_t *)((uint8 *)os_get_back_from_list(&(p_sem->wait_task_list)) - LIST_NODE_ADDR_OFFSET);
 		os_remove_from_list(&(p_sem->wait_task_list), &task_info->list_node_structrue);
+		os_close_timer(&task_info->timer);
 		task_info->event_status = EVENT_NONE;
-		os_resume_thread(task_info->pid);
+		task_info->task_status = TASK_RUNNING;
+		os_insert_runtree(task_info);
 	}
 	if (p_sem->name[0] != '\0')
 	{

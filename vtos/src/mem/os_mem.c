@@ -60,6 +60,9 @@ static os_size_t on_find_compare(void *key1, void *key2, void *arg)
 
 os_size_t os_mem_init(void)
 {
+#ifdef __USE_STD_MALLOC__
+	return 0;
+#else
 	_os_mem.root = NULL;
 	_os_mem.total_size = os_buddy_init();
 	_os_mem.free_size = _os_mem.total_size;
@@ -71,6 +74,7 @@ os_size_t os_mem_init(void)
 	{
 		return 1;
 	}
+#endif
 }
 
 void *os_kmalloc(os_size_t size)

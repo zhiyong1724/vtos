@@ -104,6 +104,7 @@ static void thread_free_task(void *p_arg)
 	for (;;)
 	{
 		os_sem_pend(_thread_free_sem, 0, &status);
+		os_size_t cpu_sr = os_cpu_sr_off();
 		while (_scheduler.end_task_list != NULL)
 		{
 			task_info_t *del_task = (task_info_t *)((uint8 *)_scheduler.end_task_list - LIST_NODE_ADDR_OFFSET);
@@ -112,9 +113,13 @@ static void thread_free_task(void *p_arg)
 			*v = NULL;
 			pid_put(del_task->pid);
 			os_kfree(del_task->stack_head);
+#ifdef __WINDOWS__
+			CloseHandle(del_task->handle);
+#endif
 			os_kfree(del_task);
 			_scheduler.total_task_count--;
 		}
+		os_cpu_sr_restore(cpu_sr);
 	}
 }
 
@@ -146,6 +151,11 @@ os_size_t os_delete_thread(os_size_t pid)
 			case TASK_RUNNING:
 			{
 				os_delete_node(&_scheduler.run_task_tree, &(*v)->tree_node_structrue);
+				if ((*v)->pid == _running_task->pid)
+				{
+					_running_task = (task_info_t *)((uint8 *)os_get_leftmost_node(&_scheduler.run_task_tree) - TREE_NODE_ADDR_OFFSET);
+					_running_task->vruntime -= (_running_task->unit_vruntime >> 1);
+				}
 				break;
 			}
 			case TASK_SUSPEND:
@@ -169,14 +179,6 @@ os_size_t os_delete_thread(os_size_t pid)
 			os_insert_to_front(&_scheduler.end_task_list, &(*v)->list_node_structrue);
 			(*v)->task_status = TASK_DELETE;
 			os_sem_post(_thread_free_sem);
-			if (pid == _running_task->pid)
-			{
-				os_thread_switch();
-			}
-			else
-			{
-				_next_task = (task_info_t *)((uint8 *)os_get_leftmost_node(&_scheduler.run_task_tree) - TREE_NODE_ADDR_OFFSET);
-			}
 			os_cpu_sr_restore(cpu_sr);
 			return 0;
 		}
@@ -192,40 +194,41 @@ void os_sys_tick(void)
 		os_size_t cpu_sr = os_cpu_sr_off();
 #ifdef __WINDOWS__
 		HANDLE stop = _running_task->handle;
-		SuspendThread(stop);
+		while (-1 == SuspendThread(stop));
 #endif // __WINDOWS__
 #if (OS_TIME_TICK_HOOK_EN > 0)
 		os_time_tick_hook();
 #endif
-		_running_task->vruntime += _running_task->unit_vruntime;
 		if (0x55 == _running_task->stack_end[0] && 0xaa == _running_task->stack_end[1])
 		{
+			_running_task->vruntime += _running_task->unit_vruntime;
 			os_delete_node(&_scheduler.run_task_tree, &_running_task->tree_node_structrue);
 			os_insert_node(&_scheduler.run_task_tree, &_running_task->tree_node_structrue, vruntime_compare, NULL);
+			os_timer_tick();
+			_next_task = (task_info_t *)((uint8 *)os_get_leftmost_node(&_scheduler.run_task_tree) - TREE_NODE_ADDR_OFFSET);
+			_scheduler.min_vruntime = _next_task->vruntime;
+			if (0 == _next_task->pid)
+			{
+				if (_scheduler.cpu_percent > 0)
+				{
+					_scheduler.cpu_percent--;
+				}
+			}
+			else if (_scheduler.cpu_percent < 100)
+			{
+				_scheduler.cpu_percent++;
+			}
+			os_cpu_sr_restore(cpu_sr);
+			os_ctx_sw();
 		}
 		else
 		{
 			os_error_msg("stack overflow", _running_task->pid);
 			os_delete_thread(_running_task->pid);
 		}
-		os_timer_tick();
-		_next_task = (task_info_t *)((uint8 *)os_get_leftmost_node(&_scheduler.run_task_tree) - TREE_NODE_ADDR_OFFSET);
-		_scheduler.min_vruntime = _next_task->vruntime;
-		if (0 == _next_task->pid)
-		{
-			if (_scheduler.cpu_percent > 0)
-			{
-				_scheduler.cpu_percent--;
-			}
-		}
-		else if (_scheduler.cpu_percent < 100)
-		{
-			_scheduler.cpu_percent++;
-		}
 		os_cpu_sr_restore(cpu_sr);
-		os_ctx_sw();
 #ifdef __WINDOWS__
-		ResumeThread(stop);
+		while (ResumeThread(stop) != 0);
 #endif // __WINDOWS__
 	}
 }
@@ -288,7 +291,7 @@ os_size_t os_activity_thread_count(void)
 	return _scheduler.activity_task_count;
 }
 
-void os_thread_switch()
+void os_sw_out()
 {
 	//由于无法知道该任务到底运行了多久，综合考虑，就当做运行了半个节拍的虚拟运行时间
 	_running_task->vruntime += (_running_task->unit_vruntime >> 1);
@@ -299,6 +302,35 @@ void os_thread_switch()
 	os_size_t cpu_sr = os_cpu_sr_on();
 	os_ctx_sw();
 	os_cpu_sr_restore(cpu_sr);
+}
+
+void os_sw_in(task_info_t *task)
+{
+	_running_task->vruntime += (_running_task->unit_vruntime >> 1);
+	os_delete_node(&_scheduler.run_task_tree, &_running_task->tree_node_structrue);
+	os_insert_node(&_scheduler.run_task_tree, &_running_task->tree_node_structrue, vruntime_compare, NULL);
+	if (task->vruntime - _scheduler.min_vruntime > prio_to_weight[0])
+	{
+		//防止时间溢出
+		task->vruntime = _scheduler.min_vruntime;
+	}
+	os_insert_node(&_scheduler.run_task_tree, &task->tree_node_structrue, vruntime_compare, NULL);
+	_next_task = (task_info_t *)((uint8 *)os_get_leftmost_node(&_scheduler.run_task_tree) - TREE_NODE_ADDR_OFFSET);
+	_next_task->vruntime -= (_next_task->unit_vruntime >> 1);
+	_scheduler.min_vruntime = _next_task->vruntime;
+	os_size_t cpu_sr = os_cpu_sr_on();
+	os_ctx_sw();
+	os_cpu_sr_restore(cpu_sr);
+}
+
+void os_insert_runtree(task_info_t *task)
+{
+	if (task->vruntime - _scheduler.min_vruntime > prio_to_weight[0])
+	{
+		//防止时间溢出
+		task->vruntime = _scheduler.min_vruntime;
+	}
+	os_insert_node(&_scheduler.run_task_tree, &task->tree_node_structrue, vruntime_compare, NULL);
 }
 
 os_size_t os_cpu_percent(void)
@@ -322,17 +354,18 @@ os_size_t os_suspend_thread(os_size_t pid)
 	if (pid < os_vector_size(&_scheduler.task_info_index))
 	{
 		task_info_t **v = (task_info_t **)os_vector_at(&_scheduler.task_info_index, pid);
-		if (*v != NULL)
+		if (*v != NULL && TASK_RUNNING == (*v)->task_status)
 		{
+			(*v)->task_status = TASK_SUSPEND;
+			os_insert_to_front(&_scheduler.suspend_task_list, &(*v)->list_node_structrue);
 			if (pid == _running_task->pid)
 			{
-				os_thread_switch();
+				os_sw_out();
 			}
 			else
 			{
 				os_delete_node(&_scheduler.run_task_tree, &(*v)->tree_node_structrue);
 			}
-			(*v)->task_status = TASK_SUSPEND;
 			os_cpu_sr_restore(cpu_sr);
 			return 0;
 		}
@@ -347,16 +380,11 @@ os_size_t os_resume_thread(os_size_t pid)
 	if (pid < os_vector_size(&_scheduler.task_info_index))
 	{
 		task_info_t **v = (task_info_t **)os_vector_at(&_scheduler.task_info_index, pid);
-		if (*v != NULL)
+		if (*v != NULL && TASK_SUSPEND == (*v)->task_status)
 		{
-			if ((*v)->vruntime - _scheduler.min_vruntime > prio_to_weight[0])
-			{
-				//防止时间溢出
-				(*v)->vruntime = _scheduler.min_vruntime;
-			}
-
-			os_insert_node(&_scheduler.run_task_tree, &(*v)->tree_node_structrue, vruntime_compare, NULL);
 			(*v)->task_status = TASK_RUNNING;
+			os_remove_from_list(&_scheduler.suspend_task_list, &(*v)->list_node_structrue);
+			os_sw_in(*v);
 			os_cpu_sr_restore(cpu_sr);
 			return 0;
 		}

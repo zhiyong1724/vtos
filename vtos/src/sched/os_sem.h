@@ -1,6 +1,5 @@
 #ifndef __OS_SEM_H__
 #define __OS_SEM_H__
-#include "sched/os_timer.h"
 #include "base/os_list.h"
 #include "base/os_tree.h"
 #define SEM_NAME_SIZE        32
@@ -9,7 +8,6 @@ typedef struct os_sem_t
 	tree_node_type_def tree;
 	os_size_t sem;
 	list_node_type_def *wait_task_list;
-	timer_info_t timer;
 	char name[SEM_NAME_SIZE];
 } os_sem_t;
 

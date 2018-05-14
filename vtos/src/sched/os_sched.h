@@ -138,5 +138,7 @@ os_size_t os_resume_thread(os_size_t pid);
 void os_task_return(void);
 
 void os_init_scheduler(void);
-void os_thread_switch();
+void os_sw_out();
+void os_sw_in(task_info_t *task);
+void os_insert_runtree(task_info_t *task);
 #endif
