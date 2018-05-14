@@ -7,6 +7,11 @@ void init_pid(void)
 	os_vector_init(&_os_pid.pid_bitmap, 1);
 }
 
+void uninit_pid(void)
+{
+	os_vector_free(&_os_pid.pid_bitmap);
+}
+
 static void expand_bitmap()
 {
 	uint8 v = 0;

@@ -2,8 +2,9 @@
 #define __OS_SCHED_H__
 #include "base/os_tree.h"
 #include "base/os_list.h"
-#include "os_timer.h"
 #include "base/os_vector.h"
+#include "os_pid.h"
+#include "os_timer.h"
 #ifdef __WINDOWS__
 #include <windows.h>
 #endif
@@ -32,6 +33,7 @@ typedef struct task_info_t
 	os_stk *stack;
 	tree_node_type_def tree_node_structrue;
 	list_node_type_def list_node_structrue;
+	timer_info_t timer;
 	int8 prio;
 	os_size_t unit_vruntime;
 	os_size_t vruntime;
@@ -41,7 +43,6 @@ typedef struct task_info_t
 	os_size_t pid;
 	char name[TASK_NAME_SIZE];
 	os_size_t event_status;
-	timer_info_t timer;
 	void *sem;
 #ifdef __WINDOWS__
 	HANDLE handle;
@@ -60,6 +61,9 @@ struct os_sched
 	os_vector task_info_index;
 	os_size_t running;
 	os_size_t cpu_percent;
+	os_size_t sw_total_count;
+	os_size_t sw_idle_count;
+	uint64 tick;
 };
 
 extern task_info_t *_running_task;
@@ -133,6 +137,11 @@ os_size_t os_suspend_thread(os_size_t pid);
 *********************************************************************************************************************/
 os_size_t os_resume_thread(os_size_t pid);
 /*********************************************************************************************************************
+* 获得tick
+* return：tick
+*********************************************************************************************************************/
+uint64 os_get_tick();
+/*********************************************************************************************************************
 * 线程退出之前需要调用，回收资源
 *********************************************************************************************************************/
 void os_task_return(void);
@@ -141,4 +150,6 @@ void os_init_scheduler(void);
 void os_sw_out();
 void os_sw_in(task_info_t *task);
 void os_insert_runtree(task_info_t *task);
+void os_free_task_info(task_info_t *task);
+void uninit_os_sched(void);
 #endif

@@ -2,12 +2,23 @@
 #include "sched/os_sched.h"
 #include "sched/os_timer.h"
 #include "vtos.h"
+const os_size_t TIMER_ADDR_OFFSET = (os_size_t)sizeof(os_stk *) + (os_size_t)sizeof(tree_node_type_def) + (os_size_t)sizeof(list_node_type_def);  //task_info_t对象中timer地址减去该对象地址
 static struct os_timer _timer_controler;
 void os_init_timer(void)
 {
 	_timer_controler.timer_tree = NULL;
 	_timer_controler.tick = 0;
 	_timer_controler.min_timer = NULL;
+}
+
+void os_uninit_timer(void)
+{
+	while (_timer_controler.timer_tree != NULL)
+	{
+		task_info_t *task = (task_info_t *)((uint8 *)_timer_controler.timer_tree - TIMER_ADDR_OFFSET);
+		os_delete_node(&_timer_controler.timer_tree, _timer_controler.timer_tree);
+		os_free_task_info(task);
+	}
 }
 
 static int8 time_compare(void *key1, void *key2, void *arg)

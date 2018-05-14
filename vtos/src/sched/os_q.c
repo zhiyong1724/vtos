@@ -7,6 +7,18 @@ void os_q_init()
 	_os_q.tree = NULL;
 }
 
+void os_q_uninit()
+{
+	while (_os_q.tree != NULL)
+	{
+		os_q_t *q = (os_q_t *)_os_q.tree;
+		os_sem_free(q->sem);
+		os_delete_node(&_os_q.tree, _os_q.tree);
+		os_deque_free(&q->queue);
+		os_kfree(q);
+	}
+}
+
 static int8 insert_compare(void *key1, void *key2, void *arg)
 {
 	os_q_t *info1 = (os_q_t *)key1;
@@ -61,7 +73,7 @@ void *os_q_pend(os_q_t *p_queue, uint32 timeout, uint32 *p_status, void *p_out)
 	os_size_t cpu_sr = os_cpu_sr_off();
 	void *ret = NULL;
 	os_sem_pend(p_queue->sem, timeout, p_status);
-	if (EVENT_GET_SIGNAL == *p_status)
+	if (0 == timeout || EVENT_GET_SIGNAL == *p_status)
 	{
 		ret = os_deque_front(&p_queue->queue);
 		os_mem_cpy(p_out, ret, p_queue->queue.unit_size);

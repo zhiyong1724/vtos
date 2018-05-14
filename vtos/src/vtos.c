@@ -56,6 +56,18 @@ os_size_t os_sys_init(void)
 	return ret;
 }
 
+void os_sys_uninit(void)
+{
+#ifdef __WINDOWS__
+	os_cpu_sr_off();
+	os_q_uninit();
+	os_sem_uninit();
+	os_uninit_timer();
+	uninit_os_sched();
+	uninit_pid();
+#endif // __WINDOWS__
+}
+
 void os_sys_start(void)
 {
 	os_task_start();
@@ -127,6 +139,14 @@ static void task_e(void *p_arg)
 	}
 }
 
+static DWORD task(LPVOID lpThreadParameter)
+{
+	os_kthread_create(task_c, NULL, "task_c");
+	os_kthread_create(task_e, NULL, "task_e");
+	os_sys_start();
+	return 0;
+}
+
 static void get_command(const char *src, char *command, char *arg1, char *arg2)
 {
 	for (; *src != '\0' && *src != ' '; src++, command++)
@@ -165,12 +185,12 @@ int main()
 	char arg1[256] = "";
 	char arg2[256] = "";
 	char ln;
+	HANDLE handle;
 	//_CrtSetBreakAlloc(84);
 	if (0 == os_sys_init())
 	{
-		os_kthread_create(task_c, NULL, "task_c");
-		os_kthread_create(task_e, NULL, "task_e");
-		os_sys_start();
+		handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)task, NULL, 0, NULL);
+		SetThreadPriority(handle, THREAD_PRIORITY_HIGHEST);
 	}
 	if (fs_loading() != 0)
 	{
@@ -187,7 +207,7 @@ int main()
 			return 0;
 		}
 	}
-	while (os_str_cmp(buff, "quit") != 0)
+	while (1)
 	{
 		scanf_s("%[^\n]%c", buff, 256, &ln, 1);
 		get_command(buff, command, arg1, arg2);
@@ -356,12 +376,18 @@ int main()
 			}
 			printf("ok\n");
 		}
-		else if (os_str_cmp(command, "quit") != 0)
+		else if (os_str_cmp(command, "quit") == 0)
+		{
+			os_sys_uninit();
+			fs_unloading();
+			CloseHandle(handle);
+			break;
+		}
+		else
 		{
 			printf("command not found\n");
 		}
 	}
-	fs_unloading();
 	_CrtDumpMemoryLeaks();
 	return 0;
 }

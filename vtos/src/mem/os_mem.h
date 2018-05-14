@@ -2,6 +2,7 @@
 #define __OS_MEM_H__
 #include "base/os_tree.h"
 #include "base/os_mem_pool.h"
+#include "sched/os_sem.h"
 #define MIN_BLOCK_SIZE 32
 typedef struct mem_pool_node
 {
@@ -15,6 +16,8 @@ struct os_mem
 	tree_node_type_def *root;
 	os_size_t total_size;
 	os_size_t free_size;
+	os_size_t wait_count;
+	os_sem_t *sem;
 };
 /*********************************************************************************************************************
 * 初始化内存

@@ -24,6 +24,22 @@ void os_sem_init()
 	_os_sem.tree = NULL;
 }
 
+void os_sem_uninit()
+{
+	while (_os_sem.tree != NULL)
+	{
+		os_sem_t *sem = (os_sem_t *)_os_sem.tree;
+		while (sem->wait_task_list != NULL)
+		{
+			task_info_t *task = (task_info_t *)((uint8 *)sem->wait_task_list - LIST_NODE_ADDR_OFFSET);
+			os_remove_from_list(&sem->wait_task_list, sem->wait_task_list);
+			os_free_task_info(task);
+		}
+		os_delete_node(&_os_sem.tree, _os_sem.tree);
+		os_kfree(sem);
+	}
+}
+
 os_sem_t *os_sem_create(os_size_t cnt, const char *name)
 {
 	os_size_t cpu_sr = os_cpu_sr_off();
@@ -62,7 +78,10 @@ void os_sem_pend(os_sem_t *p_sem, os_size_t timeout, os_size_t *p_status)
 	if (p_sem->sem > 0)
 	{
 		p_sem->sem--;
-		*p_status = EVENT_GET_SIGNAL;
+		if (p_status != NULL)
+		{
+			*p_status = EVENT_GET_SIGNAL;
+		}
 	}
 	else
 	{
@@ -72,7 +91,10 @@ void os_sem_pend(os_sem_t *p_sem, os_size_t timeout, os_size_t *p_status)
 		_running_task->task_status = TASK_WAIT;
 		os_sw_out();
 		os_close_timer(&_running_task->timer);
-		*p_status = _running_task->event_status;
+		if (p_status != NULL)
+		{
+			*p_status = _running_task->event_status;
+		}
 		_running_task->event_status = EVENT_NONE;
 	}
 	os_cpu_sr_restore(cpu_sr);
@@ -113,12 +135,15 @@ void os_sem_free(os_sem_t *p_sem)
 	os_size_t cpu_sr = os_cpu_sr_off();
 	while (p_sem->wait_task_list != NULL)
 	{
-		task_info_t *task_info = (task_info_t *)((uint8 *)os_get_back_from_list(&(p_sem->wait_task_list)) - LIST_NODE_ADDR_OFFSET);
-		os_remove_from_list(&(p_sem->wait_task_list), &task_info->list_node_structrue);
-		os_close_timer(&task_info->timer);
-		task_info->event_status = EVENT_NONE;
-		task_info->task_status = TASK_RUNNING;
-		os_insert_runtree(task_info);
+		while (p_sem->wait_task_list != NULL)
+		{
+			task_info_t *task_info = (task_info_t *)((uint8 *)os_get_back_from_list(&(p_sem->wait_task_list)) - LIST_NODE_ADDR_OFFSET);
+			os_remove_from_list(&(p_sem->wait_task_list), &task_info->list_node_structrue);
+			os_close_timer(&task_info->timer);
+			task_info->event_status = EVENT_NONE;
+			task_info->task_status = TASK_RUNNING;
+			os_insert_runtree(task_info);
+		}
 	}
 	if (p_sem->name[0] != '\0')
 	{

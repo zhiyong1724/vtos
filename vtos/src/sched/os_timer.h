@@ -29,5 +29,6 @@ void os_remove_task_from_timer(tree_node_type_def *node);
 timer_info_t *os_set_timer(timer_info_t *timer, os_size_t time, timer_call_back call_back_func, void *args);
 void os_close_timer(timer_info_t *timer_info);
 void os_init_timer(void);
+void os_uninit_timer(void);
 void os_timer_tick(void);
 #endif

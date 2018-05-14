@@ -26,7 +26,7 @@ static mem_pool_node *create_mem_pool(os_size_t blk_size)
 	return pool;
 }
 
-static os_size_t on_insert_compare(void *key1, void *key2, void *arg)
+static int8 on_insert_compare(void *key1, void *key2, void *arg)
 {
 	mem_pool_node *pool1 = (mem_pool_node *)key1;
 	mem_pool_node *pool2 = (mem_pool_node *)key2;
@@ -40,7 +40,7 @@ static os_size_t on_insert_compare(void *key1, void *key2, void *arg)
 	}
 }
 
-static os_size_t on_find_compare(void *key1, void *key2, void *arg)
+static int8 on_find_compare(void *key1, void *key2, void *arg)
 {
 	os_size_t *std_size = (os_size_t *)key1;
 	mem_pool_node *pool = (mem_pool_node *)key2;
@@ -66,6 +66,8 @@ os_size_t os_mem_init(void)
 	_os_mem.root = NULL;
 	_os_mem.total_size = os_buddy_init();
 	_os_mem.free_size = _os_mem.total_size;
+	_os_mem.wait_count = 0;
+	_os_mem.sem = os_sem_create(0, "System mem");
 	if (_os_mem.total_size > 0)
 	{
 		return 0;
@@ -84,45 +86,58 @@ void *os_kmalloc(os_size_t size)
 #else
 	os_size_t cpu_sr = os_cpu_sr_off();
 	uint8 *addr = NULL;
-	os_size_t std_size = get_std_size(size + sizeof(void *), MIN_BLOCK_SIZE);
-	if (std_size < PAGE_SIZE / 2)
+	while (1)
 	{
-		//使用高速内存
-		for (; std_size < PAGE_SIZE / 2; std_size *= 2)
+		os_size_t std_size = get_std_size(size + sizeof(void *), MIN_BLOCK_SIZE);
+		if (std_size < PAGE_SIZE / 2)
 		{
-			mem_pool_node *pool = (mem_pool_node *)find_node(_os_mem.root, &std_size, on_find_compare, NULL);
-			if (NULL == pool)
+			//使用高速内存
+			for (; std_size < PAGE_SIZE / 2; std_size *= 2)
 			{
-				pool = create_mem_pool(std_size);
+				mem_pool_node *pool = (mem_pool_node *)find_node(_os_mem.root, &std_size, on_find_compare, NULL);
+				if (NULL == pool)
+				{
+					pool = create_mem_pool(std_size);
+					if (pool != NULL)
+					{
+						os_insert_node(&_os_mem.root, &pool->node, on_insert_compare, NULL);
+					}
+				}
 				if (pool != NULL)
 				{
-					os_insert_node(&_os_mem.root, &pool->node, on_insert_compare, NULL);
+					addr = os_mem_block_get(&pool->pool);
+					*((void **)addr) = pool;
+					addr += sizeof(void *);
+					if (0 == os_idle_block_count(&pool->pool))
+					{
+						os_delete_node(&_os_mem.root, &pool->node);
+					}
+					_os_mem.free_size -= std_size;
+					break;
 				}
-			}
-			if (pool != NULL)
-			{
-				addr = os_mem_block_get(&pool->pool);
-				*((void **)addr) = pool;
-				addr += sizeof(void *);
-				if (0 == os_idle_block_count(&pool->pool))
-				{
-					os_delete_node(&_os_mem.root, &pool->node);
-				}
-				_os_mem.free_size -= std_size;
-				break;
 			}
 		}
-	}
-	else
-	{
-		//使用伙伴算法
-		std_size = get_std_size(size, PAGE_SIZE);
-		addr = os_buddy_alloc(std_size);
+		else
+		{
+			//使用伙伴算法
+			std_size = get_std_size(size, PAGE_SIZE);
+			addr = os_buddy_alloc(std_size);
+			if (addr != NULL)
+			{
+				_os_mem.free_size -= std_size;
+			}
+		}
 		if (addr != NULL)
 		{
-			_os_mem.free_size -= std_size;
+			break;
+		}
+		else
+		{
+			_os_mem.wait_count++;
+			os_sem_pend(_os_mem.sem, 0, NULL);
 		}
 	}
+	
 	os_cpu_sr_restore(cpu_sr);
 	return addr;
 #endif
@@ -152,12 +167,22 @@ void os_kfree(void *addr)
 				os_buddy_free(pool);
 				_os_mem.free_size += sizeof(mem_pool_node);
 			}
+			if (_os_mem.wait_count > 0)
+			{
+				os_sem_post(_os_mem.sem);
+				_os_mem.wait_count--;
+			}
 		}
 	}
 	else
 	{
 		//属于伙伴算法
 		_os_mem.free_size += size;
+		if (_os_mem.wait_count > 0)
+		{
+			os_sem_post(_os_mem.sem);
+			_os_mem.wait_count--;
+		}
 	}
 	os_cpu_sr_restore(cpu_sr);
 #endif
