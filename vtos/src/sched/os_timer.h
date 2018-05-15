@@ -4,6 +4,7 @@
 #include "base/os_tree.h"
 
 typedef void(*timer_call_back)(void *p_arg);
+#pragma pack()
 typedef struct timer_info_t
 {
 	tree_node_type_def tree_node_structrue;
@@ -11,6 +12,7 @@ typedef struct timer_info_t
 	timer_call_back call_back_func;
 	void *args;
 } timer_info_t;
+#pragma pack()
 
 struct os_timer
 {

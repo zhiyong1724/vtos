@@ -374,6 +374,38 @@ uint64 os_get_tick()
 	return _scheduler.tick;
 }
 
+void os_get_task_info(task_info *out)
+{
+	if (out != NULL)
+	{
+		os_size_t cpu_sr = os_cpu_sr_off();
+		out->pid = _running_task->pid;
+		out->prio = _running_task->prio;
+		out->task_status = _running_task->task_status;
+		os_str_cpy(out->name, _running_task->name, TASK_NAME_SIZE);
+		os_cpu_sr_restore(cpu_sr);
+	}
+}
+
+os_size_t os_get_task_info_by_pid(task_info *out, os_size_t pid)
+{
+	if (out != NULL)
+	{
+		os_size_t cpu_sr = os_cpu_sr_off();
+		task_info_t **task = (task_info_t **)os_vector_at(&_scheduler.task_info_index, pid);
+		if (*task != NULL)
+		{
+			out->pid = (*task)->pid;
+			out->prio = (*task)->prio;
+			out->task_status = (*task)->task_status;
+			os_str_cpy(out->name, (*task)->name, TASK_NAME_SIZE);
+		}
+		os_cpu_sr_restore(cpu_sr);
+		return 0;
+	}
+	return 1;
+}
+
 void os_insert_runtree(task_info_t *task)
 {
 	if (task->vruntime - _scheduler.min_vruntime > prio_to_weight[0])
