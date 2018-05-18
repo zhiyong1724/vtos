@@ -20,9 +20,9 @@ void os_deque_free(os_deque *obj)
 		for (; cur->next_node != origin; )
 		{
 			cur = cur->next_node;
-			os_kfree(cur->pre_node);
+			os_free(cur->pre_node);
 		}
-		os_kfree(cur);
+		os_free(cur);
 	}
 }
 
@@ -46,7 +46,7 @@ os_size_t os_deque_empty(os_deque *obj)
 
 static list_node_type_def *create_array(os_deque *obj)
 {
-	list_node_type_def *array = (list_node_type_def *)os_kmalloc(sizeof(list_node_type_def) + MAX_ARRAY_SIZE * obj->unit_size);
+	list_node_type_def *array = (list_node_type_def *)os_malloc(sizeof(list_node_type_def) + MAX_ARRAY_SIZE * obj->unit_size);
 	return array;
 }
 
@@ -154,7 +154,7 @@ os_size_t os_deque_pop_back(os_deque *obj)
 			obj->end_index = MAX_ARRAY_SIZE - 1;
 			list_node_type_def *remove_node = obj->array->pre_node;
 			os_remove_from_list(&obj->array, remove_node);
-			os_kfree(remove_node);
+			os_free(remove_node);
 		}
 		else
 		{
@@ -175,7 +175,7 @@ os_size_t os_deque_pop_front(os_deque *obj)
 			obj->begin_index = 0;
 			list_node_type_def *remove_node = obj->array;
 			os_remove_from_list(&obj->array, remove_node);
-			os_kfree(remove_node);
+			os_free(remove_node);
 		}
 		else
 		{

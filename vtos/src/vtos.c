@@ -229,14 +229,14 @@ int main()
 			dir_obj *dir = open_dir(arg1);
 			if (dir != NULL)
 			{
-				file_info *finfo = (file_info *)os_kmalloc(sizeof(file_info));
+				file_info *finfo = (file_info *)os_malloc(sizeof(file_info));
 				printf("名字    大小    占用簇    文件数    创建时间    修改时间    创建者    修改者\n");
 				while (read_dir(finfo, dir) == 0)
 				{
 					printf("%s %lld %d %d %lld %lld %d %d\n", finfo->name, finfo->size, finfo->cluster_count, finfo->file_count, finfo->create_time, finfo->modif_time, finfo->creator, finfo->modifier);
 				}
 				close_dir(dir);
-				os_kfree(finfo);
+				os_free(finfo);
 			}
 			else
 			{
@@ -379,8 +379,8 @@ int main()
 		else if (os_str_cmp(command, "quit") == 0)
 		{
 			os_sys_uninit();
-			fs_unloading();
 			CloseHandle(handle);
+			fs_unloading();
 			break;
 		}
 		else

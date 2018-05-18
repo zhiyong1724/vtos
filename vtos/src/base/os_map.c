@@ -18,7 +18,7 @@ void os_map_free(os_map *obj)
 	{
 		os_map_iterator *temp = itr;
 		itr = os_map_next(obj, itr);
-		os_kfree(temp);
+		os_free(temp);
 	}
 }
 
@@ -67,7 +67,7 @@ static int8 os_map_compare(void *key1, void *key2, void *arg)
 os_size_t os_map_insert(os_map *obj, void *key, void *value)
 {
 	uint8 *index;
-	os_map_iterator *itr = (os_map_iterator *)os_kmalloc(sizeof(os_map_iterator) + obj->key_size + obj->value_size);
+	os_map_iterator *itr = (os_map_iterator *)os_malloc(sizeof(os_map_iterator) + obj->key_size + obj->value_size);
 	index = (uint8 *)&itr[1];
 	os_mem_cpy(index, key, obj->key_size);
 	index += obj->key_size;
@@ -78,7 +78,7 @@ os_size_t os_map_insert(os_map *obj, void *key, void *value)
 		obj->size++;
 		return 0;
 	}
-	os_kfree(itr);
+	os_free(itr);
 	return 1;
 }
 
@@ -105,7 +105,7 @@ os_size_t os_map_erase(os_map *obj, os_map_iterator *itr)
 	{
 		os_delete_node(&obj->tree, &itr->tree_node);
 		os_remove_from_list(&obj->head, &itr->list_node);
-		os_kfree(itr);
+		os_free(itr);
 		obj->size--;
 		return 0;
 	}
@@ -119,7 +119,7 @@ void os_map_clear(os_map *obj)
 	{
 		os_map_iterator *temp = itr;
 		itr = os_map_next(obj, itr);
-		os_kfree(temp);
+		os_free(temp);
 	}
 	obj->head = NULL;
 	obj->tree = NULL;

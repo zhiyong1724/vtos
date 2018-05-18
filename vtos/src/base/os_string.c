@@ -96,7 +96,7 @@ os_size_t os_str_find(const char *str, const char *pattern)
 		os_size_t len = sizeof(os_size_t) * (os_str_len(pattern) + 1);
 		if (len > 256)
 		{
-			os_size_t *next = os_kmalloc(len);
+			os_size_t *next = os_malloc(len);
 			if (next != NULL)
 			{
 				os_size_t i = 0;
@@ -118,7 +118,7 @@ os_size_t os_str_find(const char *str, const char *pattern)
 						ret = i - j + 1;
 					}
 				}
-				os_kfree(next);
+				os_free(next);
 			}
 		}
 		else

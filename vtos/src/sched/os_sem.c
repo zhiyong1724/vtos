@@ -36,14 +36,14 @@ void os_sem_uninit()
 			os_free_task_info(task);
 		}
 		os_delete_node(&_os_sem.tree, _os_sem.tree);
-		os_kfree(sem);
+		os_free(sem);
 	}
 }
 
 os_sem_t *os_sem_create(os_size_t cnt, const char *name)
 {
 	os_size_t cpu_sr = os_cpu_sr_off();
-	os_sem_t *p_sem = (os_sem_t *)os_kmalloc(sizeof(os_sem_t));
+	os_sem_t *p_sem = (os_sem_t *)os_malloc(sizeof(os_sem_t));
 	p_sem->sem = cnt;
 	p_sem->wait_task_list = NULL;
 	if (name != NULL && name[0] != '\0')
@@ -51,7 +51,7 @@ os_sem_t *os_sem_create(os_size_t cnt, const char *name)
 		os_str_cpy(p_sem->name, name, SEM_NAME_SIZE);
 		if (os_insert_node(&_os_sem.tree, &p_sem->tree, insert_compare, NULL) != 0)
 		{
-			os_kfree(p_sem);
+			os_free(p_sem);
 			p_sem = NULL;
 		}
 	}
@@ -149,7 +149,7 @@ void os_sem_free(os_sem_t *p_sem)
 	{
 		os_delete_node(&_os_sem.tree, &p_sem->tree);
 	}
-	os_kfree(p_sem);
+	os_free(p_sem);
 	os_cpu_sr_restore(cpu_sr);
 }
 

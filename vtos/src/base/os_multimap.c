@@ -54,7 +54,7 @@ static int8 os_multimap_compare(void *key1, void *key2, void *arg)
 os_size_t os_multimap_insert(os_multimap *obj, void *key, void *value)
 {
 	uint8 *index;
-	os_multimap_iterator *itr = (os_multimap_iterator *)os_kmalloc(sizeof(os_multimap_iterator) + obj->map.key_size + obj->map.value_size);
+	os_multimap_iterator *itr = (os_multimap_iterator *)os_malloc(sizeof(os_multimap_iterator) + obj->map.key_size + obj->map.value_size);
 	index = (uint8 *)&itr[1];
 	os_mem_cpy(index, key, obj->map.key_size);
 	index += obj->map.key_size;
@@ -65,7 +65,7 @@ os_size_t os_multimap_insert(os_multimap *obj, void *key, void *value)
 		obj->map.size++;
 		return 0;
 	}
-	os_kfree(itr);
+	os_free(itr);
 	return 1;
 }
 

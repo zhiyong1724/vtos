@@ -40,7 +40,7 @@ static int8 vruntime_compare(void *key1, void *key2, void *arg)
 static void init_task_info(void(*task)(void *p_arg), void *p_arg,
 	const char *name, task_info_t *task_structrue, os_size_t stack_size)
 {
-	task_structrue->stack_head = (os_stk *)os_kmalloc(stack_size);
+	task_structrue->stack_head = (os_stk *)os_malloc(stack_size);
 #if (OS_STK_GROWTH == 0)
 	task_structrue->stack = os_task_stk_init(task, p_arg, task_structrue->stack_head);
 	task_structrue->stack_end = task_structrue->stack_head + stack_size / sizeof(os_stk) - 2;
@@ -123,11 +123,11 @@ static os_size_t create_idle_task(void)
 
 void os_free_task_info(task_info_t *task)
 {
-	os_kfree(task->stack_head);
+	os_free(task->stack_head);
 #ifdef __WINDOWS__
 	CloseHandle(task->handle);
 #endif
-	os_kfree(task);
+	os_free(task);
 }
 
 static void thread_free_task(void *p_arg)
@@ -265,7 +265,7 @@ os_size_t os_kthread_create(void(*task)(void *p_arg), void *p_arg, const char *n
 os_size_t os_kthread_createEX(void(*task)(void *p_arg), void *p_arg, const char *name, os_size_t stack_size)
 {
 	os_size_t cpu_sr = os_cpu_sr_off();
-	task_info_t *task_info = (task_info_t *)os_kmalloc(sizeof(task_info_t));
+	task_info_t *task_info = (task_info_t *)os_malloc(sizeof(task_info_t));
 	init_task_info(task, p_arg, name, task_info, stack_size);
 #ifdef __WINDOWS__
 	task_info->handle = CreateThread(NULL, stack_size, (LPTHREAD_START_ROUTINE)task, p_arg, CREATE_SUSPENDED, NULL);

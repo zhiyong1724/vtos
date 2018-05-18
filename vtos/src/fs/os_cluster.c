@@ -45,7 +45,7 @@ static uint8 *bitmap_load(uint32 id)
 	}
 	else
 	{
-		data = (uint8 *)os_kmalloc(FS_CLUSTER_SIZE);
+		data = (uint8 *)os_malloc(FS_CLUSTER_SIZE);
 		cluster_read(FIRST_CLUSTER_MANAGER_ID + 1 + id, data);
 		os_map_insert(&_os_cluster.bitmaps, &id, &data);
 	}
@@ -67,7 +67,7 @@ static void bitmaps_flush()
 		bitmap_flush(*key, *pp);
 		if (*key != _os_cluster.cache_id)
 		{
-			os_kfree(*pp);
+			os_free(*pp);
 		}
 	}
 	os_map_clear(&_os_cluster.bitmaps);
@@ -82,11 +82,11 @@ static void cluster_manager_flush()
 	}
 	else
 	{
-		struct cluster_manager *temp = (struct cluster_manager *)os_kmalloc(FS_CLUSTER_SIZE);
+		struct cluster_manager *temp = (struct cluster_manager *)os_malloc(FS_CLUSTER_SIZE);
 		temp->cur_index = convert_endian(_os_cluster.pcluster_manager->cur_index);
 		temp->used_cluster_count = convert_endian(_os_cluster.pcluster_manager->used_cluster_count);
 		cluster_write(FIRST_CLUSTER_MANAGER_ID, (uint8 *)temp);
-		os_kfree(temp);
+		os_free(temp);
 	}
 }
 
@@ -110,15 +110,15 @@ void cluster_manager_load()
 
 static void bitmap_init(uint32 id)
 {
-	uint8 *temp = (uint8 *)os_kmalloc(FS_CLUSTER_SIZE);
+	uint8 *temp = (uint8 *)os_malloc(FS_CLUSTER_SIZE);
 	os_mem_set(temp, 0, FS_CLUSTER_SIZE);
 	bitmap_flush(id, temp);
-	os_kfree(temp);
+	os_free(temp);
 }
 
 void os_cluster_init()
 {
-	_os_cluster.pcluster_manager = (struct cluster_manager *)os_kmalloc(FS_CLUSTER_SIZE);
+	_os_cluster.pcluster_manager = (struct cluster_manager *)os_malloc(FS_CLUSTER_SIZE);
 	_os_cluster.bitmap = NULL;
 	_os_cluster.cache_id = 0;
 	_os_cluster.dinfo = os_get_disk_info();
@@ -269,10 +269,10 @@ void cluster_read(uint32 cluster_id, uint8 *data)
 	{
 		uint32 page_id = _os_cluster.dinfo.first_page_id + cluster_id / _os_cluster.divisor;
 		uint32 i = cluster_id % _os_cluster.divisor;
-		uint8 *buff = (uint8 *)os_kmalloc(_os_cluster.dinfo.page_size);
+		uint8 *buff = (uint8 *)os_malloc(_os_cluster.dinfo.page_size);
 		for (; os_disk_read(page_id, buff) != 0; );
 		os_mem_cpy(data, &buff[i * FS_CLUSTER_SIZE], FS_CLUSTER_SIZE);
-		os_kfree(buff);
+		os_free(buff);
 	}
 }
 
@@ -292,11 +292,11 @@ void cluster_write(uint32 cluster_id, uint8 *data)
 	{
 		uint32 page_id = _os_cluster.dinfo.first_page_id + cluster_id / _os_cluster.divisor;
 		uint32 i = cluster_id % _os_cluster.divisor;
-		uint8 *buff = (uint8 *)os_kmalloc(_os_cluster.dinfo.page_size);
+		uint8 *buff = (uint8 *)os_malloc(_os_cluster.dinfo.page_size);
 		for (; os_disk_read(page_id, buff) != 0; );
 		os_mem_cpy(&buff[i * FS_CLUSTER_SIZE], data, FS_CLUSTER_SIZE);
 		for (; os_disk_write(page_id, buff) != 0; );
-		os_kfree(buff);
+		os_free(buff);
 	}
 }
 
@@ -314,11 +314,11 @@ void uninit()
 {
 	if (_os_cluster.pcluster_manager != NULL)
 	{
-		os_kfree(_os_cluster.pcluster_manager);
+		os_free(_os_cluster.pcluster_manager);
 		_os_cluster.pcluster_manager = NULL;
 		if (_os_cluster.bitmap != NULL)
 		{
-			os_kfree(_os_cluster.bitmap);
+			os_free(_os_cluster.bitmap);
 			_os_cluster.bitmap = NULL;
 			_os_cluster.cache_id = 0;
 		}

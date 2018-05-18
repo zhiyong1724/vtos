@@ -17,7 +17,7 @@ void os_set_free(os_set *obj)
 	{
 		os_set_iterator *temp = itr;
 		itr = os_set_next(obj, itr);
-		os_kfree(temp);
+		os_free(temp);
 	}
 }
 
@@ -65,7 +65,7 @@ static int8 os_set_compare(void *key1, void *key2, void *arg)
 
 os_size_t os_set_insert(os_set *obj, void *data)
 {
-	os_set_iterator *itr = (os_set_iterator *)os_kmalloc(sizeof(os_set_iterator) + obj->unit_size);
+	os_set_iterator *itr = (os_set_iterator *)os_malloc(sizeof(os_set_iterator) + obj->unit_size);
 	os_mem_cpy(&itr[1], data, obj->unit_size);
 	if (os_insert_node(&obj->tree, &itr->tree_node, os_set_compare, &obj->unit_size) == 0)
 	{
@@ -73,7 +73,7 @@ os_size_t os_set_insert(os_set *obj, void *data)
 		obj->size++;
 		return 0;
 	}
-	os_kfree(itr);
+	os_free(itr);
 	return 1;
 }
 
@@ -100,7 +100,7 @@ os_size_t os_set_erase(os_set *obj, os_set_iterator *itr)
 	{
 		os_delete_node(&obj->tree, &itr->tree_node);
 		os_remove_from_list(&obj->head, &itr->list_node);
-		os_kfree(itr);
+		os_free(itr);
 		obj->size--;
 		return 0;
 	}
@@ -114,7 +114,7 @@ void os_set_clear(os_set *obj)
 	{
 		os_set_iterator *temp = itr;
 		itr = os_set_next(obj, itr);
-		os_kfree(temp);
+		os_free(temp);
 	}
 	obj->head = NULL;
 	obj->tree = NULL;

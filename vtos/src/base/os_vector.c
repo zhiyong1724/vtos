@@ -6,12 +6,12 @@ void os_vector_init(os_vector *obj, os_size_t unit_size)
 	obj->unit_size = unit_size;
 	obj->size = 0;
 	obj->max_size = 8;
-	obj->buff = (uint8 *)os_kmalloc(obj->max_size * obj->unit_size);
+	obj->buff = (uint8 *)os_malloc(obj->max_size * obj->unit_size);
 }
 
 void os_vector_free(os_vector *obj)
 {
-	os_kfree(obj->buff);
+	os_free(obj->buff);
 }
 
 os_size_t os_vector_size(os_vector *obj)
@@ -38,10 +38,10 @@ os_size_t os_vector_empty(os_vector *obj)
 
 os_size_t os_vector_resize(os_vector *obj, os_size_t size)
 {
-	uint8 *new_buff = os_kmalloc(size * obj->unit_size);
+	uint8 *new_buff = os_malloc(size * obj->unit_size);
 	obj->max_size = size;
 	os_mem_cpy(new_buff, obj->buff, obj->unit_size * obj->size);
-	os_kfree(obj->buff);
+	os_free(obj->buff);
 	obj->buff = new_buff;
 	return size;
 }
@@ -109,6 +109,7 @@ os_size_t os_vector_erase(os_vector *obj, os_size_t n)
 			os_mem_cpy(&obj->buff[(i - 1) * obj->unit_size], &obj->buff[i * obj->unit_size], obj->unit_size);
 		}
 		obj->size--;
+		return 0;
 	}
 	return 1;
 }

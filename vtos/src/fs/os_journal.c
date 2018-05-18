@@ -24,7 +24,7 @@ void os_journal_init(create_file_callback arg1, write_file_callback arg2)
 	_os_journal.create_file = arg1;
 	_os_journal.write_file = arg2;
 	_os_journal.enable = 0;
-	_os_journal.buff = (uint32 *)os_kmalloc(FS_CLUSTER_SIZE);
+	_os_journal.buff = (uint32 *)os_malloc(FS_CLUSTER_SIZE);
 	os_mem_set(_os_journal.buff, 0, FS_CLUSTER_SIZE);
 	_os_journal.file = NULL;
 	_os_journal.index = 0;
@@ -35,7 +35,7 @@ void os_journal_uninit()
 	_os_journal.create_file = NULL;
 	_os_journal.write_file = NULL;
 	_os_journal.enable = 0;
-	os_kfree(_os_journal.buff);
+	os_free(_os_journal.buff);
 	_os_journal.buff = NULL;
 	_os_journal.file = NULL;
 	_os_journal.index = 0;
@@ -77,10 +77,10 @@ void journal_write(uint32 id)
 	{
 		_os_journal.enable = 0;
 		seek_file(_os_journal.file, FS_CLUSTER_SIZE + _os_journal.index * FS_CLUSTER_SIZE, FS_SEEK_SET);
-		void *data = os_kmalloc(FS_CLUSTER_SIZE);
+		void *data = os_malloc(FS_CLUSTER_SIZE);
 		cluster_read(id, data);
 		_os_journal.write_file(_os_journal.file, data, FS_CLUSTER_SIZE);
-		os_kfree(data);
+		os_free(data);
 		if (is_little_endian())
 		{
 			_os_journal.buff[_os_journal.index] = id;
@@ -128,11 +128,11 @@ uint32 restore_from_journal()
 			}
 			for (; i >= 0; i--)
 			{
-				void *buff = os_kmalloc(FS_CLUSTER_SIZE);
+				void *buff = os_malloc(FS_CLUSTER_SIZE);
 				seek_file(file, FS_CLUSTER_SIZE + i * FS_CLUSTER_SIZE, FS_SEEK_SET);
 				read_file(file, buff, FS_CLUSTER_SIZE);
 				cluster_write(_os_journal.buff[i], buff);
-				os_kfree(buff);
+				os_free(buff);
 			}
 			journal_reset();
 			close_file(file);

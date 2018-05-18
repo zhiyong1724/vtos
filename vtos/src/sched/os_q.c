@@ -15,7 +15,7 @@ void os_q_uninit()
 		os_sem_free(q->sem);
 		os_delete_node(&_os_q.tree, _os_q.tree);
 		os_deque_free(&q->queue);
-		os_kfree(q);
+		os_free(q);
 	}
 }
 
@@ -38,13 +38,13 @@ static int8 find_compare(void *key1, void *key2, void *arg)
 os_q_t *os_q_create(os_size_t unit_size, const char *name)
 {
 	os_size_t cpu_sr = os_cpu_sr_off();
-	os_q_t *p_queue = (os_q_t *)os_kmalloc(sizeof(os_q_t));
+	os_q_t *p_queue = (os_q_t *)os_malloc(sizeof(os_q_t));
 	if (name != NULL && name[0] != '\0')
 	{
 		os_str_cpy(p_queue->name, name, SEM_NAME_SIZE);
 		if (os_insert_node(&_os_q.tree, &p_queue->tree, insert_compare, NULL) != 0)
 		{
-			os_kfree(p_queue);
+			os_free(p_queue);
 			p_queue = NULL;
 		}
 	}
@@ -109,6 +109,6 @@ void os_q_free(os_q_t *p_queue)
 	}
 	os_deque_free(&p_queue->queue);
 	os_sem_free(p_queue->sem);
-	os_kfree(p_queue);
+	os_free(p_queue);
 	os_cpu_sr_restore(cpu_sr);
 }

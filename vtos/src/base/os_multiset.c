@@ -53,7 +53,7 @@ static int8 os_multiset_compare(void *key1, void *key2, void *arg)
 
 os_size_t os_multiset_insert(os_multiset *obj, void *data)
 {
-	os_multiset_iterator *itr = (os_multiset_iterator *)os_kmalloc(sizeof(os_multiset_iterator) + obj->set.unit_size);
+	os_multiset_iterator *itr = (os_multiset_iterator *)os_malloc(sizeof(os_multiset_iterator) + obj->set.unit_size);
 	os_mem_cpy(&itr[1], data, obj->set.unit_size);
 	if (os_insert_node(&obj->set.tree, &itr->set_iterator.tree_node, os_multiset_compare, &obj->set.unit_size) == 0)
 	{
@@ -61,7 +61,7 @@ os_size_t os_multiset_insert(os_multiset *obj, void *data)
 		obj->set.size++;
 		return 0;
 	}
-	os_kfree(itr);
+	os_free(itr);
 	return 1;
 }
 

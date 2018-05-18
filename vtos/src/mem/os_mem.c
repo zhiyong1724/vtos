@@ -79,7 +79,7 @@ os_size_t os_mem_init(void)
 #endif
 }
 
-void *os_kmalloc(os_size_t size)
+void *os_malloc(os_size_t size)
 {
 #ifdef __USE_STD_MALLOC__
 	return malloc(size);
@@ -143,7 +143,7 @@ void *os_kmalloc(os_size_t size)
 #endif
 }
 
-void os_kfree(void *addr)
+void os_free(void *addr)
 {
 #ifdef __USE_STD_MALLOC__
 	free(addr);
