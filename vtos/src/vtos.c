@@ -5,6 +5,7 @@
 #ifdef __WINDOWS__
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
+#include <time.h>
 #endif
 
 #include "base/os_string.h"
@@ -37,6 +38,16 @@ uint32 is_little_endian()
 		}
 	}
 	return endian;
+}
+
+uint64 os_sys_time()
+{
+#ifdef __WINDOWS__
+	time_t t = time(NULL);
+	return t;
+#else
+	return 0;
+#endif // __WINDOWS__
 }
 
 os_size_t os_sys_init(void)

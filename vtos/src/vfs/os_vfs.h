@@ -1,41 +1,45 @@
 #ifndef __OS_VFS_H__
 #define __OS_VFS_H__
 #include "os_cpu_def.h"
+#include "base/os_map.h"
 #define MAX_FILE_NAME_SIZE 64
-#define OS_DIR void *
-#define OS_FILE void *
 #define OS_FS_READ 1
 #define OS_FS_WRITE 2
 #define OS_FS_APPEND 4
 #define OS_FS_CREATE 8
+
+#define OS_DIR void *
+#define OS_FILE void *
+
+struct os_file_operators;
+struct os_fs_operators;
+
 typedef struct os_file_info
 {
+	char name[MAX_FILE_NAME_SIZE];
 	uint64 size;
 	uint64 create_time;
 	uint64 modif_time;
 	uint32 creator;
 	uint32 modifier;
-	uint32 property;
-	uint32 file_count;
-	char name[MAX_FILE_NAME_SIZE];
+	uint32 property;  //.10 dir or file;.9 only sys w;.876 user r,w,x;.543 group r,w,x;.210 other r,w,x
+	os_map *files;
+	struct os_file_operators *file_operators;
+	struct os_fs_operators *fs_operators;
+	void *real_dir;
 } os_file_info;
-
-struct os_vfs
-{
-	int i;
-};
 
 typedef struct os_file_operators
 {
-	void (*module_init)();
-	void (*module_uninit)();
+	void(*module_init)();
+	void(*module_uninit)();
 	void *(*os_ioctl)(uint32 command, void *arg);
-	OS_FILE (*open_file)(const char *path, uint32 flags);
-	void (*close_file)(OS_FILE file);
-	uint32 (*read_file)(OS_FILE file, void *data, uint32 len);
-	uint32 (*write_file)(OS_FILE file, void *data, uint32 len);
-	uint32 (*seek_file)(OS_FILE file, int64 offset, uint32 fromwhere);
-	uint64 (*tell_file)(OS_FILE file);
+	OS_FILE(*open_file)(const char *path, uint32 flags);
+	void(*close_file)(OS_FILE file);
+	uint32(*read_file)(OS_FILE file, void *data, uint32 len);
+	uint32(*write_file)(OS_FILE file, void *data, uint32 len);
+	uint32(*seek_file)(OS_FILE file, int64 offset, uint32 fromwhere);
+	uint64(*tell_file)(OS_FILE file);
 } os_file_operators;
 
 typedef struct os_fs_operators
@@ -53,6 +57,41 @@ typedef struct os_fs_operators
 	uint32(*copy_file)(const char *dest, const char *src);
 } os_fs_operators;
 
+struct os_vfs
+{
+	os_file_info root;
+};
+
+/*********************************************************************************************************************
+* 初始化vfs
+*********************************************************************************************************************/
+void os_vfs_init();
+/*********************************************************************************************************************
+* 卸载vfs
+*********************************************************************************************************************/
+void os_vfs_uninit();
+/*********************************************************************************************************************
+* 创建虚拟文件
+* path：文件路径
+* return：0：创建成功；1：创建失败
+*********************************************************************************************************************/
+uint32 os_create_vfile(const char *path);
+/*********************************************************************************************************************
+* 删除一个虚拟文件
+* path：路径
+* return：0：成功；
+*********************************************************************************************************************/
+uint32 os_delete_vfile(const char *path);
+/*********************************************************************************************************************
+* 创建文件
+* path：文件路径
+* return：0：创建成功；1：创建失败
+*********************************************************************************************************************/
+uint32 os_create_file(const char *path);
+/*********************************************************************************************************************
+* 初始化vfs
+*********************************************************************************************************************/
+void os_vfs_init();
 /*********************************************************************************************************************
 * 初始化内核模块
 *********************************************************************************************************************/

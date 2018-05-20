@@ -67,7 +67,7 @@ static void file_info_init(file_info *info)
 	info->modif_time = os_get_time();
 	info->creator = 0;
 	info->modifier = 0;
-	info->property = 0x000001ff; //.10 dir or file;.9 only sys w;.876 user r,w,x;.543 group r,w,x;.210 other r,w,x
+	info->property = 0x000001b6; //.10 dir or file;.9 only sys w;.876 user r,w,x;.543 group r,w,x;.210 other r,w,x
 	info->file_count = 0;
 	info->name[0] = '\0';
 }

@@ -2,6 +2,8 @@
 #include "base/os_string.h"
 #include "vtos.h"
 #include "base/os_vector.h"
+static struct os_vfs _os_vfs;
+
 static char *pretreat_path(const char *path)
 {
 	char *buff = NULL;
@@ -80,6 +82,233 @@ static char *pretreat_path(const char *path)
 	}
 	
 	return buff;
+}
+
+static uint32 get_file_name(char *dest, const char *path, uint32 *index)
+{
+	uint32 ret = 1;
+	if ('/' == path[*index])
+	{
+		uint32 i = 0;
+		ret = 0;
+		(*index)++;
+		for (; path[*index] != '\0'; (*index)++)
+		{
+			if (path[*index] != '/')
+			{
+				break;
+			}
+		}
+		for (; path[*index] != '\0'; (*index)++, i++)
+		{
+			if (path[*index] == '/')
+			{
+				break;
+			}
+			else
+			{
+				dest[i] = path[*index];
+			}
+		}
+		dest[i] = '\0';
+		if (os_str_cmp(dest, "") == 0)
+		{
+			ret = 1;
+		}
+	}
+	return ret;
+}
+
+static void os_file_operators_init(os_file_operators *file_operators)
+{
+	file_operators->module_init = NULL;
+	file_operators->module_uninit = NULL;
+	file_operators->os_ioctl = NULL;
+	file_operators->open_file = NULL;
+	file_operators->close_file = NULL;
+	file_operators->read_file = NULL;
+	file_operators->write_file = NULL;
+	file_operators->seek_file = NULL;
+	file_operators->tell_file = NULL;
+}
+
+static void os_fs_operators_init(os_fs_operators *fs_operators)
+{
+	fs_operators->mount = NULL;
+	fs_operators->unmount = NULL;
+	fs_operators->create_dir = NULL;
+	fs_operators->create_file = NULL;
+	fs_operators->open_dir = NULL;
+	fs_operators->close_dir = NULL;
+	fs_operators->read_dir = NULL;
+	fs_operators->delete_dir = NULL;
+	fs_operators->delete_file = NULL;
+	fs_operators->move_file = NULL;
+	fs_operators->copy_file = NULL;
+}
+
+static void os_file_info_init(os_file_info *finfo)
+{
+	finfo->name[0] = '\0';
+	_os_vfs.root.size = 0;
+	_os_vfs.root.create_time = os_sys_time();
+	_os_vfs.root.modif_time = os_sys_time();
+	_os_vfs.root.creator = 0;
+	_os_vfs.root.modifier = 0;
+	_os_vfs.root.property = 0x000007b6;
+	_os_vfs.root.files = NULL;
+	_os_vfs.root.file_operators = NULL;
+	_os_vfs.root.fs_operators = NULL;
+	_os_vfs.root.real_dir = NULL;
+}
+
+void os_vfs_init()
+{
+	os_file_info_init(&_os_vfs.root);
+	os_str_cpy(_os_vfs.root.name, "/", MAX_FILE_NAME_SIZE);
+	_os_vfs.root.files = (os_map *)os_malloc(sizeof(os_map));
+	os_map_init(_os_vfs.root.files, MAX_FILE_NAME_SIZE, sizeof(os_file_info));
+}
+
+void os_vfs_uninit()
+{
+	os_free(_os_vfs.root.files);
+	if (_os_vfs.root.file_operators != NULL)
+	{
+		os_free(_os_vfs.root.file_operators);
+		_os_vfs.root.file_operators = NULL;
+	}
+	if (_os_vfs.root.fs_operators != NULL)
+	{
+		os_free(_os_vfs.root.fs_operators);
+		_os_vfs.root.fs_operators = NULL;
+	}
+}
+
+uint32 os_create_vfile(const char *path)
+{
+	uint32 ret = 1;
+	char *pre_path = pretreat_path(path);
+	if (pre_path != NULL)
+	{
+		char name[MAX_FILE_NAME_SIZE];
+		uint32 index = 0;
+		uint32 child_index = 0;
+		uint32 end_index = 0;
+		for (; get_file_name(name, pre_path, &index) == 0; )
+		{
+			child_index = end_index;
+			end_index = index;
+		}
+		if (end_index != 0)
+		{
+			os_file_info *cur = &_os_vfs.root;
+			for (index = 0; index != child_index; )
+			{
+				get_file_name(name, pre_path, &index);
+				if (os_str_cmp(name, ".") != 0 && os_str_cmp(name, "..") != 0 && os_str_find(name, "/") == -1 && os_str_find(name, "\\") == -1
+					&& os_str_find(name, ":") == -1 && os_str_find(name, "*") == -1 && os_str_find(name, "?") == -1 && os_str_find(name, "\"") == -1
+					&& os_str_find(name, "<") == -1 && os_str_find(name, ">") == -1 && os_str_find(name, "|") == -1)
+				{
+					if (cur->files != NULL)
+					{
+						os_map_iterator *itr = os_map_find(cur->files, name);
+						if (itr != NULL)
+						{
+							cur = os_map_second(cur->files, itr);
+						}
+						else
+						{
+							break;
+						}
+					}
+				}
+			}
+			if (index == child_index)
+			{
+				get_file_name(name, pre_path, &child_index);
+				os_file_info *finfo = (os_file_info *)os_malloc(sizeof(os_file_info));
+				os_file_info_init(finfo);
+				os_str_cpy(finfo->name, name, MAX_FILE_NAME_SIZE);
+				if (NULL == cur->files)
+				{
+					cur->files = (os_map *)os_malloc(sizeof(os_map));
+					os_map_init(cur->files, MAX_FILE_NAME_SIZE, sizeof(os_file_info));
+				}
+				ret = os_map_insert(cur->files, name, finfo);
+				os_free(finfo);
+			}
+		}
+		os_free(pre_path);
+	}
+	return ret;
+}
+
+uint32 os_delete_vfile(const char *path)
+{
+	uint32 ret = 1;
+	char *pre_path = pretreat_path(path);
+	if (pre_path != NULL)
+	{
+		char name[MAX_FILE_NAME_SIZE];
+		uint32 index = 0;
+		uint32 child_index = 0;
+		uint32 end_index = 0;
+		for (; get_file_name(name, pre_path, &index) == 0; )
+		{
+			child_index = end_index;
+			end_index = index;
+		}
+		if (end_index != 0)
+		{
+			os_file_info *cur = &_os_vfs.root;
+			for (index = 0; index != child_index; )
+			{
+				get_file_name(name, pre_path, &index);
+				if (cur->files != NULL)
+				{
+					os_map_iterator *itr = os_map_find(cur->files, name);
+					if (itr != NULL)
+					{
+						cur = os_map_second(cur->files, itr);
+					}
+					else
+					{
+						break;
+					}
+				}
+			}
+			if (index == child_index)
+			{
+				if (cur->files != NULL)
+				{
+					get_file_name(name, pre_path, &child_index);
+					if (os_str_cmp(name, ".") != 0 && os_str_cmp(name, "..") != 0 && os_str_find(name, "/") == -1 && os_str_find(name, "\\") == -1
+						&& os_str_find(name, ":") == -1 && os_str_find(name, "*") == -1 && os_str_find(name, "?") == -1 && os_str_find(name, "\"") == -1
+						&& os_str_find(name, "<") == -1 && os_str_find(name, ">") == -1 && os_str_find(name, "|") == -1)
+					{
+						os_map_iterator *itr = os_map_find(cur->files, name);
+						if (itr != NULL)
+						{
+							os_file_info *child = os_map_second(cur->files, itr);
+							if (NULL == child->files)
+							{
+								ret = 0;
+								os_map_erase(cur->files, itr);
+								if (os_map_empty(cur->files))
+								{
+									os_map_free(cur->files);
+									cur->files = NULL;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		os_free(pre_path);
+	}
+	return ret;
 }
 
 void os_module_init()
