@@ -24,10 +24,17 @@ typedef struct os_file_info
 	uint32 modifier;
 	uint32 property;  //.10 dir or file;.9 only sys w;.876 user r,w,x;.543 group r,w,x;.210 other r,w,x
 	os_map *files;
+	uint32 dev_id;
 	struct os_file_operators *file_operators;
 	struct os_fs_operators *fs_operators;
-	void *real_dir;
 } os_file_info;
+
+typedef struct os_dir
+{
+	os_map_iterator *itr;
+	OS_DIR real_dir;
+	os_file_info *vfile;
+} os_dir;
 
 typedef struct os_file_operators
 {
@@ -44,17 +51,17 @@ typedef struct os_file_operators
 
 typedef struct os_fs_operators
 {
-	void(*mount)();
-	void(*unmount)();
-	uint32(*create_dir)(const char *path);
-	uint32(*create_file)(const char *path);
-	OS_DIR(*open_dir)(const char *path);
-	void(*close_dir)(OS_DIR dir);
-	uint32(*read_dir)(os_file_info *finfo, OS_DIR dir);
-	uint32(*delete_dir)(const char *path);
-	uint32(*delete_file)(const char *path);
-	uint32(*move_file)(const char *dest, const char *src);
-	uint32(*copy_file)(const char *dest, const char *src);
+	void (*mount)();
+	void (*unmount)();
+	uint32 (*create_dir)(const char *path);
+	uint32 (*create_file)(const char *path);
+	OS_DIR (*open_dir)(const char *path);
+	void (*close_dir)(OS_DIR dir);
+	uint32 (*read_dir)(os_file_info *finfo, OS_DIR dir);
+	uint32 (*delete_dir)(const char *path);
+	uint32 (*delete_file)(const char *path);
+	uint32 (*move_file)(const char *dest, const char *src);
+	uint32 (*copy_file)(const char *dest, const char *src);
 } os_fs_operators;
 
 struct os_vfs
@@ -75,7 +82,7 @@ void os_vfs_uninit();
 * path：文件路径
 * return：0：创建成功；1：创建失败
 *********************************************************************************************************************/
-uint32 os_create_vfile(const char *path);
+uint32 os_create_vfile(const char *path, os_file_operators *file_operators, os_fs_operators *fs_operators);
 /*********************************************************************************************************************
 * 删除一个虚拟文件
 * path：路径
@@ -83,15 +90,18 @@ uint32 os_create_vfile(const char *path);
 *********************************************************************************************************************/
 uint32 os_delete_vfile(const char *path);
 /*********************************************************************************************************************
+* 注册一个设备文件，必须在os_vfs_init后使用
+* name：设备名
+* file_operators：设备操作接口
+* return：0：成功；
+*********************************************************************************************************************/
+uint32 os_register_dev(const char *name, os_file_operators *file_operators);
+/*********************************************************************************************************************
 * 创建文件
 * path：文件路径
 * return：0：创建成功；1：创建失败
 *********************************************************************************************************************/
 uint32 os_create_file(const char *path);
-/*********************************************************************************************************************
-* 初始化vfs
-*********************************************************************************************************************/
-void os_vfs_init();
 /*********************************************************************************************************************
 * 初始化内核模块
 *********************************************************************************************************************/
@@ -125,19 +135,19 @@ uint32 os_create_file(const char *path);
 * path：文件路径
 * return：目录
 *********************************************************************************************************************/
-OS_DIR os_open_dir(const char *path);
+os_dir *os_open_dir(const char *path);
 /*********************************************************************************************************************
 * 关闭一个目录
 * dir：目录
 *********************************************************************************************************************/
-void os_close_dir(OS_DIR dir);
+void os_close_dir(os_dir *dir);
 /*********************************************************************************************************************
 * 读取一个目录
 * finfo：存放找到的info
 * dir：目录
 * return：0:读取成功
 *********************************************************************************************************************/
-uint32 os_read_dir(os_file_info *finfo, OS_DIR dir);
+uint32 os_read_dir(os_file_info *finfo, os_dir *dir);
 /*********************************************************************************************************************
 * 删除一个空目录
 * path：路径

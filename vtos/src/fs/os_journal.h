@@ -1,10 +1,11 @@
 #ifndef __OS_JOURNAL_H__
 #define __OS_JOURNAL_H__
 #include "fs/os_fs_def.h"
+#include "os_cluster.h"
 #define JOURNAL_FILE_SIZE (FS_CLUSTER_SIZE * 1024)
-typedef uint32(*create_file_callback)(const char *path);
-typedef uint32 (*write_file_callback)(void *file, void *data, uint32 len);
-struct os_journal
+typedef uint32(*create_file_callback)(const char *path, void *fs);
+typedef uint32 (*write_file_callback)(void *file, void *data, uint32 len, void *fs);
+typedef struct os_journal
 {
 	uint32 enable;
 	create_file_callback create_file;
@@ -12,40 +13,51 @@ struct os_journal
 	uint32 *buff;
 	void *file;
 	uint32 index;
-};
+	os_cluster *cluster;
+} os_journal;
 /*********************************************************************************************************************
 * 初始化
+* journal：os_journal对象
 * arg1：创建系统文件函数指针
 * arg2：写系统文件函数指针
+* cluster：os_cluster对象
 *********************************************************************************************************************/
-void os_journal_init(create_file_callback arg1, write_file_callback arg2);
+void os_journal_init(os_journal *journal, create_file_callback arg1, write_file_callback arg2, os_cluster *cluster);
 /*********************************************************************************************************************
 * 释放资源
+* journal：os_journal对象
 *********************************************************************************************************************/
-void os_journal_uninit();
+void os_journal_uninit(os_journal *journal);
 /*********************************************************************************************************************
 * 开始写日志
+* journal：os_journal对象
 *********************************************************************************************************************/
-void journal_start();
+void journal_start(os_journal *journal);
 /*********************************************************************************************************************
 * 结束写日志
+* journal：os_journal对象
 *********************************************************************************************************************/
-void journal_end();
+void journal_end(os_journal *journal);
 /*********************************************************************************************************************
 * 写日志函数
+* id：cluster id
+* journal：os_journal对象
 *********************************************************************************************************************/
-void journal_write(uint32 id);
+void journal_write(uint32 id, os_journal *journal);
 /*********************************************************************************************************************
 * 创建日志文件
+* journal：os_journal对象
 *********************************************************************************************************************/
-void journal_create();
+void journal_create(os_journal *journal);
 /*********************************************************************************************************************
 * 重置日志文件
+* journal：os_journal对象
 *********************************************************************************************************************/
-void journal_reset();
+void journal_reset(os_journal *journal);
 /*********************************************************************************************************************
 * 从日志中恢复文件系统
+* journal：os_journal对象
 * return：0：需要恢复
 *********************************************************************************************************************/
-uint32 restore_from_journal();
+uint32 restore_from_journal(os_journal *journal);
 #endif

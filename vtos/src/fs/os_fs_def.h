@@ -42,8 +42,8 @@ typedef struct disk_info
 } disk_info;
 
 //下面的函数需要在os_fs_port.c中实现
-disk_info os_get_disk_info();
-uint32 os_disk_read(uint32 page_id, void *data);
-uint32 os_disk_write(uint32 page_id, void *data);
+uint32 os_get_disk_info(disk_info *info, uint32 dev_id);
+uint32 os_disk_read(uint32 page_id, void *data, uint32 dev_id);
+uint32 os_disk_write(uint32 page_id, void *data, uint32 dev_id);
 uint64 os_get_time();
 #endif

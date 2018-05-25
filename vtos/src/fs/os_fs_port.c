@@ -5,19 +5,18 @@
 #include <string.h>
 #endif
 
-disk_info os_get_disk_info()
+uint32 os_get_disk_info(disk_info *info, uint32 dev_id)
 {
 #ifdef __WINDOWS__
-	disk_info info;
-	info.first_page_id = 0;
-	info.page_size = FS_CLUSTER_SIZE;
-	info.page_count = 1024 * 32;
-	return info;
+	info->first_page_id = 0;
+	info->page_size = FS_CLUSTER_SIZE;
+	info->page_count = 1024 * 32;
+	return 0;
 #else
 #endif // __WINDOWS__
 }
 
-uint32 os_disk_read(uint32 page_id, void *data)
+uint32 os_disk_read(uint32 page_id, void *data, uint32 dev_id)
 {
 #ifdef __WINDOWS__
 	char name[32];
@@ -33,7 +32,7 @@ uint32 os_disk_read(uint32 page_id, void *data)
 	return 0;
 #endif // __WINDOWS__
 }
-uint32 os_disk_write(uint32 page_id, void *data)
+uint32 os_disk_write(uint32 page_id, void *data, uint32 dev_id)
 {
 #ifdef __WINDOWS__
 	char name[32];
