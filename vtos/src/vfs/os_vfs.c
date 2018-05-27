@@ -3,6 +3,10 @@
 #include "vtos.h"
 #include "base/os_vector.h"
 static struct os_vfs _os_vfs;
+static const os_file_system *_file_systems[] =
+{
+	NULL
+};
 static const char *DEV_PATH = "/dev";
 static const char *MNT_PATH = "/mnt";
 static char *pretreat_path(const char *path)
@@ -165,7 +169,7 @@ static void os_file_info_init(os_file_info *finfo)
 	finfo->modifier = 0;
 	finfo->property = 0x000007b6;
 	finfo->files = NULL;
-	finfo->dev_id = 0;
+	finfo->dev = NULL;
 	finfo->file_operators = NULL;
 	finfo->fs_operators = NULL;
 }

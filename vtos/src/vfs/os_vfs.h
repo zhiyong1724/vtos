@@ -11,8 +11,22 @@
 #define OS_DIR void *
 #define OS_FILE void *
 
+enum DISK_OPERATE
+{
+	DISK_INFO,
+	DISK_READ,
+	DISK_WRITE,
+};
+
 struct os_file_operators;
 struct os_fs_operators;
+
+typedef struct os_disk_info
+{
+	uint32 first_page_id;
+	uint32 page_size;
+	uint32 page_count;
+} os_disk_info;
 
 typedef struct os_file_info
 {
@@ -24,7 +38,7 @@ typedef struct os_file_info
 	uint32 modifier;
 	uint32 property;  //.10 dir or file;.9 only sys w;.876 user r,w,x;.543 group r,w,x;.210 other r,w,x
 	os_map *files;
-	uint32 dev_id;
+	struct os_file_info *dev;
 	struct os_file_operators *file_operators;
 	struct os_fs_operators *fs_operators;
 } os_file_info;
@@ -63,6 +77,13 @@ typedef struct os_fs_operators
 	uint32 (*move_file)(const char *dest, const char *src);
 	uint32 (*copy_file)(const char *dest, const char *src);
 } os_fs_operators;
+
+typedef struct os_file_system
+{
+	const char *name;
+	os_file_operators *file_operators;
+	os_fs_operators *fs_operators;
+} os_file_system;
 
 struct os_vfs
 {

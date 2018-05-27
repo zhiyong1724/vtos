@@ -2,6 +2,7 @@
 #include "mem/os_mem.h"
 #include "sched/os_sched.h"
 #include "sched/os_timer.h"
+#include "fs/disk_driver.h"
 #ifdef __WINDOWS__
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
@@ -49,6 +50,16 @@ uint64 os_sys_time()
 #endif // __WINDOWS__
 }
 
+void os_register_devices()
+{
+	register_disk_dev();
+}
+
+void os_mount_root()
+{
+
+}
+
 os_size_t os_sys_init(void)
 {
 	os_size_t ret = 1;
@@ -65,6 +76,8 @@ os_size_t os_sys_init(void)
 	os_scheduler_init_end_hook(ret);
 
 	os_vfs_init();
+	os_register_devices();
+	os_mount_root();
 	return ret;
 }
 
