@@ -39,8 +39,9 @@ typedef struct os_file_info
 	uint32 property;  //.10 dir or file;.9 only sys w;.876 user r,w,x;.543 group r,w,x;.210 other r,w,x
 	os_map *files;
 	struct os_file_info *dev;
-	struct os_file_operators *file_operators;
-	struct os_fs_operators *fs_operators;
+	void *arg;
+	const struct os_file_operators *file_operators;
+	const struct os_fs_operators *fs_operators;
 } os_file_info;
 
 typedef struct os_dir
@@ -65,8 +66,8 @@ typedef struct os_file_operators
 
 typedef struct os_fs_operators
 {
-	void (*mount)();
-	void (*unmount)();
+	void (*mount)(os_file_info *mount_file, uint32 formatting);
+	void (*unmount)(os_file_info *mount_file);
 	uint32 (*create_dir)(const char *path);
 	uint32 (*create_file)(const char *path);
 	OS_DIR (*open_dir)(const char *path);
@@ -81,8 +82,8 @@ typedef struct os_fs_operators
 typedef struct os_file_system
 {
 	const char *name;
-	os_file_operators *file_operators;
-	os_fs_operators *fs_operators;
+	const os_file_operators *file_operators;
+	const os_fs_operators *fs_operators;
 } os_file_system;
 
 struct os_vfs
@@ -101,9 +102,9 @@ void os_vfs_uninit();
 /*********************************************************************************************************************
 * 创建虚拟文件
 * path：文件路径
-* return：0：创建成功；1：创建失败
+* return：
 *********************************************************************************************************************/
-uint32 os_create_vfile(const char *path, os_file_operators *file_operators, os_fs_operators *fs_operators);
+os_file_info *os_create_vfile(const char *path, const os_file_operators *file_operators, const os_fs_operators *fs_operators);
 /*********************************************************************************************************************
 * 删除一个虚拟文件
 * path：路径
@@ -116,29 +117,34 @@ uint32 os_delete_vfile(const char *path);
 * file_operators：设备操作接口
 * return：0：成功；
 *********************************************************************************************************************/
-uint32 os_register_dev(const char *name, os_file_operators *file_operators);
+uint32 os_register_dev(const char *name, const os_file_operators *file_operators);
+/*********************************************************************************************************************
+* 移除注册一个设备文件
+* name：设备名
+* return：0：成功；
+*********************************************************************************************************************/
+uint32 os_unregister_dev(const char *name);
+/*********************************************************************************************************************
+* 挂载文件系统
+* mount_name：挂载的文件名
+* dev_name：设备名
+* fs_name：要挂载的文件系统名字
+* formatting：是否需要格式化？1：进行格式化，0：不进行格式化
+* return：0：挂载成功
+*********************************************************************************************************************/
+uint32 os_mount(const char *mount_name, const char *dev_name, const char *fs_name, uint32 formatting);
+/*********************************************************************************************************************
+* 卸载文件系统
+* mount_name：挂载的文件名
+* return：0：卸载成功
+*********************************************************************************************************************/
+uint32 os_unmount(const char *mount_name);
 /*********************************************************************************************************************
 * 创建文件
 * path：文件路径
 * return：0：创建成功；1：创建失败
 *********************************************************************************************************************/
 uint32 os_create_file(const char *path);
-/*********************************************************************************************************************
-* 初始化内核模块
-*********************************************************************************************************************/
-void os_module_init();
-/*********************************************************************************************************************
-* 卸载内核模块
-*********************************************************************************************************************/
-void os_module_uninit();
-/*********************************************************************************************************************
-* 挂载文件系统
-*********************************************************************************************************************/
-void os_mount();
-/*********************************************************************************************************************
-* 卸载文件系统
-*********************************************************************************************************************/
-void os_unmount();
 /*********************************************************************************************************************
 * 创建文件夹
 * path：文件路径

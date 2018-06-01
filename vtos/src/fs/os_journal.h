@@ -1,7 +1,6 @@
 #ifndef __OS_JOURNAL_H__
 #define __OS_JOURNAL_H__
 #include "fs/os_fs_def.h"
-#include "os_cluster.h"
 #define JOURNAL_FILE_SIZE (FS_CLUSTER_SIZE * 1024)
 typedef uint32(*create_file_callback)(const char *path, void *fs);
 typedef uint32 (*write_file_callback)(void *file, void *data, uint32 len, void *fs);
@@ -13,16 +12,16 @@ typedef struct os_journal
 	uint32 *buff;
 	void *file;
 	uint32 index;
-	os_cluster *cluster;
+	void *fs;
 } os_journal;
 /*********************************************************************************************************************
 * 初始化
 * journal：os_journal对象
 * arg1：创建系统文件函数指针
 * arg2：写系统文件函数指针
-* cluster：os_cluster对象
+* fs：os_fs对象
 *********************************************************************************************************************/
-void os_journal_init(os_journal *journal, create_file_callback arg1, write_file_callback arg2, os_cluster *cluster);
+void os_journal_init(os_journal *journal, create_file_callback arg1, write_file_callback arg2, void *fs);
 /*********************************************************************************************************************
 * 释放资源
 * journal：os_journal对象

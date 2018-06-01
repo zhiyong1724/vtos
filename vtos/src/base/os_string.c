@@ -57,6 +57,22 @@ void os_utoa(char *buff, os_size_t num)
 	*buff = '\0';
 }
 
+os_size_t os_atou(const char *buff)
+{
+	os_size_t num = 0;
+	os_size_t i = 1;
+	const char *num_str = buff;
+	for (; *num_str >= '0' && *num_str <= '9'; num_str++)
+	{
+	}
+	num_str--;
+	for (; num_str >= buff; num_str--, i *= 10)
+	{
+		num += i * (*num_str - 0x30);
+	}
+	return num;
+}
+
 os_size_t os_str_len(const char *str)
 {
 	os_size_t i = 0;
@@ -183,11 +199,10 @@ char *os_str_cat(char *dest, const char *src)
 	for (i = 0; dest[i] != '\0'; i++)
 	{
 	}
-	for (; *src != '\0'; i++)
+	for (; *src != '\0'; i++, src++)
 	{
 		dest[i] = *src;
 	}
-	i++;
 	dest[i] = '\0';
 	return dest;
 }

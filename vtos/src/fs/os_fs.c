@@ -161,48 +161,6 @@ static void remove_from_open_file_tree(tree_node_type_def **handle, finfo_node *
 	os_delete_node(handle, &(node->tree_node_structrue));
 }
 
-void fs_unloading()
-{
-	/*flush();
-	while (_os_fs.open_file_tree != NULL)
-	{
-		finfo_node *temp = _os_fs.open_file_tree;
-		if (temp->flag > 0)
-		{
-			fnode *n = NULL;
-			if (temp->cluster_id == _os_fs.root->head.node_id)
-			{
-				n = _os_fs.root;
-			}
-			else
-			{
-				n = fnode_load(temp->cluster_id);
-			}
-			os_mem_cpy(&n->finfo[temp->index], &temp->finfo, sizeof(file_info));
-			fnode_flush(n);
-			if (_os_fs.root != n)
-			{
-				fnode_free(n);
-			}
-		}
-		remove_from_open_file_tree((tree_node_type_def **)(&_os_fs.open_file_tree), temp);
-		os_free(temp);
-	}
-	uninit();
-	os_dentry_uninit();
-	os_journal_uninit();
-	if (_os_fs.super != NULL)
-	{
-		os_free(_os_fs.super);
-		_os_fs.super = NULL;
-	}
-	if (_os_fs.root != NULL)
-	{
-		os_free(_os_fs.root);
-		_os_fs.root = NULL;
-	}*/
-}
-
 static uint32 get_parent_path_and_child_name(const char *path, char *parent_path, char *child_name)
 {
 	uint32 flag = 1;
@@ -984,44 +942,7 @@ static uint32 create_sys_file(const char *path, os_fs *fs)
 	return ret;
 }
 
-//uint32 fs_loading()
-//{
-//	while (sizeof(fnode) != FS_CLUSTER_SIZE);
-//	os_fs_init();
-//	os_cluster_init();
-//	os_dentry_init(on_move);
-//	cluster_manager_load();
-//	_os_fs.super = (super_cluster *)os_malloc(FS_CLUSTER_SIZE);
-//	super_cluster_load();
-//	if (os_str_cmp(_os_fs.super->name, "emfs") == 0)
-//	{
-//		_os_fs.root = fnode_load(_os_fs.super->root_id);
-//		os_journal_init(create_sys_file, sys_write_file);
-//		if (_os_fs.super->property & 0x00000001)
-//		{
-//			if (restore_from_journal() == 0)
-//			{
-//				fnode_free(_os_fs.root);
-//				_os_fs.root = fnode_load(_os_fs.super->root_id);
-//			}
-//		}
-//		return 0;
-//	}
-//	uninit();
-//	if (_os_fs.super != NULL)
-//	{
-//		os_free(_os_fs.super);
-//		_os_fs.super = NULL;
-//	}
-//	if (_os_fs.root != NULL)
-//	{
-//		os_free(_os_fs.root);
-//		_os_fs.root = NULL;
-//	}
-//	return 1;
-//}
-
-os_fs *fs_mount(uint32 dev_id, uint32 flag)
+os_fs *fs_mount(uint32 dev_id, uint32 formatting)
 {
 	os_fs *fs = NULL;
 	if (dev_id >= 0 && dev_id < MAX_MOUNT_COUNT && NULL == _file_systems[dev_id] && sizeof(fnode) == FS_CLUSTER_SIZE)
@@ -1031,8 +952,9 @@ os_fs *fs_mount(uint32 dev_id, uint32 flag)
 		os_fs_init(fs);
 		os_cluster_init(&fs->cluster, dev_id);
 		os_dentry_init(&fs->dentry, on_move, &fs->cluster);
-		os_journal_init(&fs->journal, create_sys_file, sys_write_file, &fs->cluster);
-		if (1 == flag)
+		os_journal_init(&fs->journal, create_sys_file, sys_write_file, fs);
+		set_journal(&fs->journal, &fs->cluster);
+		if (1 == formatting)
 		{
 			cluster_manager_init(&fs->cluster);
 			fs->super = (super_cluster *)os_malloc(FS_CLUSTER_SIZE);
@@ -1048,7 +970,6 @@ os_fs *fs_mount(uint32 dev_id, uint32 flag)
 			{
 				cluster_manager_load(&fs->cluster);
 				fs->root = fnode_load(fs->super->root_id, &fs->dentry);
-				os_journal_init(&fs->journal, create_sys_file, sys_write_file, &fs->cluster);
 				if (fs->super->property & 0x00000001)
 				{
 					if (restore_from_journal(&fs->journal) == 0)
@@ -1057,9 +978,11 @@ os_fs *fs_mount(uint32 dev_id, uint32 flag)
 						fs->root = fnode_load(fs->super->root_id, &fs->dentry);
 					}
 				}
-				return 0;
+				return fs;
 			}
 			uninit(&fs->cluster);
+			os_dentry_uninit(&fs->dentry);
+			os_journal_uninit(&fs->journal);
 			if (fs->super != NULL)
 			{
 				os_free(fs->super);
@@ -1070,18 +993,61 @@ os_fs *fs_mount(uint32 dev_id, uint32 flag)
 				os_free(fs->root);
 				fs->root = NULL;
 			}
+			os_free(fs);
 		}
 	}
 	return fs;
 }
 
-uint32 fs_unmount(os_fs *fs)
+void fs_unmount(os_fs *fs)
 {
-	return 0;
+	flush(fs);
+	while (fs->open_file_tree != NULL)
+	{
+		finfo_node *temp = fs->open_file_tree;
+		if (temp->flag > 0)
+		{
+			fnode *n = NULL;
+			if (temp->cluster_id == fs->root->head.node_id)
+			{
+				n = fs->root;
+			}
+			else
+			{
+				n = fnode_load(temp->cluster_id, &fs->dentry);
+			}
+			os_mem_cpy(&n->finfo[temp->index], &temp->finfo, sizeof(file_info));
+			fnode_flush(n, &fs->dentry);
+			if (fs->root != n)
+			{
+				fnode_free(n, &fs->dentry);
+			}
+		}
+		remove_from_open_file_tree((tree_node_type_def **)(&fs->open_file_tree), temp);
+		os_free(temp);
+	}
+	uninit(&fs->cluster);
+	os_dentry_uninit(&fs->dentry);
+	os_journal_uninit(&fs->journal);
+	if (fs->super != NULL)
+	{
+		os_free(fs->super);
+		fs->super = NULL;
+	}
+	if (fs->root != NULL)
+	{
+		os_free(fs->root);
+		fs->root = NULL;
+	}
+	os_free(fs);
 }
 
-void fs_formatting()
+void fs_formatting(os_fs *fs)
 {
+	cluster_manager_init(&fs->cluster);
+	super_cluster_init(fs->super);
+	super_cluster_flush(fs);
+	journal_create(&fs->journal);
 }
 
 uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)

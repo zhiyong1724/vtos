@@ -100,3 +100,8 @@ uint32 register_disk_dev()
 	_file_operators.tell_file = NULL;
 	return os_register_dev("disk_1", &_file_operators);
 }
+
+uint32 unregister_disk_dev()
+{
+	return os_unregister_dev("disk_1");
+}

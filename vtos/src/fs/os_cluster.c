@@ -1,8 +1,8 @@
 #include "fs/os_cluster.h"
 #include "base/os_string.h"
 #include "base/os_bitmap_index.h"
-#include "os_journal.h"
 #include "vtos.h"
+#include "fs/os_journal.h"
 uint32 convert_endian(uint32 src)
 {
 	uint32 dest;
@@ -140,6 +140,7 @@ void os_cluster_init(os_cluster *cluster, uint32 dev_id)
 	cluster->bitmap_size = cluster->total_cluster_count / 8 + 1;
 	os_map_init(&cluster->bitmaps, sizeof(uint32), sizeof(void *));
 	cluster->is_update = 0;
+	cluster->journal = NULL;
 }
 
 static uint32 do_cluster_alloc(os_cluster *cluster)
@@ -278,7 +279,7 @@ void cluster_read(uint32 cluster_id, uint8 *data, os_cluster *cluster)
 
 void cluster_write(uint32 cluster_id, uint8 *data, os_cluster *cluster)
 {
-	//journal_write(cluster_id);
+	journal_write(cluster_id, (os_journal *)cluster->journal);
 	if (cluster->dinfo.page_size <= FS_CLUSTER_SIZE)
 	{
 		uint32 i;
@@ -298,6 +299,11 @@ void cluster_write(uint32 cluster_id, uint8 *data, os_cluster *cluster)
 		for (; os_disk_write(page_id, buff, cluster->dev_id) != 0; );
 		os_free(buff);
 	}
+}
+
+void set_journal(void *journal, os_cluster *cluster)
+{
+	cluster->journal = journal;
 }
 
 void cluster_flush(os_cluster *cluster)

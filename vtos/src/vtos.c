@@ -55,9 +55,19 @@ void os_register_devices()
 	register_disk_dev();
 }
 
+void os_unregister_devices()
+{
+	unregister_disk_dev();
+}
+
 void os_mount_root()
 {
+	os_mount("a", "disk_0", "emfs", 0);
+}
 
+void os_unmount_root()
+{
+	os_unmount("a");
 }
 
 os_size_t os_sys_init(void)
@@ -90,6 +100,8 @@ void os_sys_uninit(void)
 	os_uninit_timer();
 	uninit_os_sched();
 	uninit_pid();
+	os_unmount_root();
+	os_unregister_devices();
 	os_vfs_uninit();
 #endif // __WINDOWS__
 }
@@ -212,7 +224,7 @@ int main()
 	char arg2[256] = "";
 	char ln;
 	//HANDLE handle;
-	//_CrtSetBreakAlloc(90);
+	//_CrtSetBreakAlloc(108);
 	if (0 == os_sys_init())
 	{
 		/*handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)task, NULL, 0, NULL);
