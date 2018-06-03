@@ -172,16 +172,6 @@ void os_vfs_uninit()
 		os_free(_os_vfs.root.files);
 		_os_vfs.root.files = NULL;
 	}
-	if (_os_vfs.root.file_operators != NULL)
-	{
-		os_free((void *)_os_vfs.root.file_operators);
-		_os_vfs.root.file_operators = NULL;
-	}
-	if (_os_vfs.root.fs_operators != NULL)
-	{
-		os_free((void *)_os_vfs.root.fs_operators);
-		_os_vfs.root.fs_operators = NULL;
-	}
 }
 
 os_file_info *os_create_vfile(const char *path, const os_file_operators *file_operators, const os_fs_operators *fs_operators)
@@ -331,13 +321,18 @@ uint32 os_delete_vfile(const char *path)
 
 uint32 os_register_dev(const char *name, const os_file_operators *file_operators)
 {
-	char path[MAX_FILE_NAME_SIZE];
-	os_str_cpy(path, DEV_PATH, MAX_FILE_NAME_SIZE);
-	os_str_cat(path, "/");
-	os_str_cat(path, name);
-	if (os_create_vfile(path, file_operators, NULL) != NULL)
+	if (os_str_cmp(name, ".") != 0 && os_str_cmp(name, "..") != 0 && os_str_find(name, "/") == -1 && os_str_find(name, "\\") == -1
+		&& os_str_find(name, ":") == -1 && os_str_find(name, "*") == -1 && os_str_find(name, "?") == -1 && os_str_find(name, "\"") == -1
+		&& os_str_find(name, "<") == -1 && os_str_find(name, ">") == -1 && os_str_find(name, "|") == -1)
 	{
-		return 0;
+		char path[MAX_FILE_NAME_SIZE];
+		os_str_cpy(path, DEV_PATH, MAX_FILE_NAME_SIZE);
+		os_str_cat(path, "/");
+		os_str_cat(path, name);
+		if (os_create_vfile(path, file_operators, NULL) != NULL)
+		{
+			return 0;
+		}
 	}
 	return 1;
 }
@@ -376,42 +371,56 @@ static os_file_info *get_final_vfile(const char *path, uint32 *index)
 
 uint32 os_mount(const char *mount_name, const char *dev_name, const char *fs_name, uint32 formatting)
 {
-	char path[MAX_FILE_NAME_SIZE];
-	os_str_cpy(path, DEV_PATH, MAX_FILE_NAME_SIZE);
-	os_str_cat(path, "/");
-	os_str_cat(path, dev_name);
-	uint32 index = 0;
-	os_file_info *dev_file = get_final_vfile(path, &index);
-	if (dev_file != NULL)
+	if (os_str_cmp(mount_name, ".") != 0 && os_str_cmp(mount_name, "..") != 0 && os_str_find(mount_name, "/") == -1 && os_str_find(mount_name, "\\") == -1
+		&& os_str_find(mount_name, ":") == -1 && os_str_find(mount_name, "*") == -1 && os_str_find(mount_name, "?") == -1 && os_str_find(mount_name, "\"") == -1
+		&& os_str_find(mount_name, "<") == -1 && os_str_find(mount_name, ">") == -1 && os_str_find(mount_name, "|") == -1)
 	{
-		const os_file_system *fs = NULL;
-		uint32 i = 0;
-		for (i = 0; ; i++)
+		char path[MAX_FILE_NAME_SIZE];
+		os_str_cpy(path, DEV_PATH, MAX_FILE_NAME_SIZE);
+		os_str_cat(path, "/");
+		os_str_cat(path, dev_name);
+		uint32 index = 0;
+		os_file_info *dev_file = get_final_vfile(path, &index);
+		if (dev_file != NULL)
 		{
-			fs = _file_systems[i];
-			if (fs != NULL)
+			const os_file_system *fs = NULL;
+			uint32 i = 0;
+			for (i = 0; ; i++)
 			{
-				if (os_str_cmp(fs->name, fs_name) == 0)
+				fs = _file_systems[i];
+				if (fs != NULL)
+				{
+					if (os_str_cmp(fs->name, fs_name) == 0)
+					{
+						break;
+					}
+				}
+				else
 				{
 					break;
 				}
 			}
-			else
+			if (fs != NULL)
 			{
-				break;
-			}
-		}
-		if (fs != NULL)
-		{
-			os_str_cpy(path, MNT_PATH, MAX_FILE_NAME_SIZE);
-			os_str_cat(path, "/");
-			os_str_cat(path, mount_name);
-			os_file_info *mount_file = os_create_vfile(path, fs->file_operators, fs->fs_operators);
-			if (mount_file != NULL)
-			{
-				mount_file->dev = dev_file;
-				mount_file->fs_operators->mount(mount_file, formatting);
-				return 0;
+				os_file_info *mount_file = &_os_vfs.root;
+				if (*mount_name != '\0')
+				{
+					os_str_cpy(path, MNT_PATH, MAX_FILE_NAME_SIZE);
+					os_str_cat(path, "/");
+					os_str_cat(path, mount_name);
+					mount_file = os_create_vfile(path, fs->file_operators, fs->fs_operators);
+				}
+				else
+				{
+					mount_file->fs_operators = fs->fs_operators;
+					mount_file->file_operators = fs->file_operators;
+				}
+				if (mount_file != NULL)
+				{
+					mount_file->dev = dev_file;
+					mount_file->fs_operators->mount(mount_file, formatting);
+					return 0;
+				}
 			}
 		}
 	}
@@ -420,12 +429,16 @@ uint32 os_mount(const char *mount_name, const char *dev_name, const char *fs_nam
 
 uint32 os_unmount(const char *mount_name)
 {
-	char path[MAX_FILE_NAME_SIZE];
-	os_str_cpy(path, MNT_PATH, MAX_FILE_NAME_SIZE);
-	os_str_cat(path, "/");
-	os_str_cat(path, mount_name);
-	uint32 index = 0;
-	os_file_info *mount_file = get_final_vfile(path, &index);
+	os_file_info *mount_file = &_os_vfs.root;
+	char path[MAX_FILE_NAME_SIZE] = "";
+	if (*mount_name != '\0')
+	{
+		os_str_cpy(path, MNT_PATH, MAX_FILE_NAME_SIZE);
+		os_str_cat(path, "/");
+		os_str_cat(path, mount_name);
+		uint32 index = 0;
+		mount_file = get_final_vfile(path, &index);
+	}
 	if (mount_file != NULL && mount_file->fs_operators != NULL && mount_file->fs_operators->unmount != NULL)
 	{
 		mount_file->fs_operators->unmount(mount_file);
@@ -435,14 +448,75 @@ uint32 os_unmount(const char *mount_name)
 	return 1;
 }
 
+void os_formatting(const char *mount_name)
+{
+	if (os_str_cmp(mount_name, ".") != 0 && os_str_cmp(mount_name, "..") != 0 && os_str_find(mount_name, "/") == -1 && os_str_find(mount_name, "\\") == -1
+		&& os_str_find(mount_name, ":") == -1 && os_str_find(mount_name, "*") == -1 && os_str_find(mount_name, "?") == -1 && os_str_find(mount_name, "\"") == -1
+		&& os_str_find(mount_name, "<") == -1 && os_str_find(mount_name, ">") == -1 && os_str_find(mount_name, "|") == -1)
+	{
+		os_file_info *mount_file = &_os_vfs.root;
+		if (*mount_name != '\0')
+		{
+			char path[MAX_FILE_NAME_SIZE];
+			os_str_cpy(path, MNT_PATH, MAX_FILE_NAME_SIZE);
+			os_str_cat(path, "/");
+			os_str_cat(path, mount_name);
+			uint32 index = 0;
+			mount_file = get_final_vfile(path, &index);
+		}
+		if (mount_file != NULL && mount_file->fs_operators != NULL && mount_file->fs_operators->formatting != NULL)
+		{
+			mount_file->fs_operators->formatting(mount_file);
+		}
+	}
+}
+
 uint32 os_create_dir(const char *path)
 {
-	return 0;
+	uint32 ret = 1;
+	char *pre_path = pretreat_path(path);
+	if (pre_path != NULL)
+	{
+		uint32 index = 0;
+		os_file_info *finfo = get_final_vfile(pre_path, &index);
+		if (finfo->fs_operators != NULL && finfo->fs_operators->create_dir != NULL)
+		{
+			if ('\0' == pre_path[index])
+			{
+				ret = finfo->fs_operators->create_dir(finfo, "/");
+			}
+			else
+			{
+				ret = finfo->fs_operators->create_dir(finfo, &pre_path[index]);
+			}
+		}
+		os_free(pre_path);
+	}
+	return ret;
 }
 
 uint32 os_create_file(const char *path)
 {
-	return 0;
+	uint32 ret = 1;
+	char *pre_path = pretreat_path(path);
+	if (pre_path != NULL)
+	{
+		uint32 index = 0;
+		os_file_info *finfo = get_final_vfile(pre_path, &index);
+		if (finfo->fs_operators != NULL && finfo->fs_operators->create_file != NULL)
+		{
+			if ('\0' == pre_path[index])
+			{
+				ret = finfo->fs_operators->create_file(finfo, "/");
+			}
+			else
+			{
+				ret = finfo->fs_operators->create_file(finfo, &pre_path[index]);
+			}
+		}
+		os_free(pre_path);
+	}
+	return ret;
 }
 
 os_dir *os_open_dir(const char *path)
@@ -466,11 +540,11 @@ os_dir *os_open_dir(const char *path)
 		{
 			if ('\0' == pre_path[index])
 			{
-				dir->real_dir = dir->vfile->fs_operators->open_dir("/");
+				dir->real_dir = dir->vfile->fs_operators->open_dir(dir->vfile, "/");
 			}
 			else
 			{
-				dir->real_dir = dir->vfile->fs_operators->open_dir(&pre_path[index]);
+				dir->real_dir = dir->vfile->fs_operators->open_dir(dir->vfile, &pre_path[index]);
 			}
 		}
 		else
@@ -491,7 +565,7 @@ void os_close_dir(os_dir *dir)
 {
 	if (dir->real_dir != NULL && dir->vfile->fs_operators != NULL && dir->vfile->fs_operators->close_dir != NULL)
 	{
-		dir->vfile->fs_operators->close_dir(dir->real_dir);
+		dir->vfile->fs_operators->close_dir(dir->vfile, dir->real_dir);
 	}
 	os_free(dir);
 }
@@ -518,7 +592,7 @@ uint32 os_read_dir(os_file_info *finfo, os_dir *dir)
 	{
 		if (dir->vfile->fs_operators != NULL && dir->vfile->fs_operators->read_dir != NULL)
 		{
-			return dir->vfile->fs_operators->read_dir(finfo, dir->real_dir);
+			return dir->vfile->fs_operators->read_dir(dir->vfile, finfo, dir->real_dir);
 		}
 	}
 	return 1;
@@ -526,12 +600,51 @@ uint32 os_read_dir(os_file_info *finfo, os_dir *dir)
 
 uint32 os_delete_dir(const char *path)
 {
-	return 0;
+	uint32 ret = 1;
+	char *pre_path = pretreat_path(path);
+	if (pre_path != NULL)
+	{
+		uint32 index = 0;
+		os_file_info *finfo = get_final_vfile(pre_path, &index);
+		if (finfo->fs_operators != NULL && finfo->fs_operators->delete_dir != NULL)
+		{
+			if ('\0' == pre_path[index])
+			{
+				ret = finfo->fs_operators->delete_dir(finfo, "/");
+			}
+			else
+			{
+				ret = finfo->fs_operators->delete_dir(finfo, &pre_path[index]);
+			}
+		}
+		os_free(pre_path);
+	}
+	return ret;
 }
 
 uint32 os_delete_file(const char *path)
 {
-	return 0;
+	uint32 ret = 1;
+	char *pre_path = pretreat_path(path);
+	if (pre_path != NULL)
+	{
+		uint32 index = 0;
+		os_file_info *finfo = get_final_vfile(pre_path, &index);
+		if (finfo->fs_operators != NULL && finfo->fs_operators->delete_file != NULL)
+		{
+			if ('\0' == pre_path[index])
+			{
+				finfo->fs_operators->delete_file(finfo, "/");
+			}
+			else
+			{
+				finfo->fs_operators->delete_file(finfo, &pre_path[index]);
+			}
+			ret = 0;
+		}
+		os_free(pre_path);
+	}
+	return ret;
 }
 
 uint32 os_move_file(const char *dest, const char *src)
@@ -577,4 +690,42 @@ uint64 os_tell_file(OS_FILE file)
 void *os_ioctl(uint32 command, void *arg)
 {
 	return NULL;
+}
+
+uint64 os_total_size(const char *mount_name) 
+{
+	os_file_info *mount_file = &_os_vfs.root;
+	if (*mount_name != '\0')
+	{
+		char path[MAX_FILE_NAME_SIZE];
+		os_str_cpy(path, MNT_PATH, MAX_FILE_NAME_SIZE);
+		os_str_cat(path, "/");
+		os_str_cat(path, mount_name);
+		uint32 index = 0;
+		mount_file = get_final_vfile(path, &index);
+	}
+	if (mount_file != NULL && mount_file->fs_operators != NULL && mount_file->fs_operators->total_size != NULL)
+	{
+		return mount_file->fs_operators->total_size(mount_file);
+	}
+	return 0;
+}
+
+uint64 os_free_size(const char *mount_name)
+{
+	os_file_info *mount_file = &_os_vfs.root;
+	if (*mount_name != '\0')
+	{
+		char path[MAX_FILE_NAME_SIZE];
+		os_str_cpy(path, MNT_PATH, MAX_FILE_NAME_SIZE);
+		os_str_cat(path, "/");
+		os_str_cat(path, mount_name);
+		uint32 index = 0;
+		mount_file = get_final_vfile(path, &index);
+	}
+	if (mount_file != NULL && mount_file->fs_operators != NULL && mount_file->fs_operators->free_size != NULL)
+	{
+		return mount_file->fs_operators->free_size(mount_file);
+	}
+	return 0;
 }

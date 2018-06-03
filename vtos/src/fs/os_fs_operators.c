@@ -12,17 +12,81 @@ static void unmount(os_file_info *mount_file)
 	fs_unmount((os_fs *)mount_file->arg);
 }
 
-static const os_fs_operators _emfs_operators = 
+static void formatting(os_file_info *mount_file)
+{
+	fs_formatting((os_fs *)mount_file->arg);
+}
+
+static uint64 total_size(os_file_info *mount_file)
+{
+	os_fs *fs = (os_fs *)mount_file->arg;
+	return get_all_cluster_num(&fs->cluster) * FS_CLUSTER_SIZE;
+}
+
+static uint64 free_size(os_file_info *mount_file)
+{
+	os_fs *fs = (os_fs *)mount_file->arg;
+	return get_free_cluster_num(&fs->cluster) * FS_CLUSTER_SIZE;
+}
+
+static OS_DIR open_dir(os_file_info *mount_file, const char *path)
+{
+	return fs_open_dir(path, (os_fs *)mount_file->arg);
+}
+
+static void close_dir(os_file_info *mount_file, OS_DIR dir)
+{
+	fs_close_dir((dir_obj *)dir);
+}
+
+static uint32 read_dir(os_file_info *mount_file, os_file_info *finfo, OS_DIR dir)
+{
+	file_info info;
+	uint32 ret = fs_read_dir(&info, dir, (os_fs *)mount_file->arg);
+	os_str_cpy(finfo->name, info.name, MAX_FILE_NAME_SIZE);
+	finfo->size = info.size;
+	finfo->create_time = info.create_time;
+	finfo->modif_time = info.modif_time;
+	finfo->creator = info.creator;
+	finfo->modifier = info.modifier;
+	finfo->property = info.property;
+	return ret;
+}
+
+static uint32 create_dir(os_file_info *mount_file, const char *path)
+{
+	return fs_create_dir(path, (os_fs *)mount_file->arg);
+}
+
+static uint32 create_file(os_file_info *mount_file, const char *path)
+{
+	return fs_create_file(path, (os_fs *)mount_file->arg);
+}
+
+static uint32 delete_dir(os_file_info *mount_file, const char *path)
+{
+	return fs_delete_dir(path, (os_fs *)mount_file->arg);
+}
+
+static uint32 delete_file(os_file_info *mount_file, const char *path)
+{
+	return fs_delete_file(path, (os_fs *)mount_file->arg);
+}
+
+static const os_fs_operators _emfs_operators =
 {
 .mount = mount,
 .unmount = unmount,
-.create_dir = NULL,
-.create_file = NULL,
-.open_dir = NULL,
-.close_dir = NULL,
-.read_dir = NULL,
-.delete_dir = NULL,
-.delete_file = NULL,
+.formatting = formatting,
+.total_size = total_size,
+.free_size = free_size,
+.open_dir = open_dir,
+.close_dir = close_dir,
+.read_dir = read_dir,
+.create_dir = create_dir,
+.create_file = create_file,
+.delete_dir = delete_dir,
+.delete_file = delete_file,
 .move_file = NULL,
 .copy_file = NULL
 };

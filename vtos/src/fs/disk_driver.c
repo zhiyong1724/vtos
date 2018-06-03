@@ -98,10 +98,10 @@ uint32 register_disk_dev()
 	_file_operators.write_file = write_file;
 	_file_operators.seek_file = NULL;
 	_file_operators.tell_file = NULL;
-	return os_register_dev("disk_1", &_file_operators);
+	return os_register_dev("disk_0", &_file_operators);
 }
 
 uint32 unregister_disk_dev()
 {
-	return os_unregister_dev("disk_1");
+	return os_unregister_dev("disk_0");
 }

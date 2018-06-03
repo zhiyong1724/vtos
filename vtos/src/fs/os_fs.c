@@ -435,7 +435,7 @@ static uint32 do_create_file(const char *path, file_info *finfo, os_fs *fs)
 	return 1;
 }
 
-uint32 create_dir(const char *path, os_fs *fs)
+uint32 fs_create_dir(const char *path, os_fs *fs)
 {
 	uint32 ret = 1;
 	file_info *finfo = (file_info *)os_malloc(sizeof(file_info));
@@ -450,7 +450,7 @@ uint32 create_dir(const char *path, os_fs *fs)
 	return ret;
 }
 
-uint32 create_file(const char *path, os_fs *fs)
+uint32 fs_create_file(const char *path, os_fs *fs)
 {
 	uint32 ret = 1;
 	file_info *finfo = (file_info *)os_malloc(sizeof(file_info));
@@ -467,7 +467,7 @@ uint32 create_file(const char *path, os_fs *fs)
 	return ret;
 }
 
-dir_obj *open_dir(const char *path, os_fs *fs)
+dir_obj *fs_open_dir(const char *path, os_fs *fs)
 {
 	uint32 id = 0;
 	uint32 flag = 0;
@@ -508,7 +508,7 @@ dir_obj *open_dir(const char *path, os_fs *fs)
 	return NULL;
 }
 
-void close_dir(dir_obj *dir)
+void fs_close_dir(dir_obj *dir)
 {
 	if (dir->cur != NULL)
 	{
@@ -521,7 +521,7 @@ void close_dir(dir_obj *dir)
 	os_free(dir);
 }
 
-uint32 read_dir(file_info *finfo, dir_obj *dir, os_fs *fs)
+uint32 fs_read_dir(file_info *finfo, dir_obj *dir, os_fs *fs)
 {
 	if (dir->id > 0)
 	{
@@ -612,7 +612,7 @@ static uint32 do_delete_dir(fnode *parent, uint32 i1, fnode *parent_root, fnode 
 	return ret;
 }
 
-uint32 delete_dir(const char *path, os_fs *fs)
+uint32 fs_delete_dir(const char *path, os_fs *fs)
 {
 	uint32 ret = 1;
 	ret = handle_file(path, do_delete_dir, fs);
@@ -671,7 +671,7 @@ static uint32 delete_sys_file(const char *path, os_fs *fs)
 	return ret;
 }
 
-uint32 delete_file(const char *path, os_fs *fs)
+uint32 fs_delete_file(const char *path, os_fs *fs)
 {
 	uint32 ret = 1;
 	ret = handle_file(path, do_delete_file, fs);
@@ -720,7 +720,7 @@ static uint32 sys_unlink_file(const char *path, os_fs *fs)
 	return handle_file(path, sys_do_unlink_file, fs);
 }
 
-uint32 move_file(const char *dest, const char *src, os_fs *fs)
+uint32 fs_move_file(const char *dest, const char *src, os_fs *fs)
 {
 	uint32 ret = 1;
 	uint32 index;
@@ -770,15 +770,15 @@ static void insert_to_open_file_tree(tree_node_type_def **handle, finfo_node *no
 	os_insert_node(handle, &node->tree_node_structrue, cluster_id_compare, NULL);
 }
 
-file_obj *open_file(const char *path, uint32 flags, os_fs *fs)
+file_obj *fs_open_file(const char *path, uint32 flags, os_fs *fs)
 {
 	file_obj *file = NULL;
 	uint32 index;
 	fnode *node = NULL;
 	if (flags & FS_CREATE)
 	{
-		delete_file(path, fs);
-		create_file(path, fs);
+		fs_delete_file(path, fs);
+		fs_create_file(path, fs);
 	}
 	node = get_file_info(path, &index, fs);
 	if (node != NULL && (node->finfo[index].property & 0x00000400) == 0)  //检查文件属性
@@ -828,7 +828,7 @@ file_obj *open_file(const char *path, uint32 flags, os_fs *fs)
 	return file;
 }
 
-void close_file(file_obj *file, os_fs *fs)
+void fs_close_file(file_obj *file, os_fs *fs)
 {
 	if (file->node->flag > 0)
 	{
@@ -859,7 +859,7 @@ void close_file(file_obj *file, os_fs *fs)
 	os_free(file);
 }
 
-uint32 read_file(file_obj *file, void *data, uint32 len, os_fs *fs)
+uint32 fs_read_file(file_obj *file, void *data, uint32 len, os_fs *fs)
 {
 	if ((file->flags & FS_READ) && (file->node->finfo.property & 0x00000124)) //判断是否具有读权限
 	{
@@ -915,7 +915,7 @@ static uint32 sys_write_file(file_obj *file, void *data, uint32 len, os_fs *fs)
 	return 0;
 }
 
-uint32 write_file(file_obj *file, void *data, uint32 len, os_fs *fs)
+uint32 fs_write_file(file_obj *file, void *data, uint32 len, os_fs *fs)
 {
 	if ((file->node->finfo.property & 0x00000200) == 0) //判断是否具有写权限
 	{
@@ -980,7 +980,7 @@ os_fs *fs_mount(uint32 dev_id, uint32 formatting)
 				}
 				return fs;
 			}
-			uninit(&fs->cluster);
+			os_cluster_uninit(&fs->cluster);
 			os_dentry_uninit(&fs->dentry);
 			os_journal_uninit(&fs->journal);
 			if (fs->super != NULL)
@@ -1026,7 +1026,7 @@ void fs_unmount(os_fs *fs)
 		remove_from_open_file_tree((tree_node_type_def **)(&fs->open_file_tree), temp);
 		os_free(temp);
 	}
-	uninit(&fs->cluster);
+	os_cluster_uninit(&fs->cluster);
 	os_dentry_uninit(&fs->dentry);
 	os_journal_uninit(&fs->journal);
 	if (fs->super != NULL)
@@ -1044,13 +1044,41 @@ void fs_unmount(os_fs *fs)
 
 void fs_formatting(os_fs *fs)
 {
+	uint32 dev_id = fs->cluster.dev_id;
+	while (fs->open_file_tree != NULL)
+	{
+		finfo_node *temp = fs->open_file_tree;
+		remove_from_open_file_tree((tree_node_type_def **)(&fs->open_file_tree), temp);
+		os_free(temp);
+	}
+	os_cluster_uninit(&fs->cluster);
+	os_dentry_uninit(&fs->dentry);
+	os_journal_uninit(&fs->journal);
+	if (fs->super != NULL)
+	{
+		os_free(fs->super);
+		fs->super = NULL;
+	}
+	if (fs->root != NULL)
+	{
+		os_free(fs->root);
+		fs->root = NULL;
+	}
+
+	os_fs_init(fs);
+	os_cluster_init(&fs->cluster, dev_id);
+	os_dentry_init(&fs->dentry, on_move, &fs->cluster);
+	os_journal_init(&fs->journal, create_sys_file, sys_write_file, fs);
+	set_journal(&fs->journal, &fs->cluster);
+
 	cluster_manager_init(&fs->cluster);
+	fs->super = (super_cluster *)os_malloc(FS_CLUSTER_SIZE);
 	super_cluster_init(fs->super);
 	super_cluster_flush(fs);
 	journal_create(&fs->journal);
 }
 
-uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)
+uint32 fs_seek_file(file_obj *file, int64 offset, uint32 fromwhere)
 {
 	uint64 temp;
 	switch (fromwhere)
@@ -1079,18 +1107,18 @@ uint32 seek_file(file_obj *file, int64 offset, uint32 fromwhere)
 	return 1;
 }
 
-uint64 tell_file(file_obj *file)
+uint64 fs_tell_file(file_obj *file)
 {
 	return file->index;
 }
 
-void open_journal(os_fs *fs)
+void fs_open_journal(os_fs *fs)
 {
 	fs->super->property |= 0x00000001;
 	super_cluster_flush(fs);
 }
 
-void close_journal(os_fs *fs)
+void fs_close_journal(os_fs *fs)
 {
 	fs->super->property &= (~0x00000001);
 	super_cluster_flush(fs);

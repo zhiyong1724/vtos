@@ -68,13 +68,16 @@ typedef struct os_fs_operators
 {
 	void (*mount)(os_file_info *mount_file, uint32 formatting);
 	void (*unmount)(os_file_info *mount_file);
-	uint32 (*create_dir)(const char *path);
-	uint32 (*create_file)(const char *path);
-	OS_DIR (*open_dir)(const char *path);
-	void (*close_dir)(OS_DIR dir);
-	uint32 (*read_dir)(os_file_info *finfo, OS_DIR dir);
-	uint32 (*delete_dir)(const char *path);
-	uint32 (*delete_file)(const char *path);
+	void (*formatting)(os_file_info *mount_file);
+	uint64(*total_size)(os_file_info *mount_file);
+	uint64(*free_size)(os_file_info *mount_file);
+	OS_DIR (*open_dir)(os_file_info *mount_file, const char *path);
+	void (*close_dir)(os_file_info *mount_file, OS_DIR dir);
+	uint32 (*read_dir)(os_file_info *mount_file, os_file_info *finfo, OS_DIR dir);
+	uint32(*create_dir)(os_file_info *mount_file, const char *path);
+	uint32(*create_file)(os_file_info *mount_file, const char *path);
+	uint32 (*delete_dir)(os_file_info *mount_file, const char *path);
+	uint32 (*delete_file)(os_file_info *mount_file, const char *path);
 	uint32 (*move_file)(const char *dest, const char *src);
 	uint32 (*copy_file)(const char *dest, const char *src);
 } os_fs_operators;
@@ -140,11 +143,10 @@ uint32 os_mount(const char *mount_name, const char *dev_name, const char *fs_nam
 *********************************************************************************************************************/
 uint32 os_unmount(const char *mount_name);
 /*********************************************************************************************************************
-* 创建文件
-* path：文件路径
-* return：0：创建成功；1：创建失败
+* 格式化文件系统
+* mount_name：挂载的文件名
 *********************************************************************************************************************/
-uint32 os_create_file(const char *path);
+void os_formatting(const char *mount_name);
 /*********************************************************************************************************************
 * 创建文件夹
 * path：文件路径
@@ -249,4 +251,14 @@ uint64 os_tell_file(OS_FILE file);
 * arg：参数
 *********************************************************************************************************************/
 void *os_ioctl(uint32 command, void *arg);
+/*********************************************************************************************************************
+* 获取总空间大小
+* mount_name：挂载的文件名
+*********************************************************************************************************************/
+uint64 os_total_size(const char *mount_name);
+/*********************************************************************************************************************
+* 获取剩余内存大小
+* mount_name：挂载的文件名
+*********************************************************************************************************************/
+uint64 os_free_size(const char *mount_name);
 #endif // !__OS_VFS_H__

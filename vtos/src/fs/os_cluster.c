@@ -316,7 +316,7 @@ void cluster_flush(os_cluster *cluster)
 	}
 }
 
-void uninit(os_cluster *cluster)
+void os_cluster_uninit(os_cluster *cluster)
 {
 	if (cluster->pcluster_manager != NULL)
 	{

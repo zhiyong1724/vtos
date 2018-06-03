@@ -63,7 +63,7 @@ void os_cluster_init(os_cluster *cluster, uint32 dev_id);
 * 释放簇管理器
 * cluster：os_cluster对象
 *********************************************************************************************************************/
-void uninit(os_cluster *cluster);
+void os_cluster_uninit(os_cluster *cluster);
 /*********************************************************************************************************************
 * 簇分配函数，和cluster_free联合使用
 * cluster：os_cluster对象

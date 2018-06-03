@@ -62,12 +62,12 @@ void os_unregister_devices()
 
 void os_mount_root()
 {
-	os_mount("a", "disk_0", "emfs", 0);
+	os_mount("", "disk_0", "emfs", 1);
 }
 
 void os_unmount_root()
 {
-	os_unmount("a");
+	os_unmount("");
 }
 
 os_size_t os_sys_init(void)
@@ -93,7 +93,6 @@ os_size_t os_sys_init(void)
 
 void os_sys_uninit(void)
 {
-#ifdef __WINDOWS__
 	os_cpu_sr_off();
 	os_q_uninit();
 	os_sem_uninit();
@@ -103,7 +102,6 @@ void os_sys_uninit(void)
 	os_unmount_root();
 	os_unregister_devices();
 	os_vfs_uninit();
-#endif // __WINDOWS__
 }
 
 void os_sys_start(void)
@@ -224,7 +222,7 @@ int main()
 	char arg2[256] = "";
 	char ln;
 	//HANDLE handle;
-	//_CrtSetBreakAlloc(108);
+	//_CrtSetBreakAlloc(96);
 	if (0 == os_sys_init())
 	{
 		/*handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)task, NULL, 0, NULL);
@@ -249,18 +247,17 @@ int main()
 	{
 		scanf_s("%[^\n]%c", buff, 256, &ln, 1);
 		get_command(buff, command, arg1, arg2);
-		if (os_str_cmp(command, "formating") == 0)
+		if (os_str_cmp(command, "formatting") == 0)
 		{
-			/*fs_unloading();
-			fs_formatting();
-			printf("ok\n");*/
+			os_formatting("");
+			printf("ok\n");
 		}
 		else if (os_str_cmp(command, "df") == 0)
 		{
-			/*int all_cluster = get_all_cluster_num();
-			int free_cluster = get_free_cluster_num();
-			printf("总大小：%d\n", all_cluster * FS_CLUSTER_SIZE);
-			printf("剩余大小：%d\n", free_cluster * FS_CLUSTER_SIZE);*/
+			uint64 all_cluster = os_total_size("");
+			uint64 free_cluster = os_free_size("");
+			printf("总大小：%lld\n", all_cluster);
+			printf("剩余大小：%lld\n", free_cluster);
 		}
 		else if (os_str_cmp(command, "ls") == 0)
 		{
@@ -283,14 +280,14 @@ int main()
 		}
 		else if (os_str_cmp(command, "mkdir") == 0)
 		{
-			/*if (create_dir(arg1) == 0)
+			if (os_create_dir(arg1) == 0)
 			{
 				printf("ok\n");
 			}
 			else
 			{
 				printf("error\n");
-			}*/
+			}
 		}
 		else if (os_str_cmp(command, "mkvfile") == 0)
 		{
@@ -316,36 +313,36 @@ int main()
 		}
 		else if (os_str_cmp(command, "touch") == 0)
 		{
-			/*if (create_file(arg1) == 0)
+			if (os_create_file(arg1) == 0)
 			{
 				printf("ok\n");
 			}
 			else
 			{
 				printf("error\n");
-			}*/
+			}
 		}
 		else if (os_str_cmp(command, "rmdir") == 0)
 		{
-			/*if (delete_dir(arg1) == 0)
+			if (os_delete_dir(arg1) == 0)
 			{
 				printf("ok\n");
 			}
 			else
 			{
 				printf("error\n");
-			}*/
+			}
 		}
 		else if (os_str_cmp(command, "rm") == 0)
 		{
-			/*if (delete_file(arg1) == 0)
+			if (os_delete_file(arg1) == 0)
 			{
 				printf("ok\n");
 			}
 			else
 			{
 				printf("error\n");
-			}*/
+			}
 		}
 		else if (os_str_cmp(command, "mv") == 0)
 		{
@@ -416,25 +413,25 @@ int main()
 		}
 		else if (os_str_cmp(command, "test") == 0)
 		{
-			/*int i;
+			int i;
 			char n[256];
-			for (i = 1; i <= 100; i++)
+			for (i = 1; i <= 1000; i++)
 			{
 				sprintf_s(n, 256, "/a/b/%d", i);
-				if (os_create_vfile(n) != 0)
+				if (os_create_file(n) != 0)
 				{
 					i = i;
 				}
 			}
-			for (i = 100; i > 0; i--)
+			for (i = 1000; i > 0; i--)
 			{
 				sprintf_s(n, 256, "/a/b/%d", i);
-				if (os_delete_vfile(n) != 0)
+				if (os_delete_file(n) != 0)
 				{
 					i = 1;
 				}
 			}
-			printf("ok\n");*/
+			printf("ok\n");
 		}
 		else if (os_str_cmp(command, "quit") == 0)
 		{
