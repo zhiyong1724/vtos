@@ -3,7 +3,7 @@
 #include "base/os_string.h"
 static void mount(os_file_info *mount_file, uint32 formatting)
 {
-	uint32 dev_id = os_atou(&mount_file->dev->name[5]);
+	uint32 dev_id = (uint32)os_atou(&mount_file->dev->name[5]);
 	mount_file->arg = fs_mount(dev_id, formatting);
 }
 

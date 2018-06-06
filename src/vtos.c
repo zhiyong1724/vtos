@@ -123,7 +123,7 @@ static void task_a(void *p_arg)
 {
 	os_q_t *q = os_q_find("test");
 	os_size_t status;
-	os_size_t v = 0;
+	uint32 v = 0;
 	for (;;)
 	{
 		os_q_pend(q, 0, &status, &v);
@@ -144,7 +144,7 @@ static void task_c(void *p_arg)
 	for (;;)
 	{
 		os_sleep(1000);
-		os_size_t v = 512;
+		uint32 v = 512;
 		os_q_post(q, &v);
 		os_size_t pid_b = os_kthread_create(task_b, NULL, "task_b");
 	}
@@ -165,7 +165,7 @@ static void task_e(void *p_arg)
 	os_q_t *q = os_q_create(sizeof(os_size_t), "test1");
 	os_size_t pid_d = os_kthread_create(task_d, NULL, "task_d");
 	os_size_t status;
-	os_size_t v = 0;
+	uint32 v = 0;
 	for (;;)
 	{
 		os_q_pend(q, 500, &status, &v);
@@ -221,12 +221,12 @@ int main()
 	char arg1[256] = "";
 	char arg2[256] = "";
 	char ln;
-	//HANDLE handle;
+	HANDLE handle;
 	//_CrtSetBreakAlloc(2412);
 	if (0 == os_sys_init())
 	{
-		//handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)task, NULL, 0, NULL);
-		//SetThreadPriority(handle, THREAD_PRIORITY_HIGHEST);
+		handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)task, NULL, 0, NULL);
+		SetThreadPriority(handle, THREAD_PRIORITY_HIGHEST);
 	}
 	while (1)
 	{
@@ -355,7 +355,7 @@ int main()
 					fseek(file1, 0, SEEK_END);
 					size = ftell(file1);
 					fseek(file1, 0, SEEK_SET);
-					while ((num = fread_s(buff, 1024, 1, 1024, file1)) > 0)
+					while ((num = (int)fread_s(buff, 1024, 1, 1024, file1)) > 0)
 					{
 						os_write_file(file2, buff, num);
 						cur += num;
@@ -421,7 +421,7 @@ int main()
 		else if (os_str_cmp(command, "quit") == 0)
 		{
 			os_sys_uninit();
-			//CloseHandle(handle);
+			CloseHandle(handle);
 			break;
 		}
 		else

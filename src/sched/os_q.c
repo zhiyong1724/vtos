@@ -68,7 +68,7 @@ void os_q_reset(os_q_t *p_queue)
 	os_cpu_sr_restore(cpu_sr);
 }
 
-void *os_q_pend(os_q_t *p_queue, uint32 timeout, uint32 *p_status, void *p_out)
+void *os_q_pend(os_q_t *p_queue, os_size_t timeout, os_size_t *p_status, void *p_out)
 {
 	os_size_t cpu_sr = os_cpu_sr_off();
 	void *ret = NULL;
@@ -83,7 +83,7 @@ void *os_q_pend(os_q_t *p_queue, uint32 timeout, uint32 *p_status, void *p_out)
 	return ret;
 }
 
-uint32 os_q_post(os_q_t *p_queue, void *p_msg)
+os_size_t os_q_post(os_q_t *p_queue, void *p_msg)
 {
 	os_size_t cpu_sr = os_cpu_sr_off();
 	os_deque_push_back(&p_queue->queue, p_msg);

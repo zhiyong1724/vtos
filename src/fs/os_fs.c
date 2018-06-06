@@ -276,7 +276,7 @@ static uint32 is_root_path(const char *path)
 static fnode *get_parent(const char *path, uint32 *idx, char *child_name, uint32 *is_exist, os_fs *fs)
 {
 	fnode *ret = NULL;
-	uint32 path_len = os_str_len(path) + 1;
+	os_size_t path_len = os_str_len(path) + 1;
 	char *parent_path = (char *)os_malloc(path_len);
 	*is_exist = 0;
 	*idx = FS_MAX_KEY_NUM;

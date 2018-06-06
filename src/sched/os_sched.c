@@ -132,7 +132,7 @@ void os_free_task_info(task_info_t *task)
 
 static void thread_free_task(void *p_arg)
 {
-	uint32 status = EVENT_NONE;
+	os_size_t status = EVENT_NONE;
 	_thread_free_sem = os_sem_create(0, "thread free task");
 	os_set_prio(19);
 	for (;;)

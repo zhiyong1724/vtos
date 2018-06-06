@@ -296,7 +296,7 @@ void *os_buddy_alloc(os_size_t size)
 			if (ret != NULL)
 			{
 				os_size_t j = ((uint8 *)ret - (uint8 *)_start_addr) / _os_buddy.size_array[0];
-				_os_buddy.block_group[j] = i;
+				_os_buddy.block_group[j] = (uint8)i;
 				break;
 			}
 		}

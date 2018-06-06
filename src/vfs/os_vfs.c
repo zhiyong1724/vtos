@@ -16,7 +16,7 @@ static char *pretreat_path(const char *path)
 	char *buff = NULL;
 	if ('/' == path[0])
 	{
-		int32 path_len = os_str_len(path);
+		int32 path_len = (int32)os_str_len(path);
 		os_vector names;
 		os_vector_init(&names, sizeof(int32));
 		buff = (char *)os_malloc(path_len + 1);
