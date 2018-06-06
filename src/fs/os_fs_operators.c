@@ -73,6 +73,41 @@ static uint32 delete_file(os_file_info *mount_file, const char *path)
 	return fs_delete_file(path, (os_fs *)mount_file->arg);
 }
 
+static OS_FILE open_file(os_file_info *mount_file, const char *path, uint32 flags)
+{
+	return fs_open_file(path, flags, (os_fs *)mount_file->arg);
+}
+
+static void close_file(os_file_info *mount_file, OS_FILE file)
+{
+	fs_close_file((file_obj *)file, (os_fs *)mount_file->arg);
+}
+
+static uint32 read_file(os_file_info *mount_file, OS_FILE file, void *data, uint32 len)
+{
+	return fs_read_file((file_obj *)file, data, len, (os_fs *)mount_file->arg);
+}
+
+static uint32 write_file(os_file_info *mount_file, OS_FILE file, void *data, uint32 len)
+{
+	return fs_write_file((file_obj *)file, data, len, (os_fs *)mount_file->arg);
+}
+
+static uint32 seek_file(os_file_info *mount_file, OS_FILE file, int64 offset, uint32 fromwhere)
+{
+	return fs_seek_file((file_obj *)file, offset, fromwhere, (os_fs *)mount_file->arg);
+}
+
+static uint64 tell_file(os_file_info *mount_file, OS_FILE file)
+{
+	return fs_tell_file((file_obj *)file);
+}
+
+static uint32 move_file(os_file_info *mount_file, const char *dest, const char *src)
+{
+	return fs_move_file(dest, src, (os_fs *)mount_file->arg);
+}
+
 static const os_fs_operators _emfs_operators =
 {
 .mount = mount,
@@ -87,21 +122,20 @@ static const os_fs_operators _emfs_operators =
 .create_file = create_file,
 .delete_dir = delete_dir,
 .delete_file = delete_file,
-.move_file = NULL,
-.copy_file = NULL
+.move_file = move_file,
 };
 
 static const os_file_operators _emfs_file_operators =
 {
 .module_init = NULL,
 .module_uninit = NULL,
-.os_ioctl = NULL,
-.open_file = NULL,
-.close_file = NULL,
-.read_file = NULL,
-.write_file = NULL,
-.seek_file = NULL,
-.tell_file = NULL
+.ioctl = NULL,
+.open_file = open_file,
+.close_file = close_file,
+.read_file = read_file,
+.write_file = write_file,
+.seek_file = seek_file,
+.tell_file = tell_file
 };
 
 static const os_file_system _emfs =

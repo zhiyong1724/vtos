@@ -135,15 +135,12 @@ void os_sem_free(os_sem_t *p_sem)
 	os_size_t cpu_sr = os_cpu_sr_off();
 	while (p_sem->wait_task_list != NULL)
 	{
-		while (p_sem->wait_task_list != NULL)
-		{
-			task_info_t *task_info = (task_info_t *)((uint8 *)os_get_back_from_list(&(p_sem->wait_task_list)) - LIST_NODE_ADDR_OFFSET);
-			os_remove_from_list(&(p_sem->wait_task_list), &task_info->list_node_structrue);
-			os_close_timer(&task_info->timer);
-			task_info->event_status = EVENT_NONE;
-			task_info->task_status = TASK_RUNNING;
-			os_insert_runtree(task_info);
-		}
+		task_info_t *task_info = (task_info_t *)((uint8 *)os_get_back_from_list(&(p_sem->wait_task_list)) - LIST_NODE_ADDR_OFFSET);
+		os_remove_from_list(&(p_sem->wait_task_list), &task_info->list_node_structrue);
+		os_close_timer(&task_info->timer);
+		task_info->event_status = EVENT_NONE;
+		task_info->task_status = TASK_RUNNING;
+		os_insert_runtree(task_info);
 	}
 	if (p_sem->name[0] != '\0')
 	{

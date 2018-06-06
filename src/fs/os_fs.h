@@ -9,6 +9,7 @@
 #define FS_WRITE 2
 #define FS_APPEND 4
 #define FS_CREATE 8
+#define FS_BUFF_CHANGE 0x80000000
 enum SEEK_TYPE
 {
 	FS_SEEK_SET, 
@@ -38,6 +39,7 @@ typedef struct file_obj
 	uint32 flags;
 	uint64 index;
 	finfo_node *node;
+	char *buff;
 } file_obj;
 
 typedef struct os_fs
@@ -160,9 +162,10 @@ uint32 fs_write_file(file_obj *file, void *data, uint32 len, os_fs *fs);
 * file：文件对象
 * offset：指针偏移
 * fromwhere：FS_SEEK_SET，FS_SEEK_CUR，FS_SEEK_END
+* fs：os_fs对象
 * return：0：成功；
 *********************************************************************************************************************/
-uint32 fs_seek_file(file_obj *file, int64 offset, uint32 fromwhere);
+uint32 fs_seek_file(file_obj *file, int64 offset, uint32 fromwhere, os_fs *fs);
 /*********************************************************************************************************************
 * 获取指针位置
 * file：文件对象

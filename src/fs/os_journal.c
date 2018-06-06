@@ -17,10 +17,11 @@ void journal_create(os_journal *journal)
 	journal->enable = 0;
 }
 
-void os_journal_init(os_journal *journal, create_file_callback arg1, write_file_callback arg2, void *fs)
+void os_journal_init(os_journal *journal, create_file_callback create_file, write_file_callback write_file, read_file_callback read_file, void *fs)
 {
-	journal->create_file = arg1;
-	journal->write_file = arg2;
+	journal->create_file = create_file;
+	journal->write_file = write_file;
+	journal->read_file = read_file;
 	journal->enable = 0;
 	journal->buff = (uint32 *)os_malloc(FS_CLUSTER_SIZE);
 	os_mem_set(journal->buff, 0, FS_CLUSTER_SIZE);
@@ -33,6 +34,7 @@ void os_journal_uninit(os_journal *journal)
 {
 	journal->create_file = NULL;
 	journal->write_file = NULL;
+	journal->read_file = NULL;
 	journal->enable = 0;
 	os_free(journal->buff);
 	journal->buff = NULL;
@@ -76,7 +78,7 @@ void journal_write(uint32 id, os_journal *journal)
 	if (1 == journal->enable)
 	{
 		journal->enable = 0;
-		fs_seek_file(journal->file, FS_CLUSTER_SIZE + journal->index * FS_CLUSTER_SIZE, FS_SEEK_SET);
+		fs_seek_file(journal->file, FS_CLUSTER_SIZE + journal->index * FS_CLUSTER_SIZE, FS_SEEK_SET, (os_fs *)journal->fs);
 		void *data = os_malloc(FS_CLUSTER_SIZE);
 		cluster_read(id, data, &((os_fs *)journal->fs)->cluster);
 		journal->write_file(journal->file, data, FS_CLUSTER_SIZE, (os_fs *)journal->fs);
@@ -89,7 +91,7 @@ void journal_write(uint32 id, os_journal *journal)
 		{
 			journal->buff[journal->index] = convert_endian(id);
 		}
-		fs_seek_file(journal->file, 0, FS_SEEK_SET);
+		fs_seek_file(journal->file, 0, FS_SEEK_SET, (os_fs *)journal->fs);
 		journal->write_file(journal->file, journal->buff, FS_CLUSTER_SIZE, (os_fs *)journal->fs);
 		journal->index++;
 		journal->enable = 1;
@@ -112,7 +114,7 @@ uint32 restore_from_journal(os_journal *journal)
 	file_obj *file = fs_open_file(JOURNAL_PATH, FS_READ, (os_fs *)journal->fs);
 	if (file != NULL)
 	{
-		fs_read_file(file, journal->buff, FS_CLUSTER_SIZE, (os_fs *)journal->fs);
+		journal->read_file(file, journal->buff, FS_CLUSTER_SIZE, (os_fs *)journal->fs);
 		int32 i = 0;
 		for (i = 0; journal->buff[i] != 0; i++);
 		if (i > 0)
@@ -129,8 +131,8 @@ uint32 restore_from_journal(os_journal *journal)
 			for (; i >= 0; i--)
 			{
 				void *buff = os_malloc(FS_CLUSTER_SIZE);
-				fs_seek_file(file, FS_CLUSTER_SIZE + i * FS_CLUSTER_SIZE, FS_SEEK_SET);
-				fs_read_file(file, buff, FS_CLUSTER_SIZE, (os_fs *)journal->fs);
+				fs_seek_file(file, FS_CLUSTER_SIZE + i * FS_CLUSTER_SIZE, FS_SEEK_SET, (os_fs *)journal->fs);
+				journal->read_file(file, buff, FS_CLUSTER_SIZE, (os_fs *)journal->fs);
 				cluster_write(journal->buff[i], buff, &((os_fs *)journal->fs)->cluster);
 				os_free(buff);
 			}

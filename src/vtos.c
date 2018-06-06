@@ -94,14 +94,14 @@ os_size_t os_sys_init(void)
 void os_sys_uninit(void)
 {
 	os_cpu_sr_off();
+	os_unmount_root();
+	os_unregister_devices();
+	os_vfs_uninit();
 	os_q_uninit();
 	os_sem_uninit();
 	os_uninit_timer();
 	uninit_os_sched();
 	uninit_pid();
-	os_unmount_root();
-	os_unregister_devices();
-	os_vfs_uninit();
 }
 
 void os_sys_start(void)
@@ -177,8 +177,8 @@ static void task_e(void *p_arg)
 
 static DWORD task(LPVOID lpThreadParameter)
 {
-	os_kthread_create(task_c, NULL, "task_c");
-	os_kthread_create(task_e, NULL, "task_e");
+	//os_kthread_create(task_c, NULL, "task_c");
+	//os_kthread_create(task_e, NULL, "task_e");
 	os_sys_start();
 	return 0;
 }
@@ -222,27 +222,12 @@ int main()
 	char arg2[256] = "";
 	char ln;
 	//HANDLE handle;
-	//_CrtSetBreakAlloc(96);
+	//_CrtSetBreakAlloc(2412);
 	if (0 == os_sys_init())
 	{
-		/*handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)task, NULL, 0, NULL);
-		SetThreadPriority(handle, THREAD_PRIORITY_HIGHEST);*/
+		//handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)task, NULL, 0, NULL);
+		//SetThreadPriority(handle, THREAD_PRIORITY_HIGHEST);
 	}
-	/*if (fs_loading() != 0)
-	{
-		printf("磁盘可能没有格式化，是否要进行格式化？y/n\n");
-		scanf_s("%[^\n]%c", buff, 256, &ln, 1);
-		if (os_str_cmp(buff, "y") == 0)
-		{
-			fs_formatting();
-			printf("ok\n");
-		}
-		else
-		{
-			_CrtDumpMemoryLeaks();
-			return 0;
-		}
-	}*/
 	while (1)
 	{
 		scanf_s("%[^\n]%c", buff, 256, &ln, 1);
@@ -346,69 +331,69 @@ int main()
 		}
 		else if (os_str_cmp(command, "mv") == 0)
 		{
-			/*if (move_file(arg2, arg1) == 0)
+			if (os_move_file(arg2, arg1) == 0)
 			{
 				printf("ok\n");
 			}
 			else
 			{
 				printf("error\n");
-			}*/
+			}
 		}
 		else if (os_str_cmp(command, "push") == 0)
 		{
-			/*FILE *file1 = NULL;
+			FILE *file1 = NULL;
 			if (0 == fopen_s(&file1, arg1, "rb"))
 			{
-				file_obj *file2 = open_file(arg2, FS_CREATE | FS_WRITE | FS_APPEND);
+				os_file *file2 = os_open_file(arg2, OS_FS_CREATE | OS_FS_WRITE | OS_FS_APPEND);
 				if (file2 != NULL)
 				{
-					char buff[4096];
+					char buff[1024];
 					int num;
 					long long size = 0;
 					long long cur = 0;
 					fseek(file1, 0, SEEK_END);
 					size = ftell(file1);
 					fseek(file1, 0, SEEK_SET);
-					while ((num = fread_s(buff, 4096, 1, 4096, file1)) > 0)
+					while ((num = fread_s(buff, 1024, 1, 1024, file1)) > 0)
 					{
-						write_file(file2, buff, num);
+						os_write_file(file2, buff, num);
 						cur += num;
 						printf("%lld%%\r", cur * 100 / size);
 					}
 					printf("\n%s to %s\n", arg1, arg2);
-					close_file(file2);
+					os_close_file(file2);
 				}
 				fclose(file1);
-			}*/
+			}
 
 		}
 		else if (os_str_cmp(command, "pull") == 0)
 		{
-			/*FILE *file2 = NULL;
+			FILE *file2 = NULL;
 			if (0 == fopen_s(&file2, arg2, "wb"))
 			{
-				file_obj *file1 = open_file(arg1, FS_READ);
+				os_file *file1 = os_open_file(arg1, OS_FS_READ);
 				if (file1 != NULL)
 				{
-					char buff[4096];
+					char buff[1024];
 					int num;
 					long long size = 0;
 					long long cur = 0;
-					seek_file(file1, 0, FS_SEEK_END);
-					size = tell_file(file1);
-					seek_file(file1, 0, FS_SEEK_SET);
-					while((num = read_file(file1, buff, 4096)) > 0)
+					os_seek_file(file1, 0, OS_FS_SEEK_END);
+					size = os_tell_file(file1);
+					os_seek_file(file1, 0, OS_FS_SEEK_SET);
+					while ((num = os_read_file(file1, buff, 1024)) > 0)
 					{
 						fwrite(buff, 1, num, file2);
 						cur += num;
 						printf("%lld%%\r", cur * 100 / size);
 					}
 					printf("\n%s to %s\n", arg1, arg2);
-					close_file(file1);
+					os_close_file(file1);
 				}
 				fclose(file2);
-			}*/
+			}
 
 		}
 		else if (os_str_cmp(command, "test") == 0)
@@ -436,8 +421,7 @@ int main()
 		else if (os_str_cmp(command, "quit") == 0)
 		{
 			os_sys_uninit();
-			/*CloseHandle(handle);
-			fs_unloading();*/
+			//CloseHandle(handle);
 			break;
 		}
 		else

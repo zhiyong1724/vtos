@@ -2,6 +2,7 @@
 #define __OS_VFS_H__
 #include "os_cpu_def.h"
 #include "base/os_map.h"
+#include "sched//os_sem.h"
 #define MAX_FILE_NAME_SIZE 64
 #define OS_FS_READ 1
 #define OS_FS_WRITE 2
@@ -10,6 +11,13 @@
 
 #define OS_DIR void *
 #define OS_FILE void *
+
+enum OS_SEEK_TYPE
+{
+	OS_FS_SEEK_SET,
+	OS_FS_SEEK_CUR,
+	OS_FS_SEEK_END
+};
 
 enum DISK_OPERATE
 {
@@ -42,6 +50,7 @@ typedef struct os_file_info
 	void *arg;
 	const struct os_file_operators *file_operators;
 	const struct os_fs_operators *fs_operators;
+	os_sem_t *sem;
 } os_file_info;
 
 typedef struct os_dir
@@ -51,17 +60,23 @@ typedef struct os_dir
 	os_file_info *vfile;
 } os_dir;
 
+typedef struct os_file
+{
+	OS_FILE real_file;
+	os_file_info *vfile;
+} os_file;
+
 typedef struct os_file_operators
 {
-	void(*module_init)();
-	void(*module_uninit)();
-	void *(*os_ioctl)(uint32 command, void *arg);
-	OS_FILE(*open_file)(const char *path, uint32 flags);
-	void(*close_file)(OS_FILE file);
-	uint32(*read_file)(OS_FILE file, void *data, uint32 len);
-	uint32(*write_file)(OS_FILE file, void *data, uint32 len);
-	uint32(*seek_file)(OS_FILE file, int64 offset, uint32 fromwhere);
-	uint64(*tell_file)(OS_FILE file);
+	void(*module_init)(os_file_info *mount_file);
+	void(*module_uninit)(os_file_info *mount_file);
+	void *(*ioctl)(os_file_info *mount_file, uint32 command, void *arg);
+	OS_FILE(*open_file)(os_file_info *mount_file, const char *path, uint32 flags);
+	void(*close_file)(os_file_info *mount_file, OS_FILE file);
+	uint32(*read_file)(os_file_info *mount_file, OS_FILE file, void *data, uint32 len);
+	uint32(*write_file)(os_file_info *mount_file, OS_FILE file, void *data, uint32 len);
+	uint32(*seek_file)(os_file_info *mount_file, OS_FILE file, int64 offset, uint32 fromwhere);
+	uint64(*tell_file)(os_file_info *mount_file, OS_FILE file);
 } os_file_operators;
 
 typedef struct os_fs_operators
@@ -78,8 +93,7 @@ typedef struct os_fs_operators
 	uint32(*create_file)(os_file_info *mount_file, const char *path);
 	uint32 (*delete_dir)(os_file_info *mount_file, const char *path);
 	uint32 (*delete_file)(os_file_info *mount_file, const char *path);
-	uint32 (*move_file)(const char *dest, const char *src);
-	uint32 (*copy_file)(const char *dest, const char *src);
+	uint32 (*move_file)(os_file_info *mount_file, const char *dest, const char *src);
 } os_fs_operators;
 
 typedef struct os_file_system
@@ -197,24 +211,17 @@ uint32 os_delete_file(const char *path);
 *********************************************************************************************************************/
 uint32 os_move_file(const char *dest, const char *src);
 /*********************************************************************************************************************
-* 复制一个文件或者目录
-* src：源目录
-* dest：目标目录
-* return：0：成功；
-*********************************************************************************************************************/
-uint32 os_copy_file(const char *dest, const char *src);
-/*********************************************************************************************************************
 * 打开一个文件
 * path：路径
 * flags：可以选择FS_READ、FS_WRITE、FS_APPEND、FS_CREATE中的一个或组合
 * return：文件对象
 *********************************************************************************************************************/
-OS_FILE os_open_file(const char *path, uint32 flags);
+os_file *os_open_file(const char *path, uint32 flags);
 /*********************************************************************************************************************
 * 关闭一个文件
 * file：文件对象
 *********************************************************************************************************************/
-void os_close_file(OS_FILE file);
+void os_close_file(os_file *file);
 /*********************************************************************************************************************
 * 读取文件
 * file：文件对象
@@ -222,7 +229,7 @@ void os_close_file(OS_FILE file);
 * len：读取的数据长度
 * return：成功读取的大小
 *********************************************************************************************************************/
-uint32 os_read_file(OS_FILE file, void *data, uint32 len);
+uint32 os_read_file(os_file *file, void *data, uint32 len);
 /*********************************************************************************************************************
 * 写入文件
 * file：文件对象
@@ -230,7 +237,7 @@ uint32 os_read_file(OS_FILE file, void *data, uint32 len);
 * len：写入的数据长度
 * return：成功写入的大小
 *********************************************************************************************************************/
-uint32 os_write_file(OS_FILE file, void *data, uint32 len);
+uint32 os_write_file(os_file *file, void *data, uint32 len);
 /*********************************************************************************************************************
 * 移动文件指针
 * file：文件对象
@@ -238,19 +245,20 @@ uint32 os_write_file(OS_FILE file, void *data, uint32 len);
 * fromwhere：FS_SEEK_SET，FS_SEEK_CUR，FS_SEEK_END
 * return：0：成功；
 *********************************************************************************************************************/
-uint32 os_seek_file(OS_FILE file, int64 offset, uint32 fromwhere);
+uint32 os_seek_file(os_file *file, int64 offset, uint32 fromwhere);
 /*********************************************************************************************************************
 * 获取指针位置
 * file：文件对象
 * return：指针位置
 *********************************************************************************************************************/
-uint64 os_tell_file(OS_FILE file);
+uint64 os_tell_file(os_file *file);
 /*********************************************************************************************************************
 * io控制
+* file：文件对象
 * command：命令
 * arg：参数
 *********************************************************************************************************************/
-void *os_ioctl(uint32 command, void *arg);
+void *os_ioctl(os_file *file, uint32 command, void *arg);
 /*********************************************************************************************************************
 * 获取总空间大小
 * mount_name：挂载的文件名

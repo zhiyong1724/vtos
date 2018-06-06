@@ -147,6 +147,7 @@ static void os_file_info_init(os_file_info *finfo)
 	finfo->arg = NULL;
 	finfo->file_operators = NULL;
 	finfo->fs_operators = NULL;
+	finfo->sem = NULL;
 }
 
 void os_vfs_init()
@@ -319,33 +320,6 @@ uint32 os_delete_vfile(const char *path)
 	return ret;
 }
 
-uint32 os_register_dev(const char *name, const os_file_operators *file_operators)
-{
-	if (os_str_cmp(name, ".") != 0 && os_str_cmp(name, "..") != 0 && os_str_find(name, "/") == -1 && os_str_find(name, "\\") == -1
-		&& os_str_find(name, ":") == -1 && os_str_find(name, "*") == -1 && os_str_find(name, "?") == -1 && os_str_find(name, "\"") == -1
-		&& os_str_find(name, "<") == -1 && os_str_find(name, ">") == -1 && os_str_find(name, "|") == -1)
-	{
-		char path[MAX_FILE_NAME_SIZE];
-		os_str_cpy(path, DEV_PATH, MAX_FILE_NAME_SIZE);
-		os_str_cat(path, "/");
-		os_str_cat(path, name);
-		if (os_create_vfile(path, file_operators, NULL) != NULL)
-		{
-			return 0;
-		}
-	}
-	return 1;
-}
-
-uint32 os_unregister_dev(const char *name)
-{
-	char path[MAX_FILE_NAME_SIZE];
-	os_str_cpy(path, DEV_PATH, MAX_FILE_NAME_SIZE);
-	os_str_cat(path, "/");
-	os_str_cat(path, name);
-	return os_delete_vfile(path);
-}
-
 static os_file_info *get_final_vfile(const char *path, uint32 *index)
 {
 	char name[MAX_FILE_NAME_SIZE];
@@ -369,8 +343,50 @@ static os_file_info *get_final_vfile(const char *path, uint32 *index)
 	return cur;
 }
 
+uint32 os_register_dev(const char *name, const os_file_operators *file_operators)
+{
+	if (os_str_cmp(name, ".") != 0 && os_str_cmp(name, "..") != 0 && os_str_find(name, "/") == -1 && os_str_find(name, "\\") == -1
+		&& os_str_find(name, ":") == -1 && os_str_find(name, "*") == -1 && os_str_find(name, "?") == -1 && os_str_find(name, "\"") == -1
+		&& os_str_find(name, "<") == -1 && os_str_find(name, ">") == -1 && os_str_find(name, "|") == -1)
+	{
+		char path[MAX_FILE_NAME_SIZE];
+		os_str_cpy(path, DEV_PATH, MAX_FILE_NAME_SIZE);
+		os_str_cat(path, "/");
+		os_str_cat(path, name);
+		os_file_info *file = os_create_vfile(path, file_operators, NULL);
+		if (file != NULL)
+		{
+			if (file->file_operators != NULL && file->file_operators->module_init != NULL)
+			{
+				file->file_operators->module_init(file);
+			}
+			return 0;
+		}
+	}
+	return 1;
+}
+
+uint32 os_unregister_dev(const char *name)
+{
+	char path[MAX_FILE_NAME_SIZE];
+	os_str_cpy(path, DEV_PATH, MAX_FILE_NAME_SIZE);
+	os_str_cat(path, "/");
+	os_str_cat(path, name);
+	uint32 index = 0;
+	os_file_info *file = get_final_vfile(path, &index);
+	if (file != NULL && ('\0' == path[index] || os_str_cmp(path, "/") == 0))
+	{
+		if (file->file_operators != NULL && file->file_operators->module_uninit != NULL)
+		{
+			file->file_operators->module_uninit(file);
+		}
+	}
+	return os_delete_vfile(path);
+}
+
 uint32 os_mount(const char *mount_name, const char *dev_name, const char *fs_name, uint32 formatting)
 {
+	os_size_t cpu_sr = os_cpu_sr_off();
 	if (os_str_cmp(mount_name, ".") != 0 && os_str_cmp(mount_name, "..") != 0 && os_str_find(mount_name, "/") == -1 && os_str_find(mount_name, "\\") == -1
 		&& os_str_find(mount_name, ":") == -1 && os_str_find(mount_name, "*") == -1 && os_str_find(mount_name, "?") == -1 && os_str_find(mount_name, "\"") == -1
 		&& os_str_find(mount_name, "<") == -1 && os_str_find(mount_name, ">") == -1 && os_str_find(mount_name, "|") == -1)
@@ -417,18 +433,22 @@ uint32 os_mount(const char *mount_name, const char *dev_name, const char *fs_nam
 				}
 				if (mount_file != NULL)
 				{
+					mount_file->sem = os_sem_create(1, mount_file->name);
 					mount_file->dev = dev_file;
 					mount_file->fs_operators->mount(mount_file, formatting);
+					os_cpu_sr_restore(cpu_sr);
 					return 0;
 				}
 			}
 		}
 	}
+	os_cpu_sr_restore(cpu_sr);
 	return 1;
 }
 
 uint32 os_unmount(const char *mount_name)
 {
+	os_size_t cpu_sr = os_cpu_sr_off();
 	os_file_info *mount_file = &_os_vfs.root;
 	char path[MAX_FILE_NAME_SIZE] = "";
 	if (*mount_name != '\0')
@@ -441,15 +461,19 @@ uint32 os_unmount(const char *mount_name)
 	}
 	if (mount_file != NULL && mount_file->fs_operators != NULL && mount_file->fs_operators->unmount != NULL)
 	{
+		os_sem_free(mount_file->sem);
 		mount_file->fs_operators->unmount(mount_file);
 		os_delete_vfile(path);
+		os_cpu_sr_restore(cpu_sr);
 		return 0;
 	}
+	os_cpu_sr_restore(cpu_sr);
 	return 1;
 }
 
 void os_formatting(const char *mount_name)
 {
+	os_size_t cpu_sr = os_cpu_sr_off();
 	if (os_str_cmp(mount_name, ".") != 0 && os_str_cmp(mount_name, "..") != 0 && os_str_find(mount_name, "/") == -1 && os_str_find(mount_name, "\\") == -1
 		&& os_str_find(mount_name, ":") == -1 && os_str_find(mount_name, "*") == -1 && os_str_find(mount_name, "?") == -1 && os_str_find(mount_name, "\"") == -1
 		&& os_str_find(mount_name, "<") == -1 && os_str_find(mount_name, ">") == -1 && os_str_find(mount_name, "|") == -1)
@@ -469,6 +493,7 @@ void os_formatting(const char *mount_name)
 			mount_file->fs_operators->formatting(mount_file);
 		}
 	}
+	os_cpu_sr_restore(cpu_sr);
 }
 
 uint32 os_create_dir(const char *path)
@@ -481,6 +506,10 @@ uint32 os_create_dir(const char *path)
 		os_file_info *finfo = get_final_vfile(pre_path, &index);
 		if (finfo->fs_operators != NULL && finfo->fs_operators->create_dir != NULL)
 		{
+			if (finfo->sem != NULL)
+			{
+				os_sem_pend(finfo->sem, 0, NULL);
+			}
 			if ('\0' == pre_path[index])
 			{
 				ret = finfo->fs_operators->create_dir(finfo, "/");
@@ -488,6 +517,10 @@ uint32 os_create_dir(const char *path)
 			else
 			{
 				ret = finfo->fs_operators->create_dir(finfo, &pre_path[index]);
+			}
+			if (finfo->sem != NULL)
+			{
+				os_sem_post(finfo->sem);
 			}
 		}
 		os_free(pre_path);
@@ -505,6 +538,10 @@ uint32 os_create_file(const char *path)
 		os_file_info *finfo = get_final_vfile(pre_path, &index);
 		if (finfo->fs_operators != NULL && finfo->fs_operators->create_file != NULL)
 		{
+			if (finfo->sem != NULL)
+			{
+				os_sem_pend(finfo->sem, 0, NULL);
+			}
 			if ('\0' == pre_path[index])
 			{
 				ret = finfo->fs_operators->create_file(finfo, "/");
@@ -512,6 +549,10 @@ uint32 os_create_file(const char *path)
 			else
 			{
 				ret = finfo->fs_operators->create_file(finfo, &pre_path[index]);
+			}
+			if (finfo->sem != NULL)
+			{
+				os_sem_post(finfo->sem);
 			}
 		}
 		os_free(pre_path);
@@ -538,6 +579,10 @@ os_dir *os_open_dir(const char *path)
 		}
 		if (dir->vfile->fs_operators != NULL && dir->vfile->fs_operators->open_dir != NULL)
 		{
+			if (dir->vfile->sem != NULL)
+			{
+				os_sem_pend(dir->vfile->sem, 0, NULL);
+			}
 			if ('\0' == pre_path[index])
 			{
 				dir->real_dir = dir->vfile->fs_operators->open_dir(dir->vfile, "/");
@@ -545,6 +590,10 @@ os_dir *os_open_dir(const char *path)
 			else
 			{
 				dir->real_dir = dir->vfile->fs_operators->open_dir(dir->vfile, &pre_path[index]);
+			}
+			if (dir->vfile->sem != NULL)
+			{
+				os_sem_post(dir->vfile->sem);
 			}
 		}
 		else
@@ -565,13 +614,22 @@ void os_close_dir(os_dir *dir)
 {
 	if (dir->real_dir != NULL && dir->vfile->fs_operators != NULL && dir->vfile->fs_operators->close_dir != NULL)
 	{
+		if (dir->vfile->sem != NULL)
+		{
+			os_sem_pend(dir->vfile->sem, 0, NULL);
+		}
 		dir->vfile->fs_operators->close_dir(dir->vfile, dir->real_dir);
+		if (dir->vfile->sem != NULL)
+		{
+			os_sem_post(dir->vfile->sem);
+		}
 	}
 	os_free(dir);
 }
 
 uint32 os_read_dir(os_file_info *finfo, os_dir *dir)
 {
+	uint32 ret = 1;
 	if (dir->itr != NULL)
 	{
 		os_file_info *cur_finfo = *(os_file_info **)os_map_second(dir->vfile->files, dir->itr);
@@ -586,16 +644,16 @@ uint32 os_read_dir(os_file_info *finfo, os_dir *dir)
 		finfo->file_operators = cur_finfo->file_operators;
 		finfo->fs_operators = cur_finfo->fs_operators;
 		dir->itr = os_map_next(dir->vfile->files, dir->itr);
-		return 0;
+		ret = 0;
 	}
 	else
 	{
 		if (dir->vfile->fs_operators != NULL && dir->vfile->fs_operators->read_dir != NULL)
 		{
-			return dir->vfile->fs_operators->read_dir(dir->vfile, finfo, dir->real_dir);
+			ret = dir->vfile->fs_operators->read_dir(dir->vfile, finfo, dir->real_dir);
 		}
 	}
-	return 1;
+	return ret;
 }
 
 uint32 os_delete_dir(const char *path)
@@ -608,6 +666,10 @@ uint32 os_delete_dir(const char *path)
 		os_file_info *finfo = get_final_vfile(pre_path, &index);
 		if (finfo->fs_operators != NULL && finfo->fs_operators->delete_dir != NULL)
 		{
+			if (finfo->sem != NULL)
+			{
+				os_sem_pend(finfo->sem, 0, NULL);
+			}
 			if ('\0' == pre_path[index])
 			{
 				ret = finfo->fs_operators->delete_dir(finfo, "/");
@@ -615,6 +677,10 @@ uint32 os_delete_dir(const char *path)
 			else
 			{
 				ret = finfo->fs_operators->delete_dir(finfo, &pre_path[index]);
+			}
+			if (finfo->sem != NULL)
+			{
+				os_sem_post(finfo->sem);
 			}
 		}
 		os_free(pre_path);
@@ -632,15 +698,22 @@ uint32 os_delete_file(const char *path)
 		os_file_info *finfo = get_final_vfile(pre_path, &index);
 		if (finfo->fs_operators != NULL && finfo->fs_operators->delete_file != NULL)
 		{
+			if (finfo->sem != NULL)
+			{
+				os_sem_pend(finfo->sem, 0, NULL);
+			}
 			if ('\0' == pre_path[index])
 			{
-				finfo->fs_operators->delete_file(finfo, "/");
+				ret = finfo->fs_operators->delete_file(finfo, "/");
 			}
 			else
 			{
-				finfo->fs_operators->delete_file(finfo, &pre_path[index]);
+				ret = finfo->fs_operators->delete_file(finfo, &pre_path[index]);
 			}
-			ret = 0;
+			if (finfo->sem != NULL)
+			{
+				os_sem_post(finfo->sem);
+			}
 		}
 		os_free(pre_path);
 	}
@@ -649,47 +722,200 @@ uint32 os_delete_file(const char *path)
 
 uint32 os_move_file(const char *dest, const char *src)
 {
-	return 0;
+	uint32 ret = 1;
+	char *pre_dest = pretreat_path(dest);
+	if (pre_dest != NULL)
+	{
+		char *pre_src = pretreat_path(src);
+		if (pre_src != NULL)
+		{
+			uint32 dest_index = 0;
+			os_file_info *dest_info = get_final_vfile(pre_dest, &dest_index);
+			uint32 src_index = 0;
+			os_file_info *src_info = get_final_vfile(pre_src, &src_index);
+			if (dest_info == src_info)
+			{
+				if (dest_info->fs_operators != NULL && dest_info->fs_operators->move_file != NULL)
+				{
+					if ('\0' == pre_dest[dest_index])
+					{
+						if (dest_info->sem != NULL)
+						{
+							os_sem_pend(dest_info->sem, 0, NULL);
+						}
+						if ('\0' == pre_src[src_index])
+						{
+							ret = dest_info->fs_operators->move_file(dest_info, "/", "/");
+						}
+						else
+						{
+							ret = dest_info->fs_operators->move_file(dest_info, "/", &pre_src[src_index]);
+						}
+						if (dest_info->sem != NULL)
+						{
+							os_sem_post(dest_info->sem);
+						}
+					}
+					else
+					{
+						if (dest_info->sem != NULL)
+						{
+							os_sem_pend(dest_info->sem, 0, NULL);
+						}
+						if ('\0' == pre_src[src_index])
+						{
+							ret = dest_info->fs_operators->move_file(dest_info, &pre_dest[dest_index], "/");
+						}
+						else
+						{
+							ret = dest_info->fs_operators->move_file(dest_info, &pre_dest[dest_index], &pre_src[src_index]);
+						}
+						if (dest_info->sem != NULL)
+						{
+							os_sem_post(dest_info->sem);
+						}
+
+					}
+				}
+			}
+			os_free(pre_src);
+		}
+		os_free(pre_dest);
+	}
+	return ret;
 }
 
-uint32 os_copy_file(const char *dest, const char *src)
+os_file *os_open_file(const char *path, uint32 flags)
 {
-	return 0;
+	os_file *file = NULL;
+	char *pre_path = pretreat_path(path);
+	if (pre_path != NULL)
+	{
+		uint32 index = 0;
+		file = (os_file *)os_malloc(sizeof(os_file));
+		file->vfile = get_final_vfile(pre_path, &index);
+		if (file->vfile->file_operators != NULL && file->vfile->file_operators->open_file != NULL)
+		{
+			if (file->vfile->sem != NULL)
+			{
+				os_sem_pend(file->vfile->sem, 0, NULL);
+			}
+			if ('\0' == pre_path[index])
+			{
+				file->real_file = file->vfile->file_operators->open_file(file->vfile, "/", flags);
+			}
+			else
+			{
+				file->real_file = file->vfile->file_operators->open_file(file->vfile, &pre_path[index], flags);
+			}
+			if (file->vfile->sem != NULL)
+			{
+				os_sem_post(file->vfile->sem);
+			}
+		}
+		else
+		{
+			file->real_file = NULL;
+		}
+		if (NULL == file->real_file)
+		{
+			os_free(file);
+			file = NULL;
+		}
+		os_free(pre_path);
+	}
+	return file;
 }
 
-OS_FILE os_open_file(const char *path, uint32 flags)
+void os_close_file(os_file *file)
 {
-	return NULL;
+	if (file->vfile->file_operators != NULL && file->vfile->file_operators->close_file != NULL)
+	{
+		if (file->vfile->sem != NULL)
+		{
+			os_sem_pend(file->vfile->sem, 0, NULL);
+		}
+		file->vfile->file_operators->close_file(file->vfile, file->real_file);
+		if (file->vfile->sem != NULL)
+		{
+			os_sem_post(file->vfile->sem);
+		}
+	}
+	os_free(file);
 }
 
-void os_close_file(OS_FILE file)
+uint32 os_read_file(os_file *file, void *data, uint32 len)
 {
-
+	uint32 ret = 0;
+	if (file->vfile->file_operators != NULL && file->vfile->file_operators->read_file != NULL)
+	{
+		ret = file->vfile->file_operators->read_file(file->vfile, file->real_file, data, len);
+	}
+	return ret;
 }
 
-uint32 os_read_file(OS_FILE file, void *data, uint32 len)
+uint32 os_write_file(os_file *file, void *data, uint32 len)
 {
-	return 0;
+	uint32 ret = 0;
+	if (file->vfile->file_operators != NULL && file->vfile->file_operators->write_file != NULL)
+	{
+		if (file->vfile->sem != NULL)
+		{
+			os_sem_pend(file->vfile->sem, 0, NULL);
+		}
+		ret = file->vfile->file_operators->write_file(file->vfile, file->real_file, data, len);
+		if (file->vfile->sem != NULL)
+		{
+			os_sem_post(file->vfile->sem);
+		}
+	}
+	return ret;
 }
 
-uint32 os_write_file(OS_FILE file, void *data, uint32 len)
+uint32 os_seek_file(os_file *file, int64 offset, uint32 fromwhere)
 {
-	return 0;
+	uint32 ret = 0;
+	if (file->vfile->file_operators != NULL && file->vfile->file_operators->seek_file != NULL)
+	{
+		if (file->vfile->sem != NULL)
+		{
+			os_sem_pend(file->vfile->sem, 0, NULL);
+		}
+		ret = file->vfile->file_operators->seek_file(file->vfile, file->real_file, offset, fromwhere);
+		if (file->vfile->sem != NULL)
+		{
+			os_sem_post(file->vfile->sem);
+		}
+	}
+	return ret;
 }
 
-uint32 os_seek_file(OS_FILE file, int64 offset, uint32 fromwhere)
+uint64 os_tell_file(os_file *file)
 {
-	return 0;
+	uint64 ret = 0;
+	if (file->vfile->file_operators != NULL && file->vfile->file_operators->tell_file != NULL)
+	{
+		ret = file->vfile->file_operators->tell_file(file->vfile, file->real_file);
+	}
+	return ret;
 }
 
-uint64 os_tell_file(OS_FILE file)
+void *os_ioctl(os_file *file, uint32 command, void *arg)
 {
-	return 0;
-}
-
-void *os_ioctl(uint32 command, void *arg)
-{
-	return NULL;
+	void *ret = NULL;
+	if (file->vfile->file_operators != NULL && file->vfile->file_operators->ioctl != NULL)
+	{
+		if (file->vfile->sem != NULL)
+		{
+			os_sem_pend(file->vfile->sem, 0, NULL);
+		}
+		ret = file->vfile->file_operators->ioctl(file->vfile, command, arg);
+		if (file->vfile->sem != NULL)
+		{
+			os_sem_post(file->vfile->sem);
+		}
+	}
+	return ret;
 }
 
 uint64 os_total_size(const char *mount_name) 

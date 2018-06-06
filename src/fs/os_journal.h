@@ -4,11 +4,13 @@
 #define JOURNAL_FILE_SIZE (FS_CLUSTER_SIZE * 1024)
 typedef uint32(*create_file_callback)(const char *path, void *fs);
 typedef uint32 (*write_file_callback)(void *file, void *data, uint32 len, void *fs);
+typedef uint32(*read_file_callback)(void *file, void *data, uint32 len, void *fs);
 typedef struct os_journal
 {
 	uint32 enable;
 	create_file_callback create_file;
 	write_file_callback write_file;
+	read_file_callback read_file;
 	uint32 *buff;
 	void *file;
 	uint32 index;
@@ -17,11 +19,13 @@ typedef struct os_journal
 /*********************************************************************************************************************
 * 初始化
 * journal：os_journal对象
-* arg1：创建系统文件函数指针
-* arg2：写系统文件函数指针
+* journal：创建系统文件函数指针
+* create_file：写系统文件函数指针
+* write_file：写系统文件函数指针
+* read_file：写系统文件函数指针
 * fs：os_fs对象
 *********************************************************************************************************************/
-void os_journal_init(os_journal *journal, create_file_callback arg1, write_file_callback arg2, void *fs);
+void os_journal_init(os_journal *journal, create_file_callback create_file, write_file_callback write_file, read_file_callback read_file, void *fs);
 /*********************************************************************************************************************
 * 释放资源
 * journal：os_journal对象

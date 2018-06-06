@@ -204,10 +204,7 @@ void cluster_manager_init(os_cluster *cluster)
 uint32 cluster_alloc(os_cluster *cluster)
 {
 	uint32 id;
-	if (cluster->pcluster_manager->used_cluster_count == cluster->total_cluster_count)
-	{
-		return 0;
-	}
+	while (cluster->pcluster_manager->used_cluster_count == cluster->total_cluster_count);
 	cluster->is_update = 1;
 	if (cluster->bitmap == NULL)
 	{

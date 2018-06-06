@@ -110,7 +110,7 @@ static void super_cluster_flush(os_fs *fs)
 
 static void flush(os_fs *fs)
 {
-	if (fs->super->property & 0x00000001)
+	if ((fs->super->property & 0x00000001) == 0x00000001)
 	{
 		journal_start(&fs->journal);
 	}
@@ -121,7 +121,7 @@ static void flush(os_fs *fs)
 		fs->is_update_super = 0;
 		super_cluster_flush(fs);
 	}
-	if (fs->super->property & 0x00000001)
+	if ((fs->super->property & 0x00000001) == 0x00000001)
 	{
 		journal_end(&fs->journal);
 	}
@@ -589,25 +589,21 @@ static uint32 handle_file(const char *path, uint32(*handle)(fnode *parent, uint3
 static uint32 do_delete_dir(fnode *parent, uint32 i1, fnode *parent_root, fnode *child, uint32 i2, os_fs *fs)
 {
 	uint32 ret = 1;
-	char name[FS_MAX_NAME_SIZE];
-	if (FS_MAX_KEY_NUM == i1)
+	if (0 == child->finfo[i2].file_count && (child->finfo[i2].property & 0x00000492) == 0x00000492 && (child->finfo[i2].property & 0x00000200) == 0)
 	{
-		if (0 == child->finfo[i2].file_count && child->finfo[i2].property & 0x00000400 && (child->finfo[i2].property & 0x00000200) == 0)
+		char name[FS_MAX_NAME_SIZE];
+		if (FS_MAX_KEY_NUM == i1)
 		{
 			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
 			remove_from_root(name, fs);
-			ret = 0;
 		}
-	}
-	else
-	{
-		if (0 == child->finfo[i2].file_count && child->finfo[i2].property & 0x00000400 && (child->finfo[i2].property & 0x00000200) == 0)
+		else
 		{
 			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
 			remove_from_parent(&parent->finfo[i1], parent_root, name, fs);
 			add_flush(parent, &fs->dentry);
-			return 0;
 		}
+		ret = 0;
 	}
 	return ret;
 }
@@ -627,26 +623,22 @@ static uint32 sys_do_delete_file(fnode *parent, uint32 i1, fnode *parent_root, f
 {
 	uint32 ret = 1;
 	char name[FS_MAX_NAME_SIZE];
-	if (FS_MAX_KEY_NUM == i1)
+	if ((child->finfo[i2].property & 0x00000092) == 0x00000092 && (child->finfo[i2].property & 0x00000400) == 0 && find_finfo_node(fs->open_file_tree, child->finfo[i2].cluster_id) == NULL)
 	{
-		if ((child->finfo[i2].property & 0x00000400) == 0 && find_finfo_node(fs->open_file_tree, child->finfo[i2].cluster_id) == NULL)
+		if (FS_MAX_KEY_NUM == i1)
 		{
 			file_data_remove(child->finfo[i2].cluster_id, child->finfo[i2].cluster_count, &fs->cluster);
 			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
 			remove_from_root(name, fs);
-			ret = 0;
 		}
-	}
-	else
-	{
-		if ((child->finfo[i2].property & 0x00000400) == 0 && find_finfo_node(fs->open_file_tree, child->finfo[i2].cluster_id) == NULL)
+		else
 		{
 			file_data_remove(child->finfo[i2].cluster_id, child->finfo[i2].cluster_count, &fs->cluster);
 			os_str_cpy(name, child->finfo[i2].name, FS_MAX_NAME_SIZE);
 			remove_from_parent(&parent->finfo[i1], parent_root, name, fs);
 			add_flush(parent, &fs->dentry);
-			return 0;
 		}
+		ret = 0;
 	}
 	return ret;
 }
@@ -770,6 +762,52 @@ static void insert_to_open_file_tree(tree_node_type_def **handle, finfo_node *no
 	os_insert_node(handle, &node->tree_node_structrue, cluster_id_compare, NULL);
 }
 
+static uint32 sys_read_file(file_obj *file, void *data, uint32 len, os_fs *fs)
+{
+	if (file->index + len > file->node->finfo.size)
+	{
+		len = (uint32)(file->node->finfo.size - file->index);
+	}
+	if (len > 0)
+	{
+		if (1 == file->node->finfo.cluster_count)  //按照小文件方式读取
+		{
+			little_file_data_read(file->node->finfo.cluster_id, file->index, data, len, &fs->cluster);
+		}
+		else
+		{
+			file_data_read(file->node->finfo.cluster_id, file->node->finfo.cluster_count, file->index, data, len, &fs->cluster);
+			file->index += len;
+		}
+		return len;
+	}
+	return 0;
+}
+
+static uint32 sys_write_file(file_obj *file, void *data, uint32 len, os_fs *fs)
+{
+	if (file->index + len <= FS_CLUSTER_SIZE && 1 == file->node->finfo.cluster_count)  //按照小文件方式写入
+	{
+		if (data != NULL)
+		{
+			little_file_data_write(file->node->finfo.cluster_id, file->index, data, len, &fs->cluster);
+		}
+	}
+	else
+	{
+		file->node->finfo.cluster_id = file_data_write(file->node->finfo.cluster_id, &file->node->finfo.cluster_count, file->index, data, len, &fs->cluster);
+	}
+
+	if (file->index + len > file->node->finfo.size)
+	{
+		file->node->finfo.size = file->index + len;
+		file->node->flag = 1;
+	}
+	file->index += len;
+	file->node->finfo.modif_time = os_get_time();
+	return len;
+}
+
 file_obj *fs_open_file(const char *path, uint32 flags, os_fs *fs)
 {
 	file_obj *file = NULL;
@@ -814,7 +852,7 @@ file_obj *fs_open_file(const char *path, uint32 flags, os_fs *fs)
 			fnode_free(node, &fs->dentry);
 		}
 		file = (file_obj *)os_malloc(sizeof(file_obj));
-		file->flags = flags;
+		file->flags = flags & 0x0f;
 		if (flags & FS_APPEND)
 		{
 			file->index = f_node->finfo.size;
@@ -824,12 +862,35 @@ file_obj *fs_open_file(const char *path, uint32 flags, os_fs *fs)
 			file->index = 0;
 		}
 		file->node = f_node;
+		if (file->node->finfo.property & 0x00000200)
+		{
+			file->buff = NULL;
+		}
+		else
+		{
+			file->buff = (char *)os_malloc(FS_CLUSTER_SIZE);
+			uint64 temp = file->index;
+			file->index -= file->index % FS_CLUSTER_SIZE;
+			sys_read_file(file, file->buff, FS_CLUSTER_SIZE, fs);
+			file->index = temp;
+			file->flags &= (~FS_BUFF_CHANGE);
+		}
 	}
 	return file;
 }
 
 void fs_close_file(file_obj *file, os_fs *fs)
 {
+	if (file->buff != NULL)
+	{
+		if (file->flags & FS_BUFF_CHANGE)
+		{
+			uint32 size = file->index % FS_CLUSTER_SIZE;
+			file->index -= size;
+			sys_write_file(file, file->buff, size, fs);
+		}
+		os_free(file->buff);
+	}
 	if (file->node->flag > 0)
 	{
 		fnode *n = NULL;
@@ -861,67 +922,108 @@ void fs_close_file(file_obj *file, os_fs *fs)
 
 uint32 fs_read_file(file_obj *file, void *data, uint32 len, os_fs *fs)
 {
-	if ((file->flags & FS_READ) && (file->node->finfo.property & 0x00000124)) //判断是否具有读权限
+	if (file->index + len > file->node->finfo.size)
 	{
-		if (file->index + len > file->node->finfo.size)
-		{
-			len = (uint32)(file->node->finfo.size - file->index);
-		}
-		if (len > 0)
-		{
-			if (1 == file->node->finfo.cluster_count)  //按照小文件方式读取
-			{
-				little_file_data_read(file->node->finfo.cluster_id, file->index, data, len, &fs->cluster);
-			}
-			else
-			{
-				file_data_read(file->node->finfo.cluster_id, file->node->finfo.cluster_count, file->index, data, len, &fs->cluster);
-				file->index += len;
-			}
-			return len;
-		}
+		len = (uint32)(file->node->finfo.size - file->index);
 	}
-	return 0;
-}
-
-static uint32 sys_write_file(file_obj *file, void *data, uint32 len, os_fs *fs)
-{
-	if ((file->flags & FS_WRITE) && (file->node->finfo.property & 0x00000092)) //判断是否具有写权限
+	uint32 read_size = len;
+	if (len > 0 && (file->flags & FS_READ) && (file->node->finfo.property & 0x00000124) == 0x00000124) //判断是否具有读权限
 	{
-		if (len > 0)
+		uint32 i = file->index % FS_CLUSTER_SIZE;
+		uint8 *pdata = (uint8 *)data;
+		if (i + len < FS_CLUSTER_SIZE)
 		{
-			if (file->index + len <= FS_CLUSTER_SIZE && 1 == file->node->finfo.cluster_count)  //按照小文件方式写入
-			{
-				if (data != NULL)
-				{
-					little_file_data_write(file->node->finfo.cluster_id, file->index, data, len, &fs->cluster);
-				}
-			}
-			else
-			{
-				file->node->finfo.cluster_id = file_data_write(file->node->finfo.cluster_id, &file->node->finfo.cluster_count, file->index, data, len, &fs->cluster);
-			}
-
-			if (file->index + len > file->node->finfo.size)
-			{
-				file->node->finfo.size = file->index + len;
-				file->node->flag = 1;
-			}
+			os_mem_cpy(pdata, &file->buff[i], len);
 			file->index += len;
-			file->node->finfo.modif_time = os_get_time();
-			return len;
+			read_size = 0;
 		}
+		else
+		{
+			if (file->flags & FS_BUFF_CHANGE)
+			{
+				file->index -= file->index % FS_CLUSTER_SIZE;
+				sys_write_file(file, file->buff, FS_CLUSTER_SIZE, fs);
+				file->flags &= (~FS_BUFF_CHANGE);
+			}
+			else
+			{
+				file->index += (FS_CLUSTER_SIZE - i);
+			}
+
+			os_mem_cpy(pdata, &file->buff[i], FS_CLUSTER_SIZE - i);
+			read_size -= (FS_CLUSTER_SIZE - i);
+			if (0 == read_size)
+			{
+				file->index -= sys_read_file(file, file->buff, FS_CLUSTER_SIZE, fs);
+			}
+			pdata += (FS_CLUSTER_SIZE - i);
+		}
+		while (read_size > 0)
+		{
+			if (read_size > FS_CLUSTER_SIZE)
+			{
+				read_size -= sys_read_file(file, pdata, FS_CLUSTER_SIZE, fs);
+				pdata += FS_CLUSTER_SIZE;
+			}
+			else
+			{
+				uint32 size = sys_read_file(file, file->buff, FS_CLUSTER_SIZE, fs);
+				os_mem_cpy(pdata, file->buff, read_size);
+				file->index = file->index - size + read_size;
+				read_size = 0;
+			}
+		}
+
 	}
-	return 0;
+	return len - read_size;
 }
 
 uint32 fs_write_file(file_obj *file, void *data, uint32 len, os_fs *fs)
 {
-	if ((file->node->finfo.property & 0x00000200) == 0) //判断是否具有写权限
+	uint32 write_size = len;
+	if ((file->node->finfo.property & 0x00000200) == 0 && len > 0 && (file->flags & FS_WRITE) && (file->node->finfo.property & 0x00000092) == 0x00000092) //判断是否具有写权限
 	{
-		return sys_write_file(file, data, len, fs);
+		uint32 i = file->index % FS_CLUSTER_SIZE;
+		uint8 *pdata = (uint8 *)data;
+		if (i + len < FS_CLUSTER_SIZE)
+		{
+			os_mem_cpy(&file->buff[i], pdata, len);
+			file->index += len;
+			write_size = 0;
+			file->flags |= FS_BUFF_CHANGE;
+		}
+		else
+		{
+			os_mem_cpy(&file->buff[i], pdata, FS_CLUSTER_SIZE - i);
+			file->index -= file->index % FS_CLUSTER_SIZE;
+			sys_write_file(file, file->buff, FS_CLUSTER_SIZE, fs);
+			write_size -= (FS_CLUSTER_SIZE - i);
+			if (0 == write_size)
+			{
+				file->index -= sys_read_file(file, file->buff, FS_CLUSTER_SIZE, fs);
+			}
+			pdata += (FS_CLUSTER_SIZE - i);
+			file->flags &= (~FS_BUFF_CHANGE);
+		}
+		while (write_size > 0)
+		{
+			if (write_size > FS_CLUSTER_SIZE)
+			{
+				write_size -= sys_write_file(file, pdata, FS_CLUSTER_SIZE, fs);
+				pdata += FS_CLUSTER_SIZE;
+			}
+			else
+			{
+				uint32 size = sys_read_file(file, file->buff, FS_CLUSTER_SIZE, fs);
+				os_mem_cpy(file->buff, pdata, write_size);
+				file->index = file->index - size + write_size;
+				write_size = 0;
+				file->flags |= FS_BUFF_CHANGE;
+			}
+		}
+		
 	}
-	return 0;
+	return len - write_size;
 }
 
 static uint32 create_sys_file(const char *path, os_fs *fs)
@@ -952,7 +1054,7 @@ os_fs *fs_mount(uint32 dev_id, uint32 formatting)
 		os_fs_init(fs);
 		os_cluster_init(&fs->cluster, dev_id);
 		os_dentry_init(&fs->dentry, on_move, &fs->cluster);
-		os_journal_init(&fs->journal, create_sys_file, sys_write_file, fs);
+		os_journal_init(&fs->journal, create_sys_file, sys_write_file, sys_read_file, fs);
 		set_journal(&fs->journal, &fs->cluster);
 		if (1 == formatting)
 		{
@@ -970,7 +1072,7 @@ os_fs *fs_mount(uint32 dev_id, uint32 formatting)
 			{
 				cluster_manager_load(&fs->cluster);
 				fs->root = fnode_load(fs->super->root_id, &fs->dentry);
-				if (fs->super->property & 0x00000001)
+				if ((fs->super->property & 0x00000001) == 0x00000001)
 				{
 					if (restore_from_journal(&fs->journal) == 0)
 					{
@@ -1068,7 +1170,7 @@ void fs_formatting(os_fs *fs)
 	os_fs_init(fs);
 	os_cluster_init(&fs->cluster, dev_id);
 	os_dentry_init(&fs->dentry, on_move, &fs->cluster);
-	os_journal_init(&fs->journal, create_sys_file, sys_write_file, fs);
+	os_journal_init(&fs->journal, create_sys_file, sys_write_file, sys_read_file, fs);
 	set_journal(&fs->journal, &fs->cluster);
 
 	cluster_manager_init(&fs->cluster);
@@ -1078,7 +1180,7 @@ void fs_formatting(os_fs *fs)
 	journal_create(&fs->journal);
 }
 
-uint32 fs_seek_file(file_obj *file, int64 offset, uint32 fromwhere)
+uint32 fs_seek_file(file_obj *file, int64 offset, uint32 fromwhere, os_fs *fs)
 {
 	uint64 temp;
 	switch (fromwhere)
@@ -1101,6 +1203,18 @@ uint32 fs_seek_file(file_obj *file, int64 offset, uint32 fromwhere)
 	}
 	if (temp <= file->node->finfo.size)
 	{
+		if (file->buff != NULL &&  file->index / FS_CLUSTER_SIZE != temp / FS_CLUSTER_SIZE)
+		{
+			if (file->flags & FS_BUFF_CHANGE)
+			{
+				uint32 size = file->index % FS_CLUSTER_SIZE;
+				file->index -= size;
+				sys_write_file(file, file->buff, size, fs);
+				file->flags &= (~FS_BUFF_CHANGE);
+			}
+			file->index = temp - temp % FS_CLUSTER_SIZE;
+			sys_read_file(file, file->buff, FS_CLUSTER_SIZE, fs);
+		}
 		file->index = temp;
 		return 0;
 	}
