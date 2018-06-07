@@ -25,7 +25,7 @@ struct os_timer
 * 线程睡眠函数
 * 睡眠的时间，单位为ms
 *********************************************************************************************************************/
-void os_sleep(os_size_t t);
+VTOS_API void os_sleep(os_size_t t);
 
 void os_remove_task_from_timer(tree_node_type_def *node);
 timer_info_t *os_set_timer(timer_info_t *timer, os_size_t time, timer_call_back call_back_func, void *args);

@@ -205,6 +205,9 @@ uint32 cluster_alloc(os_cluster *cluster)
 {
 	uint32 id;
 	while (cluster->pcluster_manager->used_cluster_count == cluster->total_cluster_count);
+	{
+		os_error_msg("out of disk space.", 0);
+	}
 	cluster->is_update = 1;
 	if (cluster->bitmap == NULL)
 	{

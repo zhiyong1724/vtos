@@ -7,7 +7,7 @@
 #define  OS_STK_GROWTH        1       //1.从高地址往低地址生长，0.从低地址往高地址生长
 
 /*调度算法相关的定义*/
-#define TICK_TIME 100000                  //系统每次滴答的时间间隔，单位为us
+#define TICK_TIME 10000                  //系统每次滴答的时间间隔，单位为us
 
 /*内存配置项*/
 #define PAGE_SIZE 4096                     //内存一页的大小

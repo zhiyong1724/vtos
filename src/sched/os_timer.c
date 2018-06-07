@@ -50,8 +50,11 @@ void os_sleep(os_size_t t)
 {
 	os_size_t cpu_sr = os_cpu_sr_off();
 	os_set_timer(&_running_task->timer, t, task_wakeup, &(_running_task->pid));
-	_running_task->task_status = TASK_SLEEP;
-	os_sw_out();
+	if (_running_task->timer.tick > 0)
+	{
+		_running_task->task_status = TASK_SLEEP;
+		os_sw_out();
+	}
 	os_cpu_sr_restore(cpu_sr);
 }
 

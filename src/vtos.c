@@ -50,22 +50,22 @@ uint64 os_sys_time()
 #endif // __WINDOWS__
 }
 
-void os_register_devices()
+static void os_register_devices()
 {
 	register_disk_dev();
 }
 
-void os_unregister_devices()
+static void os_unregister_devices()
 {
 	unregister_disk_dev();
 }
 
-void os_mount_root()
+static void os_mount_root()
 {
 	os_mount("", "disk_0", "emfs", 1);
 }
 
-void os_unmount_root()
+static void os_unmount_root()
 {
 	os_unmount("");
 }
@@ -214,7 +214,7 @@ static void get_command(const char *src, char *command, char *arg1, char *arg2)
 	}
 }
 
-int main()
+int _main()
 {
 	char buff[256] = "";
 	char command[16] = "";
