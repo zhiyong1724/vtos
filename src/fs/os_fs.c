@@ -314,16 +314,6 @@ static fnode *get_parent(const char *path, uint32 *idx, char *child_name, uint32
 	return ret;
 }
 
-static dir_obj *init_dir_obj(uint32 id)
-{
-	dir_obj *dir = (dir_obj *)os_malloc(sizeof(dir_obj));
-	dir->cur = NULL;
-	dir->id = id;
-	dir->index = 0;
-	dir->parent = NULL;
-	return dir;
-}
-
 static void insert_to_root(file_info *child, os_fs *fs)
 {
 	fnode *root = insert_to_btree(fs->root, child, &fs->dentry);
@@ -650,17 +640,6 @@ static uint32 do_delete_file(fnode *parent, uint32 i1, fnode *parent_root, fnode
 		return sys_do_delete_file(parent, i1, parent_root, child, i2, fs);
 	}
 	return 1;
-}
-
-static uint32 delete_sys_file(const char *path, os_fs *fs)
-{
-	uint32 ret = 1;
-	ret = handle_file(path, sys_do_delete_file, fs);
-	if (0 == ret)
-	{
-		flush(fs);
-	}
-	return ret;
 }
 
 uint32 fs_delete_file(const char *path, os_fs *fs)
@@ -1054,7 +1033,7 @@ os_fs *fs_mount(uint32 dev_id, uint32 formatting)
 		os_fs_init(fs);
 		os_cluster_init(&fs->cluster, dev_id);
 		os_dentry_init(&fs->dentry, on_move, &fs->cluster);
-		os_journal_init(&fs->journal, create_sys_file, sys_write_file, sys_read_file, fs);
+		os_journal_init(&fs->journal, (create_file_callback)create_sys_file, (write_file_callback)sys_write_file, (read_file_callback)sys_read_file, fs);
 		set_journal(&fs->journal, &fs->cluster);
 		if (1 == formatting)
 		{
@@ -1170,7 +1149,7 @@ void fs_formatting(os_fs *fs)
 	os_fs_init(fs);
 	os_cluster_init(&fs->cluster, dev_id);
 	os_dentry_init(&fs->dentry, on_move, &fs->cluster);
-	os_journal_init(&fs->journal, create_sys_file, sys_write_file, sys_read_file, fs);
+	os_journal_init(&fs->journal, (create_file_callback)create_sys_file, (write_file_callback)sys_write_file, (read_file_callback)sys_read_file, fs);
 	set_journal(&fs->journal, &fs->cluster);
 
 	cluster_manager_init(&fs->cluster);

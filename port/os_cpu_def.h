@@ -8,11 +8,7 @@
 #ifndef NULL
 #define NULL 0
 #endif
-#ifdef __cplusplus
-#define VTOS_API extern "C"
-#else
-#define VTOS_API
-#endif
+
 /*与编译器相关的类型定义*/
 #ifdef __CPU64__
 typedef unsigned char uint8;

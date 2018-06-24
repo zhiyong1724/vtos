@@ -1,0 +1,195 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\vfs\os_vfs.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sched\os_timer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sched\os_sem.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sched\os_sched.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sched\os_q.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sched\os_pid.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mem\os_mem.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mem\os_buddy.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fs\os_journal.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fs\os_fs_def.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fs\os_fs.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fs\os_file.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fs\os_dentry.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fs\os_cluster.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fs\disk_driver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base\os_vector.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base\os_tree.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base\os_string.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base\os_set.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base\os_multiset.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base\os_multimap.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base\os_mem_pool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base\os_map.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base\os_list.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base\os_deque.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base\os_bitmap_index.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vtos.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="port\os_cpu_def.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="port\os_cpu.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="port\os_cfg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\vfs\os_vfs.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sched\os_timer.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sched\os_sem.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sched\os_sched.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sched\os_q.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sched\os_pid.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mem\os_mem.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mem\os_buddy.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fs\os_journal.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fs\os_fs_port.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fs\os_fs.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fs\os_file.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fs\os_dentry.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fs\os_cluster.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fs\disk_driver.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base\os_vector.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base\os_tree.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base\os_string.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base\os_set.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base\os_multiset.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base\os_multimap.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base\os_mem_pool.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base\os_map.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base\os_list.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base\os_deque.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base\os_bitmap_index.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vtos.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="port\os_cpu_c.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

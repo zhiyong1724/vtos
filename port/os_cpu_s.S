@@ -1,5 +1,5 @@
 .global os_cpu_sr_off
-os_cpu_sr_save:            //关中断并保存cpsr
+os_cpu_sr_off:            //关中断并保存cpsr
 	mrs r0, cpsr
 	mov r1, r0
 	orr r1, r1, #0x80
@@ -7,7 +7,7 @@ os_cpu_sr_save:            //关中断并保存cpsr
 	mov pc, lr
 
 .global os_cpu_sr_on
-os_cpu_sr_save:            //开中断并保存cpsr
+os_cpu_sr_on:            //开中断并保存cpsr
 	mrs r0, cpsr
 	mov r1, r0
 	and r1, r1, #0x7f
@@ -22,7 +22,7 @@ os_cpu_sr_restore:         //恢复cpsr
 .global os_ctx_sw
 os_ctx_sw:                //任务级切换，触发软中断即可
 	push {lr}
-	swi
+	swi 0
 	pop {lr}
 	mov pc, lr
 

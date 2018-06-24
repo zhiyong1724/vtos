@@ -2,7 +2,7 @@
 #define __OS_CPU_H__
 #include "os_cfg.h"
 #include "os_cpu_def.h"
-
+//void Uart_Printf(char *fmt, ...);
 /*栈增长方向*/
 #define  OS_STK_GROWTH        1       //1.从高地址往低地址生长，0.从低地址往高地址生长
 

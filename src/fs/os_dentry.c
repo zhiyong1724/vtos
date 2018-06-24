@@ -142,7 +142,6 @@ uint32 fnode_free_f(fnode *node, os_dentry *dentry)
 		os_map_iterator *itr = os_map_find(&dentry->fnodes, &node->head.node_id);
 		if (itr != NULL)
 		{
-			fnode_h *handle = (fnode_h *)os_map_second(&dentry->fnodes, itr);
 			os_map_erase(&dentry->fnodes, itr);
 			os_free(node);
 			return 0;

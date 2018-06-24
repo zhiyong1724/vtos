@@ -117,7 +117,7 @@ static os_size_t create_idle_task(void)
 {
 	os_size_t pid = os_kthread_create(idle_task, NULL, "System Idle");
 	task_info_t **v = (task_info_t **)os_vector_at(&_scheduler.task_info_index, pid);
-	_running_task = *v;
+	_next_task = *v;
 	return pid;
 }
 
@@ -143,7 +143,7 @@ static void thread_free_task(void *p_arg)
 		{
 			task_info_t *del_task = (task_info_t *)((uint8 *)_scheduler.end_task_list - LIST_NODE_ADDR_OFFSET);
 			os_remove_from_list(&_scheduler.end_task_list, _scheduler.end_task_list);
-			void **v = (task_info_t **)os_vector_at(&_scheduler.task_info_index, del_task->pid);
+			void **v = (void **)os_vector_at(&_scheduler.task_info_index, del_task->pid);
 			*v = NULL;
 			pid_put(del_task->pid);
 			os_free_task_info(del_task);

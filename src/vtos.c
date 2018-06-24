@@ -8,7 +8,6 @@
 #include <crtdbg.h>
 #include <time.h>
 #endif
-
 #include "base/os_string.h"
 const char *VERSION = "0.0.2";
 
@@ -52,39 +51,41 @@ uint64 os_sys_time()
 
 static void os_register_devices()
 {
-	register_disk_dev();
+	//register_disk_dev();
 }
 
 static void os_unregister_devices()
 {
-	unregister_disk_dev();
+	//unregister_disk_dev();
 }
 
 static void os_mount_root()
 {
-	os_mount("", "disk_0", "emfs", 1);
+	//os_mount("", "disk_0", "emfs", 1);
 }
 
 static void os_unmount_root()
 {
-	os_unmount("");
+	//os_unmount("");
 }
+
+//void Uart_Printf(char *fmt, ...)
+//{
+//
+//}
 
 os_size_t os_sys_init(void)
 {
 	os_size_t ret = 1;
-	os_mem_init_begin_hook();
-	ret = os_mem_init();
-	os_mem_init_end_hook(ret);
-
 	os_init_timer();
 	os_sem_init();
 	os_q_init();
-
+	os_mem_init_begin_hook();
+	ret = os_mem_init();
+	os_mem_init_end_hook(ret);
 	os_scheduler_init_begin_hook();
 	os_init_scheduler();
 	os_scheduler_init_end_hook(ret);
-
 	os_vfs_init();
 	os_register_devices();
 	os_mount_root();
@@ -226,7 +227,7 @@ int _main()
 	if (0 == os_sys_init())
 	{
 		handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)task, NULL, 0, NULL);
-		SetThreadPriority(handle, THREAD_PRIORITY_HIGHEST);
+		SetThreadPriority(handle, THREAD_PRIORITY_TIME_CRITICAL);
 	}
 	while (1)
 	{

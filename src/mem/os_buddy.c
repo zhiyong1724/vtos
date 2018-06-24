@@ -103,7 +103,6 @@ static void do_buddy_init(uint8 *index, os_size_t page_count)
 
 static os_size_t create_os_buddy(os_size_t group)
 {
-	os_size_t size = 0;
 	uint8 *start_addr = (uint8 *)_start_addr;
 	uint8 *end_addr = (uint8 *)_end_addr;
 	os_size_t block_size = PAGE_SIZE * pow2x(group);
@@ -127,7 +126,6 @@ static os_size_t create_os_buddy(os_size_t group)
 			addr_space -= total_size;
 			do_buddy_init(end_addr - total_size, page_count);
 			format_mem(start_addr, group, addr_space);
-			size = addr_space;
 		}
 	}
 	else

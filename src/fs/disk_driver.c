@@ -16,6 +16,7 @@ static uint32 get_disk_info(os_disk_info *info)
 	info->page_count = PAGE_COUNT;
 	return 0;
 #else
+	return 0;
 #endif // __WINDOWS__
 }
 

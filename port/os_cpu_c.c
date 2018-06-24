@@ -5,8 +5,8 @@ extern uint32 _heap_start;
 void os_get_start_addr(void)
 {
 #ifdef __WINDOWS__
-	_start_addr = malloc(0x4000000);
-	_end_addr = (uint8 *)_start_addr + 0x4000000;
+	_start_addr = malloc(66195284);
+	_end_addr = (uint8 *)_start_addr + 66195284;
 #else
 	_start_addr = (void *)_heap_start;
 	_end_addr = (void *)0x33fffc00;
@@ -130,6 +130,7 @@ void os_ctx_sw(void)                         //任务切换函数
 
 void os_task_start(void)                     //任务开始前准备
 {
+	_running_task = _next_task;
 	while (ResumeThread(_running_task->handle) != 0);
 }
 
