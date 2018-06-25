@@ -51,22 +51,22 @@ uint64 os_sys_time()
 
 static void os_register_devices()
 {
-	//register_disk_dev();
+	register_disk_dev();
 }
 
 static void os_unregister_devices()
 {
-	//unregister_disk_dev();
+	unregister_disk_dev();
 }
 
 static void os_mount_root()
 {
-	//os_mount("", "disk_0", "emfs", 1);
+	os_mount("", "disk_0", "emfs", 1);
 }
 
 static void os_unmount_root()
 {
-	//os_unmount("");
+	os_unmount("");
 }
 
 //void Uart_Printf(char *fmt, ...)
@@ -215,7 +215,7 @@ static void get_command(const char *src, char *command, char *arg1, char *arg2)
 	}
 }
 
-int _main()
+int main()
 {
 	char buff[256] = "";
 	char command[16] = "";
