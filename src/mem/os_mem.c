@@ -153,7 +153,8 @@ void os_free(void *addr)
 	if (0 == size)
 	{
 		//属于高速内存
-		mem_pool_node *pool = *((mem_pool_node **)((uint8 *)addr - sizeof(void *)));
+		addr = ((uint8 *)addr - sizeof(void *));
+		mem_pool_node *pool = *((mem_pool_node **)addr);
 		if (0xaa55 == pool->magic)
 		{
 			os_mem_block_put(&pool->pool, addr);

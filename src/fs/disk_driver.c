@@ -106,7 +106,7 @@ static void module_init(os_file_info *mount_file)
 			OPEN_EXISTING,
 			0,
 			0);
-
+		int status = GetLastError();
 		if (_handle != INVALID_HANDLE_VALUE)
 		{
 			DISK_GEOMETRY diskGeometry;
@@ -146,10 +146,12 @@ static void module_init(os_file_info *mount_file)
 
 static void module_uninit(os_file_info *mount_file)
 {
+#ifdef __WINDOWS__
 	if (_handle != INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(_handle);
 	}
+#endif
 }
 
 static void *ioctl(os_file_info *mount_file, uint32 command, void *arg)
