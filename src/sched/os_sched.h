@@ -92,7 +92,7 @@ extern "C"
 	* name：线程名称
 	* return: pid
 	*********************************************************************************************************************/
-	os_size_t os_kthread_create(void(*task)(void *p_arg), void *p_arg, const char *name);
+	os_size_t os_thread_create(void(*task)(void *p_arg), void *p_arg, const char *name);
 	/*********************************************************************************************************************
 	* 创建一个新的线程
 	* task：指向线程函数
@@ -101,7 +101,7 @@ extern "C"
 	* stack_size：指定线程栈的大小
 	* return: pid
 	*********************************************************************************************************************/
-	os_size_t os_kthread_createEX(void(*task)(void *p_arg), void *p_arg, const char *name, os_size_t stack_size);
+	os_size_t os_thread_createEX(void(*task)(void *p_arg), void *p_arg, const char *name, os_size_t stack_size);
 	/*********************************************************************************************************************
 	* 改变自身的优先级，优先级越高，获得的运行时间越多，默认的优先级为0
 	* prio：线程的优先级，范围为-20到19,默认优先级为0

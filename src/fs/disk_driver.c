@@ -54,6 +54,15 @@ static uint32 disk_read(uint32 page_id, void *data)
 		fread(data, PAGE_SIZE, 1, file);
 		fclose(file);
 	}*/
+	DWORD size;
+	if (_handle != INVALID_HANDLE_VALUE)
+	{
+		DWORD dwPtr = SetFilePointer(_handle, page_id * 4096, NULL, FILE_BEGIN);
+		if (dwPtr != INVALID_SET_FILE_POINTER)
+		{
+			ReadFile(_handle, data, 4096, &size, NULL);
+		}
+	}
 	return 0;
 #else
 	return 0;
@@ -69,6 +78,39 @@ static uint32 disk_write(uint32 page_id, void *data)
 		fwrite(data, PAGE_SIZE, 1, file);
 		fclose(file);
 	}*/
+	DWORD size;
+	if (_handle != INVALID_HANDLE_VALUE)
+	{
+		DWORD dwPtr = SetFilePointer(_handle, page_id * 4096, NULL, FILE_BEGIN);
+		if (dwPtr != INVALID_SET_FILE_POINTER)
+		{
+			DWORD dwByteReturned;
+			BOOL bLOCK = DeviceIoControl(
+				_handle,
+				FSCTL_LOCK_VOLUME,
+				NULL,
+				0,
+				NULL,
+				0,
+				&dwByteReturned,
+				NULL
+			);
+			if (bLOCK)
+			{
+				WriteFile(_handle, data, 4096, &size, NULL);
+				DeviceIoControl(
+					_handle,
+					FSCTL_UNLOCK_VOLUME, //锁定后要解锁       
+					NULL,
+					0,
+					NULL,
+					0,
+					&dwByteReturned,
+					NULL
+				);
+			}
+		}
+	}
 	return 0;
 #else
 	return 0;

@@ -163,8 +163,9 @@ void os_free(void *addr)
 			{
 				os_insert_node(&_os_mem.root, &pool->node, on_insert_compare, NULL);
 			}
-			else if (os_idle_block_count(&pool->pool) == os_total_block_count(&pool->pool))
+			if (os_idle_block_count(&pool->pool) == os_total_block_count(&pool->pool))
 			{
+				os_delete_node(&_os_mem.root, &pool->node);
 				os_buddy_free(pool);
 				_os_mem.free_size += sizeof(mem_pool_node);
 			}

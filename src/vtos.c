@@ -51,22 +51,22 @@ uint64 os_sys_time()
 
 static void os_register_devices()
 {
-	//register_disk_dev();
+	register_disk_dev();
 }
 
 static void os_unregister_devices()
 {
-	//unregister_disk_dev();
+	unregister_disk_dev();
 }
 
 static void os_mount_root()
 {
-	//os_mount("", "disk_0", "emfs", 1);
+	os_mount("", "disk_0", "emfs", 0);
 }
 
 static void os_unmount_root()
 {
-	//os_unmount("");
+	os_unmount("");
 }
 
 //void Uart_Printf(char *fmt, ...)
@@ -141,13 +141,13 @@ static void task_b(void *p_arg)
 static void task_c(void *p_arg)
 {
 	os_q_t *q = os_q_create(sizeof(os_size_t), "test");
-	os_size_t pid_a = os_kthread_create(task_a, NULL, "task_a");
+	os_size_t pid_a = os_thread_create(task_a, NULL, "task_a");
 	for (;;)
 	{
 		os_sleep(1000);
 		uint32 v = 512;
 		os_q_post(q, &v);
-		os_size_t pid_b = os_kthread_create(task_b, NULL, "task_b");
+		os_size_t pid_b = os_thread_create(task_b, NULL, "task_b");
 	}
 }
 
@@ -164,7 +164,7 @@ static void task_d(void *p_arg)
 static void task_e(void *p_arg)
 {
 	os_q_t *q = os_q_create(sizeof(os_size_t), "test1");
-	os_size_t pid_d = os_kthread_create(task_d, NULL, "task_d");
+	os_size_t pid_d = os_thread_create(task_d, NULL, "task_d");
 	os_size_t status;
 	uint32 v = 0;
 	for (;;)
@@ -178,8 +178,8 @@ static void task_e(void *p_arg)
 
 static DWORD task(LPVOID lpThreadParameter)
 {
-	//os_kthread_create(task_c, NULL, "task_c");
-	//os_kthread_create(task_e, NULL, "task_e");
+	//os_thread_create(task_c, NULL, "task_c");
+	//os_thread_create(task_e, NULL, "task_e");
 	os_sys_start();
 	return 0;
 }
@@ -215,7 +215,7 @@ static void get_command(const char *src, char *command, char *arg1, char *arg2)
 	}
 }
 
-int _main()
+int main()
 {
 	char buff[256] = "";
 	char command[16] = "";
@@ -223,7 +223,7 @@ int _main()
 	char arg2[256] = "";
 	char ln;
 	HANDLE handle;
-	//_CrtSetBreakAlloc(2412);
+	//_CrtSetBreakAlloc(79);
 	if (0 == os_sys_init())
 	{
 		handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)task, NULL, 0, NULL);

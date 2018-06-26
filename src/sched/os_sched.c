@@ -115,7 +115,7 @@ static void idle_task(void *p_arg)
 
 static os_size_t create_idle_task(void)
 {
-	os_size_t pid = os_kthread_create(idle_task, NULL, "System Idle");
+	os_size_t pid = os_thread_create(idle_task, NULL, "System Idle");
 	task_info_t **v = (task_info_t **)os_vector_at(&_scheduler.task_info_index, pid);
 	_next_task = *v;
 	return pid;
@@ -155,7 +155,7 @@ static void thread_free_task(void *p_arg)
 
 static os_size_t create_thread_free_task(void)
 {
-	return os_kthread_create(thread_free_task, NULL, "System Thread Free");
+	return os_thread_create(thread_free_task, NULL, "System Thread Free");
 }
 
 void os_init_scheduler(void)
@@ -257,12 +257,12 @@ void os_sys_tick(void)
 	}
 }
 
-os_size_t os_kthread_create(void(*task)(void *p_arg), void *p_arg, const char *name)
+os_size_t os_thread_create(void(*task)(void *p_arg), void *p_arg, const char *name)
 {
-	return os_kthread_createEX(task, p_arg, name, TASK_STACK_SIZE);
+	return os_thread_createEX(task, p_arg, name, TASK_STACK_SIZE);
 }
 
-os_size_t os_kthread_createEX(void(*task)(void *p_arg), void *p_arg, const char *name, os_size_t stack_size)
+os_size_t os_thread_createEX(void(*task)(void *p_arg), void *p_arg, const char *name, os_size_t stack_size)
 {
 	os_size_t cpu_sr = os_cpu_sr_off();
 	task_info_t *task_info = (task_info_t *)os_malloc(sizeof(task_info_t));
