@@ -1,12 +1,10 @@
 #ifndef __OS_MULTIMAP_H__
 #define __OS_MULTIMAP_H__
 #include "os_map.h"
-#pragma pack()
 typedef struct os_multimap_iterator
 {
 	os_map_iterator map_iterator;
 } os_multimap_iterator;
-#pragma pack()
 
 typedef struct os_multimap
 {

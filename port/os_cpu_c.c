@@ -9,7 +9,7 @@ void os_get_start_addr(void)
 	_end_addr = (uint8 *)_start_addr + 66195284;
 #else
 	_start_addr = (void *)_heap_start;
-	_end_addr = (void *)0x33fffc00;
+	_end_addr = (void *)0x33f00000;
 #endif
 }
 
@@ -56,7 +56,6 @@ void os_task_return_hook(void)
 //出现错误的时候调用
 void os_error_msg(char *msg, os_size_t arg)
 {
-
 }
 
 os_stk *os_task_stk_init(void (*task)(void *p_arg), void *p_arg, os_stk *ptos)
@@ -97,6 +96,7 @@ void os_time_tick_hook (void)
 
 #ifdef __WINDOWS__
 os_cpu_sr _cpu_sr = 1;
+HANDLE _stop = 0;
 os_cpu_sr os_cpu_sr_off(void)               //关中断
 {
 	os_size_t sr = _cpu_sr;
@@ -104,28 +104,20 @@ os_cpu_sr os_cpu_sr_off(void)               //关中断
 	return sr;
 }
 
-os_cpu_sr os_cpu_sr_on(void)               //开中断
-{
-	os_size_t sr = _cpu_sr;
-	_cpu_sr = 1;
-	return sr;
-}
-
 void os_cpu_sr_restore(os_cpu_sr cpu_sr)     //回复状态寄存器函数
 {
 	_cpu_sr = cpu_sr;
+	if (_cpu_sr && _stop != 0 && _stop != _running_task->handle)
+	{
+		while (ResumeThread(_running_task->handle) != 0);
+		while (-1 == SuspendThread(_stop));
+	}
 }
 
 void os_ctx_sw(void)                         //任务切换函数
 {
-	os_size_t status = _running_task->task_status;
-	HANDLE stop = _running_task->handle;
-	if (_running_task != _next_task)
-	{
-		_running_task = _next_task;
-		while (ResumeThread(_running_task->handle) != 0);
-		while (-1 == SuspendThread(stop));
-	}
+	_stop = _running_task->handle;
+	_running_task = _next_task;
 }
 
 void os_task_start(void)                     //任务开始前准备

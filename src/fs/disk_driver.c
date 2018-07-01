@@ -2,6 +2,8 @@
 #ifdef __WINDOWS__
 #include <stdio.h>
 #include <windows.h>
+#else
+#include "SD_MMC.h"
 #endif // __WINDOWS__
 static os_file_operators _file_operators;
 #ifdef __WINDOWS__
@@ -38,8 +40,17 @@ static uint32 get_disk_info(os_disk_info *info)
 			info->page_count = (uint32)(diskGeometry.Cylinders.QuadPart * diskGeometry.TracksPerCylinder * diskGeometry.SectorsPerTrack * diskGeometry.BytesPerSector / 4096);
 		}
      }
+	else
+	{
+		info->first_page_id = 0;
+		info->page_size = 4096;
+		info->page_count = 0;
+	}
 	return 0;
 #else
+	info->first_page_id = 0;
+	info->page_size = 4096;
+	info->page_count = SDCard.lCardSize / 4;
 	return 0;
 #endif // __WINDOWS__
 }
@@ -65,6 +76,14 @@ static uint32 disk_read(uint32 page_id, void *data)
 	}
 	return 0;
 #else
+	if (SDCard.lCardSize > 2048 * 1024)
+	{
+		Read_Mult_Block(page_id * 8, 8, data);
+	}
+	else
+	{
+		Read_Mult_Block(page_id * 8 * 512, 8 * 512, data);
+	}
 	return 0;
 #endif // __WINDOWS__
 }
@@ -113,6 +132,16 @@ static uint32 disk_write(uint32 page_id, void *data)
 	}
 	return 0;
 #else
+	if (SDCard.lCardSize > 2048 * 1024)
+	{
+		Erase_Block(page_id * 8, page_id * 8 + 8 - 1);
+		Write_Mult_Block(page_id * 8, 8, data);
+	}
+	else
+	{
+		Erase_Block(page_id * 8 * 512, page_id * 8 * 512 + 8 * 512 - 1);
+		Write_Mult_Block(page_id * 8 * 512, 8 * 512, data);
+	}
 	return 0;
 #endif // __WINDOWS__
 }

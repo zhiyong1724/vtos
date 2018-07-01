@@ -2,13 +2,11 @@
 #define __OS_SET_H__
 #include "os_tree.h"
 #include "os_list.h"
-#pragma pack()
 typedef struct os_set_iterator
 {
 	tree_node_type_def tree_node;
 	list_node_type_def list_node;
 } os_set_iterator;
-#pragma pack()
 
 typedef struct os_set
 {

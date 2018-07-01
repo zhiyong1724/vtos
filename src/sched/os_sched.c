@@ -245,7 +245,6 @@ void os_sys_tick(void)
 				_scheduler.sw_total_count = 0;
 				_scheduler.sw_idle_count = 0;
 			}
-			os_cpu_sr_restore(cpu_sr);
 			os_ctx_sw();
 		}
 		else
@@ -334,9 +333,7 @@ void os_sw_out()
 		_scheduler.sw_total_count = 0;
 		_scheduler.sw_idle_count = 0;
 	}
-	os_size_t cpu_sr = os_cpu_sr_on();
 	os_ctx_sw();
-	os_cpu_sr_restore(cpu_sr);
 }
 
 void os_sw_in(task_info_t *task)
@@ -364,9 +361,7 @@ void os_sw_in(task_info_t *task)
 		_scheduler.sw_total_count = 0;
 		_scheduler.sw_idle_count = 0;
 	}
-	os_size_t cpu_sr = os_cpu_sr_on();
 	os_ctx_sw();
-	os_cpu_sr_restore(cpu_sr);
 }
 
 uint64 os_get_tick()

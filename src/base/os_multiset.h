@@ -1,12 +1,10 @@
 #ifndef __OS_MULTISET_H__
 #define __OS_MULTISET_H__
 #include "os_set.h"
-#pragma pack()
 typedef struct os_multiset_iterator
 {
 	os_set_iterator set_iterator;
 } os_multiset_iterator;
-#pragma pack()
 
 typedef struct os_multiset
 {

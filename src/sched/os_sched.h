@@ -32,7 +32,6 @@ extern "C"
 	};
 	extern const os_size_t TREE_NODE_ADDR_OFFSET;     //task_info_t对象中tree_node_structrue地址减去该对象地址
 	extern const os_size_t LIST_NODE_ADDR_OFFSET;     //task_info_t对象中list_node_structrue地址减去该对象地址
-#pragma pack()
 	typedef struct task_info_t
 	{
 		os_stk *stack;
@@ -53,7 +52,6 @@ extern "C"
 		HANDLE handle;
 #endif
 	} task_info_t;
-#pragma pack()
 
 	typedef struct task_info
 	{

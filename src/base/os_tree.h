@@ -8,7 +8,6 @@
 #ifndef RED
 #define RED 1
 #endif
-#pragma pack()
 typedef struct tree_node_type_def
 {
 	os_size_t color;
@@ -16,7 +15,6 @@ typedef struct tree_node_type_def
 	struct tree_node_type_def *left_tree;
 	struct tree_node_type_def *right_tree;
 } tree_node_type_def;
-#pragma pack()
 
 typedef int8 (*on_compare)(void *key1, void *key2, void *arg);
 

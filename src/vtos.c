@@ -69,11 +69,6 @@ static void os_unmount_root()
 	os_unmount("");
 }
 
-//void Uart_Printf(char *fmt, ...)
-//{
-//
-//}
-
 os_size_t os_sys_init(void)
 {
 	os_size_t ret = 1;
@@ -114,7 +109,10 @@ void os_sys_start(void)
 	{
 		os_sys_tick();
 		Sleep(TICK_TIME / 1000);
-		while (!_cpu_sr);
+		while (!_cpu_sr)
+		{
+			Sleep(0);
+		}
 	}
 #endif // __WINDOWS__
 }
@@ -215,7 +213,7 @@ static void get_command(const char *src, char *command, char *arg1, char *arg2)
 	}
 }
 
-int main()
+int _main()
 {
 	char buff[256] = "";
 	char command[16] = "";

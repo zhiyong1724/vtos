@@ -2,13 +2,11 @@
 #define __OS_MAP_H__
 #include "os_tree.h"
 #include "os_list.h"
-#pragma pack()
 typedef struct os_map_iterator
 {
 	tree_node_type_def tree_node;
 	list_node_type_def list_node;
 } os_map_iterator;
-#pragma pack()
 
 typedef struct os_map
 {

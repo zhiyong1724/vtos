@@ -1,13 +1,11 @@
 #ifndef __OS_LIST_H__
 #define __OS_LIST_H__
 #include "os_cpu_def.h"
-#pragma pack()
 typedef struct list_node_type_def
 {
 	struct list_node_type_def *pre_node;
 	struct list_node_type_def *next_node;
 } list_node_type_def;
-#pragma pack()
 
 typedef struct os_list
 {

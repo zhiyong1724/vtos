@@ -6,14 +6,6 @@ os_cpu_sr_off:            //关中断并保存cpsr
 	msr cpsr, r1
 	mov pc, lr
 
-.global os_cpu_sr_on
-os_cpu_sr_on:            //开中断并保存cpsr
-	mrs r0, cpsr
-	mov r1, r0
-	and r1, r1, #0x7f
-	msr cpsr, r1
-	mov pc, lr
-
 .global os_cpu_sr_restore
 os_cpu_sr_restore:         //恢复cpsr
 	msr cpsr, r0

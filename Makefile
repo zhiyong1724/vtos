@@ -1,6 +1,6 @@
 CC := arm-none-eabi-gcc
 CFLAGS := -Wall -Werror -mfloat-abi=soft -march=armv4t -g -c 
-INCLUDE_PATH := -I/opt/EmbedSky/4.3.3/armv4t/include -Iport/ -Isrc/ -I../other/driver/inc/ -I../OsPro/UCGUI/Start/GUI/WM/ -I../OsPro/UCGUI/Start/GUI/Widget/ -I../OsPro/UCGUI/Start/GUI/Core/ -I../OsPro/UCGUIStart/JPEG/ -I../OsPro/UCGUI/Start/Config/
+INCLUDE_PATH := -I/opt/EmbedSky/4.3.3/armv4t/include -Iport/ -Isrc/ -I../other/driver/inc/ -I../OsPro/ -I../OsPro/UCGUI/Start/GUI/WM/ -I../OsPro/UCGUI/Start/GUI/Widget/ -I../OsPro/UCGUI/Start/GUI/Core/ -I../OsPro/UCGUIStart/JPEG/ -I../OsPro/UCGUI/Start/Config/
 OBJS_PATH := objs/
 SRCS_S := port/os_cpu_s.S
 OBJS_S := $(patsubst %.S, %.o, $(SRCS_S))
