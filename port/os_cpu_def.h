@@ -1,4 +1,4 @@
-#ifndef __OS_CPU_DEF_H__
+﻿#ifndef __OS_CPU_DEF_H__
 #define __OS_CPU_DEF_H__
 #ifdef __WINDOWS__
 #include <stdlib.h>

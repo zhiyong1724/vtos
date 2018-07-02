@@ -1,4 +1,4 @@
-#ifndef __OS_DEQUE_H__
+﻿#ifndef __OS_DEQUE_H__
 #define __OS_DEQUE_H__
 #include "os_list.h"
 typedef struct os_deque

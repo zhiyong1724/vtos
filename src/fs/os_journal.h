@@ -1,4 +1,4 @@
-#ifndef __OS_JOURNAL_H__
+﻿#ifndef __OS_JOURNAL_H__
 #define __OS_JOURNAL_H__
 #include "fs/os_fs_def.h"
 #define JOURNAL_FILE_SIZE (FS_CLUSTER_SIZE * 1024)

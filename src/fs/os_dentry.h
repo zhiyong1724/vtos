@@ -1,4 +1,4 @@
-#ifndef __OS_DENTRY_H__
+﻿#ifndef __OS_DENTRY_H__
 #define __OS_DENTRY_H__
 #include "fs/os_cluster.h"
 #include "base/os_map.h"

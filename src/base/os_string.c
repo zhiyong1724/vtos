@@ -1,4 +1,4 @@
-#include "os_string.h"
+﻿#include "os_string.h"
 #include "vtos.h"
 void *os_mem_set(void *s, int8 ch, os_size_t n)
 {

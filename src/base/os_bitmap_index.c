@@ -1,4 +1,4 @@
-#include "base/os_bitmap_index.h"
+﻿#include "base/os_bitmap_index.h"
 const uint8 _bitmap_index[256] =
 {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,         //0-15

@@ -1,4 +1,4 @@
-#ifndef __OS_BUDDY_H__
+﻿#ifndef __OS_BUDDY_H__
 #define __OS_BUDDY_H__
 #include "os_cpu.h"
 #define GROUP_COUNT           21

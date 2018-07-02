@@ -1,4 +1,4 @@
-#ifndef __OS_Q_H__
+﻿#ifndef __OS_Q_H__
 #define __OS_Q_H__
 #include "sched/os_sem.h"
 #include "base/os_deque.h"

@@ -1,4 +1,4 @@
-#include "base/os_vector.h"
+﻿#include "base/os_vector.h"
 #include "base/os_string.h"
 #include "mem/os_mem.h"
 void os_vector_init(os_vector *obj, os_size_t unit_size)

@@ -1,4 +1,4 @@
-.global os_cpu_sr_off
+﻿.global os_cpu_sr_off
 os_cpu_sr_off:            //关中断并保存cpsr
 	mrs r0, cpsr
 	mov r1, r0

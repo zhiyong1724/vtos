@@ -1,4 +1,4 @@
-#ifndef __OS_VECTOR_H__
+﻿#ifndef __OS_VECTOR_H__
 #define __OS_VECTOR_H__
 #include "os_cpu_def.h"
 typedef struct os_vector
